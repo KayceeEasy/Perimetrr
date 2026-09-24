@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Staff Attendance Portal | Perimetrr</title>
+    <meta name="description"
+        content="Staff attendance tracking with GPS perimeter verification. Sign in and sign out at the office." />
+    <meta name="theme-color" content="#2563eb" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-status-bar-style" content="default" />
+    <meta name="mobile-web-app-title" content="Perimetrr" />
+    <meta property="og:title" content="Perimetrr Staff Attendance" />
+    <meta property="og:description"
+        content="Daily attendance tracking for staff with GPS verification and perimeter compliance." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://kayceeeasy.github.io/Staff-Attendance/" />
+    <meta property="og:image" content="https://kayceeeasy.github.io/Staff-Attendance/image/png/icon-512.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css?v=3.0.3" />
+    <link rel="manifest" href="manifest.json" />
+    <link rel="icon" type="image/png" sizes="192x192" href="image/png/icon-192.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="image/png/icon-512.png" />
+    <link rel="apple-touch-icon" href="image/png/icon-192.png" />
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://unpkg.com/lucide@0.344.0/dist/umd/lucide.min.js"></script>
+    <script>
+        // Dynamically set paths based on current location for portability
+        const APP_BASE = window.location.origin + window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1);
+        window.APP_PATHS = {
+            sw: APP_BASE + 'sw.js',
+            manifest: APP_BASE + 'manifest.json',
+            icon192: APP_BASE + 'image/png/icon-192.png',
+            icon512: APP_BASE + 'image/png/icon-512.png'
+        };
+
+        // Capture PWA beforeinstallprompt early so it is never missed
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            window.__deferredPwaPrompt = e;
+            const btn = document.getElementById('install-btn');
+            if (btn) btn.style.display = 'inline-flex';
+        });
+    </script>
+</head>
+
+<body>
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+    <div id="main-content" class="card" role="main" aria-label="Staff Attendance App">
+        <div class="topbar">
+            <div class="topbar-brand" id="topbar-brand">
+                <div id="tenant-logo-wrap" class="tenant-logo-wrap" style="display:none;">
+                    <img id="tenant-logo-img" src="" alt="Company Logo" class="tenant-logo-img" />
+                </div>
+                <div class="tenant-info-wrap">
+                    <div class="tenant-name-row">
+                        <span class="tenant-brand-name" id="tenant-brand-name" data-i18n="appName">Staff
+                            Attendance</span>
+                        <button id="switch-workspace-btn" type="button" onclick="openWorkspaceConnectModal()"
+                            class="switch-badge-btn" title="Switch Company Workspace"
+                            data-tooltip="Pair with a different company workspace"
+                            data-i18n="switchWorkspace">Switch</button>
+                    </div>
+                    <div id="live-clock" class="live-clock" aria-live="polite">--:-- --</div>
+                </div>
+            </div>
+            <div class="topbar-actions">
+                <div class="lang-selector-wrap">
+                    <button id="lang-select-btn" class="lang-btn" type="button" aria-label="Select Language"
+                        data-tooltip="Language / Idioma / Langue">
+                        <span class="current-lang-flag" id="current-lang-flag">🇬🇧</span>
+                        <span class="current-lang-code" id="current-lang-code">EN</span>
+                    </button>
+                    <div id="lang-dropdown-menu" class="lang-dropdown-menu" style="display:none;">
+                        <button type="button" class="lang-option-btn" data-lang="en">🇬🇧 English</button>
+                        <button type="button" class="lang-option-btn" data-lang="es">🇪🇸 Español</button>
+                        <button type="button" class="lang-option-btn" data-lang="fr">🇫🇷 Français</button>
+                        <button type="button" class="lang-option-btn" data-lang="pt">🇵🇹 Português</button>
+                        <button type="button" class="lang-option-btn" data-lang="ar">🇸🇦 العربية</button>
+                    </div>
+                </div>
+                <button id="faq-btn" class="topbar-icon-btn" type="button" aria-label="Open FAQ" title="Quick FAQ"
+                    data-tooltip="Frequently Asked Questions" data-tooltip-pos="bottom">
+                    <i data-lucide="help-circle" size="16"></i>
+                </button>
+                <button id="refresh-btn" class="topbar-icon-btn" type="button" aria-label="Refresh app" title="Refresh"
+                    data-tooltip="Refresh GPS & connection" data-tooltip-pos="bottom">
+                    <i data-lucide="rotate-cw" size="16"></i>
+                </button>
+                <button id="theme-toggle" class="topbar-icon-btn" type="button" aria-label="Switch theme"
+                    title="Toggle Theme" data-tooltip="Toggle light / dark theme" data-tooltip-pos="bottom">
+                    <i data-lucide="moon" size="16"></i>
+                </button>
+            </div>
+        </div>
+        <div class="loc-status-bar">
+            <div id="loc-status" class="status waiting" aria-live="polite"
+                data-tooltip="Verifies you are within registered workplace perimeter" data-tooltip-pos="bottom"
+                data-i18n="verifyingGps">Verifying GPS...</div>
+            <div id="distance-label" class="distance-label" aria-live="polite"></div>
+        </div>
+
+        <!-- Zero-Exposure Staff Identity Section -->
+        <div class="staff-identity-container" style="margin-bottom: 14px;">
+            <!-- Linked Recognized Device Card (Only shows for recognized phone) -->
+            <div id="linked-identity-card" class="linked-identity-card" style="display:none;">
+                <div class="linked-avatar"><i data-lucide="user-check" size="20"></i></div>
+                <div class="linked-text">
+                    <strong id="linked-name-display">--</strong>
+                    <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                        <span id="linked-dept-display" class="linked-sub">Staff Member</span>
+                        <span id="linked-bio-badge" class="badge-bio"
+                            style="display:none; font-size:0.68rem; background:rgba(16,185,129,0.12); color:#10b981; border:1px solid rgba(16,185,129,0.3); padding:1px 6px; border-radius:4px; font-weight:600;"><i
+                                data-lucide="shield-check" size="11"
+                                style="vertical-align:middle; margin-right:2px;"></i> Biometrics</span>
+                    </div>
+                </div>
+                <div style="display:flex; align-items:center; gap:6px;">
+                    <button type="button" id="switch-identity-btn" class="btn-change-identity"
+                        title="Switch employee or transfer device" aria-label="Change employee identity"
+                        style="background:rgba(255,255,255,0.08); border:1px solid var(--border); color:var(--text-muted); font-size:0.75rem; padding:4px 8px; border-radius:6px; cursor:pointer; display:flex; align-items:center; gap:4px;">
+                        <i data-lucide="arrow-left-right" size="12"></i> Change
+                    </button>
+                    <span class="device-locked-pill" title="Device linked to this employee."
+                        data-tooltip="Device securely linked to your profile. Contact your administrator to transfer or reset."><i
+                            data-lucide="lock" size="12"></i> <span data-i18n="deviceBound">Linked</span></span>
+                </div>
+            </div>
+
+            <!-- Searchable Type-to-Search Dropdown Box -->
+            <div id="unlinked-entry-box" class="unlinked-entry-box">
+                <div class="staff-search-wrapper" id="staff-search-wrapper">
+                    <div class="staff-search-input-box">
+                        <i data-lucide="user" size="18" class="staff-search-icon" aria-hidden="true"></i>
+                        <input type="text" id="staff-search-input" class="staff-search-input"
+                            placeholder="Type to search your name..." data-i18n-placeholder="typeSearchName"
+                            autocomplete="off" aria-label="Search or select your name" aria-autocomplete="list"
+                            aria-expanded="false" role="combobox" />
+                        <button type="button" id="staff-search-clear" class="staff-search-clear" style="display: none;"
+                            aria-label="Clear selection" title="Clear selection">✕</button>
+                        <button type="button" id="staff-search-toggle" class="staff-search-toggle"
+                            aria-label="Toggle staff list" title="Toggle staff list" tabindex="-1">
+                            <i data-lucide="chevron-down" size="16"></i>
+                        </button>
+                    </div>
+                    <ul id="staff-options-list" class="staff-options-list" role="listbox" aria-label="Staff names"></ul>
+                </div>
+                <small class="entry-hint"
+                    style="display:block; margin-top:-8px; margin-bottom:8px; font-size:0.75rem; color:var(--text-muted); text-align:center;">Select
+                    or type your name to link this phone for daily 1-tap sign-ins.</small>
+            </div>
+        </div>
+
+        <label for="staff-name" class="sr-only">Selected staff name</label>
+        <select id="staff-name" class="sr-only" aria-label="Selected staff name">
+            <option value="">No staff selected</option>
+        </select>
+
+        <!-- Main Focal Hero Action Zone: Single Dynamic Button Centered -->
+        <div class="attendance-hero-container" role="group" aria-label="Attendance actions">
+            <button id="in-btn" class="btn-in-hero state-in" disabled aria-label="Sign in">
+                <div class="hero-btn-content">
+                    <i id="in-btn-icon" data-lucide="log-in" class="hero-btn-icon" size="36" aria-hidden="true"></i>
+                    <span id="in-btn-text" class="hero-btn-text" data-i18n="signIn">SIGN IN</span>
+                </div>
+            </button>
+            <button id="out-btn" class="sr-only" aria-hidden="true" tabindex="-1" style="display: none;">Sign
+                Out</button>
+            <!-- Biometric 1-Tap Confirmation Trigger -->
+            <button id="biometric-auth-trigger" type="button" class="btn-bio-trigger"
+                data-tooltip="1-tap verification using Face ID, Touch ID, or fingerprint"
+                style="display:none; margin:12px auto 0 auto; background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.3); color:#10b981; border-radius:8px; padding:7px 16px; font-size:0.82rem; font-weight:600; cursor:pointer; align-items:center; gap:6px;">
+                <i data-lucide="fingerprint" size="15"></i>
+                <span>Confirm with Face ID / Touch ID</span>
+            </button>
+        </div>
+        <div id="msg" role="alert" aria-live="assertive"></div>
+        <div id="last-action" class="last-action" aria-live="polite">Last action: none yet</div>
+        <div class="log-card">
+            <div class="log-head">
+                <strong>Recent attendance</strong>
+                <span id="last-synced">Last synced: -</span>
+            </div>
+            <ul id="log-list" aria-label="Recent attendance records"></ul>
+        </div>
+        <a id="admin-access-btn" class="admin-btn admin-link" href="./admin/index.html" target="_self"
+            aria-label="Admin access" data-tooltip="Sign in to the tenant administration console"
+            data-i18n="adminLogin">Admin access</a>
+        <button id="install-btn" class="install-btn" aria-label="Install app as PWA">
+            <i data-lucide="download" size="15"></i>
+            <span>Install App</span>
+        </button>
+
+        <footer class="app-footer"
+            style="text-align: center; padding: 16px 0 8px 0; margin-top: 20px; font-size: 0.76rem; color: var(--muted); border-top: 1px solid var(--border);">
+            <p style="margin: 0 0 4px 0;">Copyright &copy; 2026 Perimetrr. All Rights Reserved.</p>
+            <p style="margin: 0; display:flex; justify-content:center; gap:12px; align-items:center;">
+                <button id="faq-footer-link" type="button"
+                    style="background:none; border:none; color: var(--primary); text-decoration:underline; font-size:0.76rem; cursor:pointer; padding:0;">Help
+                    &amp; FAQ</button>
+                <span style="opacity:0.4;">&bull;</span>
+                <button id="privacy-policy-link" type="button"
+                    style="background:none; border:none; color: var(--primary); text-decoration:underline; font-size:0.76rem; cursor:pointer; padding:0;">Privacy
+                    &amp; Location Policy</button>
+            </p>
+        </footer>
+    </div>
+
+    <!-- FAQ Modal -->
+    <div id="faq-modal" class="faq-overlay" role="dialog" aria-modal="true" aria-labelledby="faq-title"
+        aria-hidden="true">
+        <div class="faq-modal-content">
+            <div class="faq-header">
+                <h2 id="faq-title">Frequently Asked Questions</h2>
+                <button id="faq-close-btn" class="faq-close-btn" aria-label="Close FAQ">
+                    <i data-lucide="x" size="24"></i>
+                </button>
+            </div>
+
+            <div class="faq-search-wrap">
+                <i data-lucide="search" size="18" class="faq-search-icon"></i>
+                <input type="text" id="faq-search" class="faq-search-input" placeholder="Search questions..."
+                    aria-label="Search FAQ questions" autocomplete="off" />
+            </div>
+
+            <div class="faq-categories">
+                <div class="faq-category" data-category="location">
+                    <button class="faq-category-btn active" aria-pressed="true">
+                        <i data-lucide="map-pin" size="16"></i>
+                        <span>Location</span>
+                    </button>
+                </div>
+                <div class="faq-category" data-category="signing">
+                    <button class="faq-category-btn" aria-pressed="false">
+                        <i data-lucide="log-in" size="16"></i>
+                        <span>Sign In/Out</span>
+                    </button>
+                </div>
+                <div class="faq-category" data-category="offline">
+                    <button class="faq-category-btn" aria-pressed="false">
+                        <i data-lucide="wifi-off" size="16"></i>
+                        <span>Offline</span>
+                    </button>
+                </div>
+                <div class="faq-category" data-category="device">
+                    <button class="faq-category-btn" aria-pressed="false">
+                        <i data-lucide="smartphone" size="16"></i>
+                        <span>Device</span>
+                    </button>
+                </div>
+                <div class="faq-category" data-category="general">
+                    <button class="faq-category-btn" aria-pressed="false">
+                        <i data-lucide="help-circle" size="16"></i>
+                        <span>General</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="faq-content" id="faq-content">
+                <!-- Location Questions -->
+                <div class="faq-section" data-section="location">
+                    <div class="faq-item">
+                        <button class="faq-question" aria-expanded="false">
+                            <span>Why does the app need my location?</span>
+                            <i data-lucide="chevron-down" size="20" class="faq-chevron"></i>
+                        </button>
+                        <div class="faq-answer" aria-hidden="true">
+                            <p>The app uses GPS location to verify you're at the office when signing in or out. This
+                                ensures attendance accuracy and prevents fraudulent entries from outside the workplace.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="faq-item">
+                        <button class="faq-question" aria-expanded="false">
+                            <span>Location access was denied. What should I do?</span>
+                            <i data-lucide="chevron-down" size="20" class="faq-chevron"></i>
+                        </button>
+                        <div class="faq-answer" aria-hidden="true">
+                            <p><strong>For Chrome/Android:</strong> Tap the lock icon in the address bar → Site settings
+                                → Location → Allow.</p>
+                            <p><strong>For Safari/iOS:</strong> Go to Settings → Safari → Location → Ask or Allow. Then
+                                refresh this page.</p>
+                            <p><strong>For Firefox:</strong> Tap the shield icon → Permissions → Location → Allow.</p>
+                        </div>
+                    </div>
+
+                    <div class="faq-item">
+                        <button class="faq-question" aria-expanded="false">
+                            <span>GPS is showing as "REQUIRED" and won't work</span>
+                            <i data-lucide="chevron-down" size="20" class="faq-chevron"></i>
+                        </button>
+                        <div class="faq-answer" aria-hidden="true">
+                            <p>This usually means:</p>
+                            <ul>
+                                <li>Location services are turned off on your device - enable them in your phone settings
+                                </li>
+                                <li>You're in airplane mode - turn off airplane mode</li>
+                                <li>GPS signal is weak - try moving near a window or going outside</li>
+                                <li>Browser doesn't have permission - check browser settings and allow location access
+                                </li>
+                            </ul>
+                            <p>After fixing, refresh the page.</p>
+                        </div>
+                    </div>
+
+                    <div class="faq-item">
+                        <button class="faq-question" aria-expanded="false">
+                            <span>Why does it say I'm too far from the office?</span>
+                            <i data-lucide="chevron-down" size="20" class="faq-chevron"></i>
+                        </button>
+                        <div class="faq-answer" aria-hidden="true">
+                            <p>The app uses GPS perimeter verification to ensure you're within the registered office
+                                perimeter. If you're at the office but getting this message:</p>
+                            <ul>
+                                <li>Make sure you're inside the building, not in the parking lot</li>
+                                <li>Check that GPS accuracy is high (wait a few moments for GPS to stabilize)</li>
+                                <li>Try moving to a different spot with better GPS signal</li>
+                                <li>Contact your admin if the office location needs updating</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="faq-item">
+                        <button class="faq-question" aria-expanded="false">
+                            <span>Location is taking too long to verify</span>
+                            <i data-lucide="chevron-down" size="20" class="faq-chevron"></i>
+                        </button>
+                        <div class="faq-answer" aria-hidden="true">
+                            <p>GPS can take 10-30 seconds to get an accurate fix, especially:</p>
+                            <ul>
+                                <li>Indoors or in basements</li>
+                                <li>On first load after turning on location</li>
+                                <li>In areas with poor satellite visibility</li>
+                            </ul>
+                            <p>Wait patiently - the status will update automatically once location is verified.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sign In/Out Questions -->
+                <div class="faq-section" data-section="signing" style="display: none;">
+                    <div class="faq-item">
+                        <button class="faq-question" aria-expanded="false">
+                            <span>Why are the Sign In/Out buttons disabled?</span>
+                            <i data-lucide="chevron-down" size="20" class="faq-chevron"></i>
+                        </button>
+                        <div class="faq-answer" aria-hidden="true">
+                            <p>Buttons are disabled until:</p>
+                            <ul>
+                                <li>You've selected your name from the dropdown</li>
+                                <li>GPS location has been verified</li>
+                                <li>You're within the registered office perimeter</li>
+                            </ul>
+                            <p>Once both conditions are met, the buttons will activate automatically.</p>
+                        </div>
+                    </div>
+
+                    <div class="faq-item">
+                        <button class="faq-question" aria-expanded="false">
+                            <span>I already signed in today. Can I sign in again?</span>
+                            <i data-lucide="chevron-down" size="20" class="faq-chevron"></i>
+                        </button>
+                        <div class="faq-answer" aria-hidden="true">
+                            <p>No, you can only sign in once per day. If you need to sign out and sign back in (e.g.,
+                                for lunch), you must sign out first before signing in again.</p>
+                            <p>This prevents duplicate attendance entries and ensures accurate tracking.</p>
+                        </div>
+                    </div>
+
+                    <div class="faq-item">
+                        <button class="faq-question" aria-expanded="false">
+                            <span>This device is not authorized. What does that mean?</span>
+                            <i data-lucide="chevron-down" size="20" class="faq-chevron"></i>
+                        </button>
+                        <div class="faq-answer" aria-hidden="true">
+                            <p>Each device must be registered to a staff member. This security measure prevents:</p>
+                            <ul>
+                                <li>Staff members sharing devices to fake attendance</li>
+                                <li>Unauthorized access to the attendance system</li>
+                            </ul>
+                            <p><strong>Solution:</strong> Use the device that was previously registered to you, or
+                                contact your admin to reassign this device to your name using a reset code.</p>
+                        </div>
+                    </div>
+
+                    <div class="faq-item">
+                        <button class="faq-question" aria-expanded="false">
+                            <span>Can I sign in for another person?</span>
+                            <i data-lucide="chevron-down" size="20" class="faq-chevron"></i>
+                        </button>
+                        <div class="faq-answer" aria-hidden="true">
+                            <p>No. To prevent colleagues from signing in or out for each other, each staff member must
+                                use their own registered phone and select their own name.</p>
+                            <p>Attempting to sign in for someone else will be blocked by the system.</p>
+                        </div>
+                    </div>
+
+                    <div class="faq-item">
+                        <button class="faq-question" aria-expanded="false">
+                            <span>What's the latest time I can sign in?</span>
+                            <i data-lucide="chevron-down" size="20" class="faq-chevron"></i>
+                        </button>
+                        <div class="faq-answer" aria-hidden="true">
+                            <p>You can sign in at any time during work hours. However, signing in after the official
+                                start time will be marked as "LATE" in the attendance records.</p>
+                            <p>Check with your admin for the specific start time policy at your organization.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Offline Mode Questions -->
+                <div class="faq-section" data-section="offline" style="display: none;">
+                    <div class="faq-item">
+                        <button class="faq-question" aria-expanded="false">
+                            <span>Can I sign in/out without internet?</span>
+                            <i data-lucide="chevron-down" size="20" class="faq-chevron"></i>
+                        </button>
+                        <div class="faq-answer" aria-hidden="true">
+                            <p>Yes! The app works offline. If you have no internet connection:</p>
+                            <ul>
+                                <li>Your sign in/out will be saved locally on your device</li>
+                                <li>The entry will show as "Pending sync" in your recent attendance</li>
+                                <li>Once you regain internet, it will automatically sync to the server</li>
+                            </ul>
+                            <p>Your attendance is never lost, even without connection.</p>
+                        </div>
+                    </div>
+
+                    <div class="faq-item">
+                        <button class="faq-question" aria-expanded="false">
+                            <span>How does offline sync work?</span>
+                            <i data-lucide="chevron-down" size="20" class="faq-chevron"></i>
+                        </button>
+                        <div class="faq-answer" aria-hidden="true">
+                            <p>The app automatically syncs your offline entries when:</p>
+                            <ul>
+                                <li>You regain internet connection</li>
+                                <li>You open the app again after being offline</li>
+                                <li>The app detects you're back online (every 10 seconds when app is open)</li>
+                            </ul>
+                            <p>You don't need to do anything - sync happens automatically in the background.</p>
+                        </div>
+                    </div>
+
+                    <div class="faq-item">
+                        <button class="faq-question" aria-expanded="false">
+                            <span>What if sync fails repeatedly?</span>
+                            <i data-lucide="chevron-down" size="20" class="faq-chevron"></i>
+                        </button>
+                        <div class="faq-answer" aria-hidden="true">
+                            <p>The app uses exponential backoff retry (8s, 16s, 32s, up to 60s). If sync continues to
+                                fail:</p>
+                            <ul>
+                                <li>Check your internet connection</li>
+                                <li>Make sure the server is accessible</li>
+                                <li>Try refreshing the page</li>
+                                <li>Your data is still saved locally and will sync when possible</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="faq-item">
+                        <button class="faq-question" aria-expanded="false">
+                            <span>Will I lose my attendance if I clear browser data?</span>
+                            <i data-lucide="chevron-down" size="20" class="faq-chevron"></i>
+                        </button>
+                        <div class="faq-answer" aria-hidden="true">
+                            <p><strong>Pending offline entries:</strong> These are stored in IndexedDB and localStorage.
+                                Clearing browser data will remove them, so sync before clearing if possible.</p>
+                            <p><strong>Synced entries:</strong> These are safely stored on the server and won't be
+                                affected by clearing browser data.</p>
+                            <p><strong>Recommendation:</strong> Make sure you're online and the app shows "Synced"
+                                before clearing any browser data.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Device Questions -->
+                <div class="faq-section" data-section="device" style="display: none;">
+                    <div class="faq-item">
+                        <button class="faq-question" aria-expanded="false">
+                            <span>What is device ownership/registration?</span>
+                            <i data-lucide="chevron-down" size="20" class="faq-chevron"></i>
+                        </button>
+                        <div class="faq-answer" aria-hidden="true">
+                            <p>Device ownership links a specific phone/tablet to your staff account. This prevents:</p>
+                            <ul>
+                                <li>Employees sharing devices to fake attendance</li>
+                                <li>Unauthorized people signing in from any device</li>
+                            </ul>
+                            <p>When you first sign in on a device, it becomes registered to you automatically.</p>
+                        </div>
+                    </div>
+
+                    <div class="faq-item">
+                        <button class="faq-question" aria-expanded="false">
+                            <span>How do I switch to a different device?</span>
+                            <i data-lucide="chevron-down" size="20" class="faq-chevron"></i>
+                        </button>
+                        <div class="faq-answer" aria-hidden="true">
+                            <p>To use a new device:</p>
+                            <ol>
+                                <li>Get a reset code from your admin</li>
+                                <li>On the new device, try to sign in with your name</li>
+                                <li>When prompted, enter the reset code</li>
+                                <li>The device will be reassigned to you</li>
+                            </ol>
+                            <p>The old device will no longer be linked to your account.</p>
+                        </div>
+                    </div>
+
+                    <div class="faq-item">
+                        <button class="faq-question" aria-expanded="false">
+                            <span>What if I get a new phone?</span>
+                            <i data-lucide="chevron-down" size="20" class="faq-chevron"></i>
+                        </button>
+                        <div class="faq-answer" aria-hidden="true">
+                            <p>Contact your admin for a reset code, then:</p>
+                            <ol>
+                                <li>Install the app on your new phone</li>
+                                <li>Open the app and select your name</li>
+                                <li>Enter the reset code when prompted</li>
+                                <li>Your new device is now registered to you</li>
+                            </ol>
+                            <p>Your old phone will no longer be able to sign in as you.</p>
+                        </div>
+                    </div>
+
+                    <div class="faq-item">
+                        <button class="faq-question" aria-expanded="false">
+                            <span>Can I use the app on multiple devices?</span>
+                            <i data-lucide="chevron-down" size="20" class="faq-chevron"></i>
+                        </button>
+                        <div class="faq-answer" aria-hidden="true">
+                            <p>No, each staff member can only be registered to one device at a time. This is a security
+                                measure to prevent attendance fraud.</p>
+                            <p>If you need to switch devices, you must get a reset code from your admin to deregister
+                                the old device and register the new one.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- General Questions -->
+                <div class="faq-section" data-section="general" style="display: none;">
+                    <div class="faq-item">
+                        <button class="faq-question" aria-expanded="false">
+                            <span>Which browsers are supported?</span>
+                            <i data-lucide="chevron-down" size="20" class="faq-chevron"></i>
+                        </button>
+                        <div class="faq-answer" aria-hidden="true">
+                            <p><strong>Fully supported:</strong></p>
+                            <ul>
+                                <li>Chrome/Edge (Android, Windows, Mac) - Recommended</li>
+                                <li>Safari (iOS 14.5+, iPadOS, MacOS)</li>
+                                <li>Firefox (Android, Windows, Mac)</li>
+                            </ul>
+                            <p><strong>Requirements:</strong></p>
+                            <ul>
+                                <li>JavaScript enabled</li>
+                                <li>Location services enabled</li>
+                                <li>Cookies/localStorage enabled</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="faq-item">
+                        <button class="faq-question" aria-expanded="false">
+                            <span>How do I install the app on my phone?</span>
+                            <i data-lucide="chevron-down" size="20" class="faq-chevron"></i>
+                        </button>
+                        <div class="faq-answer" aria-hidden="true">
+                            <p><strong>Android (Chrome):</strong></p>
+                            <ol>
+                                <li>Open the app in Chrome</li>
+                                <li>Tap the menu (three dots)</li>
+                                <li>Select "Add to Home screen" or "Install app"</li>
+                            </ol>
+                            <p><strong>iOS (Safari):</strong></p>
+                            <ol>
+                                <li>Open the app in Safari</li>
+                                <li>Tap the Share button</li>
+                                <li>Select "Add to Home Screen"</li>
+                            </ol>
+                            <p>You can also tap the "Install App" button on the signin page if available.</p>
+                        </div>
+                    </div>
+
+                    <div class="faq-item">
+                        <button class="faq-question" aria-expanded="false">
+                            <span>Is my location data private?</span>
+                            <i data-lucide="chevron-down" size="20" class="faq-chevron"></i>
+                        </button>
+                        <div class="faq-answer" aria-hidden="true">
+                            <p>Yes. Your location is only used at the moment of sign in/out to verify you're at the
+                                office. The app does not:</p>
+                            <ul>
+                                <li>Track your location continuously</li>
+                                <li>Store location history</li>
+                                <li>Share location with third parties</li>
+                            </ul>
+                            <p>Location data is processed in real-time and not retained beyond the attendance record.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="faq-item">
+                        <button class="faq-question" aria-expanded="false">
+                            <span>What should I do if I encounter an error?</span>
+                            <i data-lucide="chevron-down" size="20" class="faq-chevron"></i>
+                        </button>
+                        <div class="faq-answer" aria-hidden="true">
+                            <p>If you see an error message:</p>
+                            <ol>
+                                <li>Read the error message carefully - it usually explains the problem</li>
+                                <li>Check this FAQ for solutions to common issues</li>
+                                <li>Try refreshing the page</li>
+                                <li>Check your internet connection</li>
+                                <li>Make sure location services are enabled</li>
+                                <li>If the problem persists, contact your admin or IT support</li>
+                            </ol>
+                        </div>
+                    </div>
+
+                    <div class="faq-item">
+                        <button class="faq-question" aria-expanded="false">
+                            <span>How accurate is the attendance system?</span>
+                            <i data-lucide="chevron-down" size="20" class="faq-chevron"></i>
+                        </button>
+                        <div class="faq-answer" aria-hidden="true">
+                            <p>The system uses multiple layers of verification:</p>
+                            <ul>
+                                <li><strong>GPS Perimeter Verification:</strong> Ensures you're within the registered
+                                    workplace perimeter</li>
+                                <li><strong>Device registration:</strong> Prevents unauthorized sign-ins</li>
+                                <li><strong>Time stamps:</strong> Records exact sign in/out times</li>
+                                <li><strong>Server validation:</strong> All entries are verified server-side</li>
+                            </ul>
+                            <p>This multi-factor approach ensures high accuracy and prevents fraud.</p>
+                        </div>
+                    </div>
+
+                    <div class="faq-item">
+                        <button class="faq-question" aria-expanded="false">
+                            <span>Can I view my attendance history?</span>
+                            <i data-lucide="chevron-down" size="20" class="faq-chevron"></i>
+                        </button>
+                        <div class="faq-answer" aria-hidden="true">
+                            <p>Yes! The main page shows your last 5 attendance entries in the "Recent attendance"
+                                section. For a complete history:</p>
+                            <ul>
+                                <li>Contact your admin for detailed reports</li>
+                                <li>Admins can view comprehensive attendance logs and analytics</li>
+                                <li>All records are stored securely on the server</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="faq-footer">
+                <p>Still need help? Contact your admin or IT support.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Privacy & Location Policy Modal -->
+    <div id="privacy-modal" class="faq-overlay" role="dialog" aria-modal="true" aria-labelledby="privacy-modal-title"
+        aria-hidden="true">
+        <div class="faq-modal-content">
+            <div class="faq-header">
+                <h2 id="privacy-modal-title" style="display:flex; align-items:center; gap:8px;">
+                    <i data-lucide="shield-check" size="22"></i> Privacy &amp; Location Policy
+                </h2>
+                <button id="privacy-modal-close" class="faq-close-btn" aria-label="Close Privacy Policy">
+                    <i data-lucide="x" size="24"></i>
+                </button>
+            </div>
+
+            <div
+                style="overflow-y: auto; flex: 1 1 auto; min-height: 0; padding-right: 4px; font-size: 0.88rem; line-height: 1.6; color: var(--text); display: flex; flex-direction: column; gap: 12px; -webkit-overflow-scrolling: touch;">
+                <p>The <strong id="privacy-policy-tenant-name">Perimetrr Workspace Platform</strong> is engineered with
+                    zero-surveillance architecture to guarantee individual privacy while maintaining authentic workplace
+                    presence verification.</p>
+
+                <div class="policy-card"
+                    style="background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px;">
+                    <h4
+                        style="color: var(--primary); margin: 0 0 6px 0; display: flex; align-items: center; gap: 6px; font-size: 0.92rem; font-weight: 700;">
+                        <i data-lucide="map-pin" size="16"></i> 📍 Instantaneous Proximity Verification (Zero Tracking)
+                    </h4>
+                    <p style="margin: 0; font-size: 0.84rem; color: var(--text-2);">GPS coordinates are sampled
+                        <strong>strictly at the exact instant</strong> you tap "Sign In" or "Sign Out" to calculate your
+                        distance from the authorized office perimeter. Your route history, travel speed, and personal
+                        off-duty locations are <strong>never monitored, recorded, or transmitted</strong>.</p>
+                </div>
+
+                <div class="policy-card"
+                    style="background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px;">
+                    <h4
+                        style="color: var(--primary); margin: 0 0 6px 0; display: flex; align-items: center; gap: 6px; font-size: 0.92rem; font-weight: 700;">
+                        <i data-lucide="bell" size="16"></i> 🔔 Passive Perimeter Arrival Reminders
+                    </h4>
+                    <p style="margin: 0; font-size: 0.84rem; color: var(--text-2);">Mobile arrival prompts rely on your
+                        phone OS's native low-power perimeter listener. The app stays dormant until your hardware enters
+                        the workplace radius to fire a single local notification. Zero location data leaves your device.
+                    </p>
+                </div>
+
+                <div class="policy-card"
+                    style="background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px;">
+                    <h4
+                        style="color: var(--primary); margin: 0 0 6px 0; display: flex; align-items: center; gap: 6px; font-size: 0.92rem; font-weight: 700;">
+                        <i data-lucide="fingerprint" size="16"></i> 🔐 Hardware-Level Biometric Protection
+                    </h4>
+                    <p style="margin: 0; font-size: 0.84rem; color: var(--text-2);">Touch ID, Face ID, and Device PIN
+                        authentication are processed exclusively within your phone's hardware <strong>Secure
+                            Enclave</strong> via W3C WebAuthn standards. Biometric traits remain locked inside your
+                        device and are never uploaded or accessible to any server.</p>
+                </div>
+
+                <div class="policy-card"
+                    style="background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px;">
+                    <h4
+                        style="color: var(--primary); margin: 0 0 6px 0; display: flex; align-items: center; gap: 6px; font-size: 0.92rem; font-weight: 700;">
+                        <i data-lucide="shield" size="16"></i> 🏢 Multi-Tenant Data Isolation &amp; Employee Rights
+                    </h4>
+                    <p style="margin: 0; font-size: 0.84rem; color: var(--text-2);">Attendance logs (timestamp,
+                        verification method, perimeter status) are encrypted in transit (TLS 1.3) and at rest (AES-256),
+                        isolated within your employer's workspace vault. You maintain rights to access and verify your
+                        attendance records via HR.</p>
+                </div>
+
+                <div
+                    style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); font-size: 0.78rem; text-align: center; color: var(--muted);">
+                    Copyright &copy; 2026 Perimetrr Presence Systems. All Rights Reserved. • Version 3.0
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Workspace Connect Modal (Shown on clean '/' or when switching company workspaces) -->
+    <div id="workspace-connect-overlay" class="faq-overlay" role="dialog" aria-modal="true"
+        style="display:none; z-index: 9999; backdrop-filter: blur(8px); background: rgba(0,0,0,0.75);">
+        <div class="faq-modal-content"
+            style="max-width: 440px; text-align: center; padding: 22px 24px; position: relative;">
+            <div
+                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; width: 100%;">
+                <div class="lang-selector-wrap">
+                    <button class="lang-btn" type="button" aria-label="Select Language"
+                        data-tooltip="Language / Idioma / Langue">
+                        <span class="current-lang-flag">🇬🇧</span>
+                        <span class="current-lang-code">EN</span>
+                    </button>
+                    <div class="lang-dropdown-menu" style="display:none; text-align:left;">
+                        <button type="button" class="lang-option-btn" data-lang="en">🇬🇧 English</button>
+                        <button type="button" class="lang-option-btn" data-lang="es">🇪🇸 Español</button>
+                        <button type="button" class="lang-option-btn" data-lang="fr">🇫🇷 Français</button>
+                        <button type="button" class="lang-option-btn" data-lang="pt">🇵🇹 Português</button>
+                        <button type="button" class="lang-option-btn" data-lang="ar">🇸🇦 العربية</button>
+                    </div>
+                </div>
+                <button id="workspace-connect-close" class="faq-close-btn" type="button" aria-label="Close"
+                    style="background:none; border:none; color:var(--text-muted); cursor:pointer; padding:4px; display:inline-flex; align-items:center;">
+                    <i data-lucide="x" size="22"></i>
+                </button>
+            </div>
+            <div style="margin-bottom: 8px; color: var(--primary); display: flex; justify-content: center;"><i
+                    data-lucide="building" size="38"></i></div>
+            <h2 style="font-size: 1.3rem; font-weight: 700; margin-bottom: 6px; color: var(--text);"
+                data-i18n="connectWorkspaceTitle">Connect to Your Workspace</h2>
+            <p style="font-size: 0.86rem; color: var(--text-muted); margin-bottom: 20px; line-height: 1.5;"
+                data-i18n="connectWorkspaceDesc">
+                Enter your organization's Workspace Code (e.g. ABCD-1234) or open your company's setup link to pair this
+                phone.
+            </p>
+            <div style="margin-bottom: 14px;">
+                <input type="text" id="workspace-code-input" placeholder="e.g. ABCD-1234"
+                    aria-label="Enter Workspace Code" maxlength="9" autocomplete="off"
+                    style="width: 100%; text-align: center; text-transform: uppercase; font-weight: 700; font-size: 1.25rem; letter-spacing: 2px; padding: 12px 14px; border: 2px solid var(--border); border-radius: 8px; background: var(--surface-2); color: var(--text); outline: none; box-sizing: border-box;" />
+            </div>
+            <div id="workspace-connect-error"
+                style="display:none; color: #ef4444; font-size: 0.82rem; margin-bottom: 12px; font-weight: 500;"></div>
+            <button type="button" id="connect-workspace-btn" data-i18n="connectWorkspaceBtn"
+                style="width: 100%; padding: 12px; background: var(--primary); color: #ffffff; border: none; border-radius: 8px; font-size: 0.95rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                <i data-lucide="arrow-right" size="16"></i> Connect Workspace
+            </button>
+
+            <div
+                style="display: flex; align-items: center; margin: 16px 0; color: var(--text-muted); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em;">
+                <div style="flex: 1; height: 1px; background: var(--border);"></div>
+                <span style="padding: 0 10px; font-weight: 600;">or</span>
+                <div style="flex: 1; height: 1px; background: var(--border);"></div>
+            </div>
+
+            <button type="button" id="scan-workspace-qr-btn" class="admin-btn secondary" data-i18n="scanQrBtn"
+                style="width: 100%; padding: 11px; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 600; font-size: 0.9rem;">
+                <i data-lucide="qr-code" size="18"></i> Scan a QR Code
+            </button>
+
+            <!-- In-App Camera Viewport -->
+            <div id="workspace-qr-scanner-box" class="qr-scanner-box">
+                <video id="workspace-qr-video" playsinline muted></video>
+                <div class="qr-scanner-reticle">
+                    <div class="qr-scanner-line"></div>
+                </div>
+                <button type="button" id="close-qr-scanner-btn" data-i18n="cancelScan"
+                    style="position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.7); color: #fff; border: 1px solid rgba(255,255,255,0.3); border-radius: 20px; padding: 4px 14px; font-size: 0.76rem; cursor: pointer; backdrop-filter: blur(4px);">
+                    Cancel Scan
+                </button>
+            </div>
+
+            <!-- Permission Denied / Retry Helper -->
+            <div id="workspace-qr-guidance"
+                style="display:none; margin-top: 12px; padding: 10px 12px; border-radius: 8px; background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); font-size: 0.8rem; color: var(--text-muted); line-height: 1.4; text-align: left;">
+                <div id="workspace-qr-guidance-text"></div>
+                <button type="button" id="retry-qr-camera-btn" data-i18n="tryCameraAgain"
+                    style="background:none; border:none; color:var(--primary); font-weight:600; font-size:0.8rem; cursor:pointer; padding:0; margin-top:6px; text-decoration:underline;">
+                    Try Camera Again
+                </button>
+            </div>
+
+            <p style="font-size: 0.76rem; color: var(--text-muted); margin-top: 14px;">
+                Ask your HR or team administrator for your company's Workspace Code or invite QR.
+            </p>
+        </div>
+    </div>
+
+    <!-- Biometric Enrollment Modal -->
+    <div id="biometric-enroll-modal" class="faq-overlay" role="dialog" aria-modal="true"
+        style="display:none; z-index: 9999; backdrop-filter: blur(8px); background: rgba(0,0,0,0.7);">
+        <div class="faq-modal-content" style="max-width: 420px; text-align: center; padding: 26px 20px;">
+            <div style="margin-bottom: 12px; color: #10b981; display: flex; justify-content: center;"><i
+                    data-lucide="shield-check" size="48"></i></div>
+            <h2 id="biometric-modal-title"
+                style="font-size: 1.25rem; font-weight: 700; margin-bottom: 6px; color: var(--text);">Biometric / PIN
+                Verification Required</h2>
+            <p id="biometric-modal-desc"
+                style="font-size: 0.86rem; color: var(--text-muted); margin-bottom: 20px; line-height: 1.5;">
+                To securely link this device to your profile, please verify your device's native <strong>Face ID,
+                    Fingerprint, or Device PIN</strong>.
+            </p>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                <button type="button" id="enable-bio-confirm-btn"
+                    style="width: 100%; padding: 12px; background: #10b981; color: #ffffff; border: none; border-radius: 8px; font-size: 0.95rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                    <i data-lucide="fingerprint" size="18"></i> Verify Biometrics / Device PIN
+                </button>
+                <button type="button" id="skip-bio-btn"
+                    style="width: 100%; padding: 10px; background: transparent; color: var(--text-muted); border: 1px solid var(--border); border-radius: 8px; font-size: 0.85rem; cursor: pointer;">
+                    Cancel Setup
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Device Transfer / Unlink Modal -->
+    <div id="device-transfer-modal" class="faq-overlay" role="dialog" aria-modal="true"
+        style="display:none; z-index: 9999; backdrop-filter: blur(8px); background: rgba(0,0,0,0.7);">
+        <div class="faq-modal-content" style="max-width: 440px; text-align: left; padding: 24px 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <div style="color: var(--primary);"><i data-lucide="arrow-left-right" size="22"></i></div>
+                    <h2 style="font-size: 1.15rem; font-weight: 700; margin: 0; color: var(--text);">Switch Account /
+                        Device</h2>
+                </div>
+                <button type="button" id="close-transfer-modal-btn" class="faq-close-btn" aria-label="Close modal"
+                    style="position:static; margin:0;">&times;</button>
+            </div>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 16px; line-height: 1.45;">
+                This phone is securely bound to <strong id="transfer-current-name"
+                    style="color:var(--text);">--</strong>. To switch employees or unbind this device, select an option
+                below:
+            </p>
+
+            <div style="display: flex; flex-direction: column; gap: 14px;">
+                <!-- Option 1: Instant Admin PIN / Password Unlock -->
+                <div
+                    style="background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px;">
+                    <div
+                        style="font-size: 0.88rem; font-weight: 600; color: var(--text); margin-bottom: 4px; display:flex; align-items:center; gap:6px;">
+                        <i data-lucide="key" size="14" style="color:var(--primary);"></i> Admin Instant Unlock
+                    </div>
+                    <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 8px;">
+                        An administrator can enter their workspace password or PIN to immediately unbind this phone.
+                    </p>
+                    <div style="display: flex; gap: 6px;">
+                        <input type="password" id="transfer-admin-pwd" placeholder="Enter Workspace Admin Password"
+                            aria-label="Admin password"
+                            style="flex: 1; padding: 8px 10px; font-size: 0.82rem; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--text);" />
+                        <button type="button" id="confirm-admin-unlink-btn" class="btn-primary small"
+                            style="white-space: nowrap; padding: 8px 14px; font-size: 0.82rem;">Unlock</button>
+                    </div>
+                    <div id="transfer-admin-pwd-msg" style="display:none; font-size: 0.75rem; margin-top: 6px;"></div>
+                </div>
+
+                <!-- Option 2: 1-Tap Request Transfer -->
+                <div
+                    style="background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px;">
+                    <div
+                        style="font-size: 0.88rem; font-weight: 600; color: var(--text); margin-bottom: 4px; display:flex; align-items:center; gap:6px;">
+                        <i data-lucide="send" size="14" style="color:#10b981;"></i> Request Remote Transfer
+                    </div>
+                    <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 8px;">
+                        Sends a transfer request notification to your workspace administrator to reset your device
+                        pairing remotely.
+                    </p>
+                    <button type="button" id="request-transfer-btn"
+                        style="width: 100%; padding: 9px; background: transparent; border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 0.82rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                        <i data-lucide="send" size="14"></i> Send Transfer Request to Admin
+                    </button>
+                    <div id="transfer-request-msg" style="display:none; font-size: 0.75rem; margin-top: 6px;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="common.js?v=3.0.4"></script>
+    <script src="script.js?v=3.0.4"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            // Force browser to bypass HTTP cache when checking for Service Worker updates
+            navigator.serviceWorker.register(window.APP_PATHS.sw, { updateViaCache: 'none' })
+                .then(reg => {
+                    // Force check for updates immediately on load/open
+                    reg.update().catch(err => console.log('SW update check failed: ', err));
+                })
+                .catch(err => console.log('SW registration failed: ', err));
+
+            // Auto-reload the page when a new Service Worker takes control
+            let refreshing = false;
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                if (!refreshing) {
+                    refreshing = true;
+                    window.location.reload();
+                }
+            });
+        }
+    </script>
+</body>
+
+</html>
