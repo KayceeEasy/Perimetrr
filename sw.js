@@ -64,3 +64,50 @@ self.addEventListener('fetch', (event) => {
     })
   );
 });
+
+// Web Push Notifications for Transfers & Attendance Alerts
+self.addEventListener('push', (event) => {
+  let data = { title: 'The Perimeter Notification', body: 'New workspace update available.' };
+  if (event.data) {
+    try {
+      data = event.data.json();
+    } catch (e) {
+      data.body = event.data.text();
+    }
+  }
+
+  const title = data.title || 'The Perimeter Alert';
+  const options = {
+    body: data.body || '',
+    icon: './image/perimetrr-mark.svg',
+    badge: './image/perimetrr-mark.svg',
+    vibrate: [100, 50, 100],
+    data: {
+      url: data.url || './admin/',
+      timestamp: Date.now()
+    }
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(title, options)
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const targetUrl = (event.notification.data && event.notification.data.url) || './admin/';
+
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if (client.url.includes(targetUrl) && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      if (clients.openWindow) {
+        return clients.openWindow(targetUrl);
+      }
+    })
+  );
+});
+

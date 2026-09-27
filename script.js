@@ -668,11 +668,15 @@ function initStaffIdentityView() {
 
         updateSignInButtonsState();
         updateScheduleBanner(savedName);
+        if (typeof checkLeadPendingApprovals === 'function') checkLeadPendingApprovals();
     } else {
         // Unlinked device: Show type-to-search dropdown box
+        const leadBanner = document.getElementById('lead-pending-banner');
+        if (leadBanner) leadBanner.style.display = 'none';
         linkedCard.style.display = 'none';
         unlinkedBox.style.display = 'block';
         const bioBadge = document.getElementById('linked-bio-badge');
+
         if (bioBadge) bioBadge.style.display = 'none';
         if (bioTriggerBtn) bioTriggerBtn.style.display = 'none';
 
@@ -2473,16 +2477,46 @@ function initDeviceTransferModal() {
             const reqMsg = document.getElementById('transfer-request-msg');
             const savedName = safeStorage.getItem('saved_name') || getLocalDeviceLockHint();
             requestTransferBtn.disabled = true;
-            requestTransferBtn.textContent = 'Sending request...';
+            requestTransferBtn.textContent = 'Processing request...';
 
             try {
-                await requestDeviceTransfer(savedName);
-                if (reqMsg) {
-                    reqMsg.style.display = 'block';
-                    reqMsg.style.color = '#10b981';
-                    reqMsg.textContent = '✓ Transfer request sent to administrator. They will reset your binding remotely.';
+                const res = await requestDeviceTransfer(savedName);
+                if (res && res.ok) {
+                    if (res.auto_approved) {
+                        // Item 2: 7-Day Inactivity Auto-Transfer
+                        if (reqMsg) {
+                            reqMsg.style.display = 'block';
+                            reqMsg.innerHTML = '<div style="background:rgba(16,185,129,0.12); border:1px solid #10b981; border-radius:6px; padding:10px; color:#10b981; font-weight:600; font-size:0.82rem;">✓ Device automatically linked via 7-day inactivity auto-transfer! You can now record your attendance.</div>';
+                        }
+                        setLocalDeviceLockHint(savedName);
+                        safeStorage.setItem('saved_name', savedName);
+                        showToast('Device automatically linked via 7-day inactivity auto-transfer!', 'success');
+                        setTimeout(() => {
+                            closeDeviceTransferModal();
+                            initStaffIdentityView();
+                        }, 1800);
+                    } else {
+                        // Item 1: 6-digit confirmation code displayed
+                        if (reqMsg) {
+                            reqMsg.style.display = 'block';
+                            reqMsg.innerHTML = `
+                                <div style="background:rgba(57,255,136,0.08); border:1px solid rgba(57,255,136,0.4); border-radius:8px; padding:12px; margin-top:8px; text-align:center;">
+                                    <div style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:4px;">Authorization PIN</div>
+                                    <div style="font-size:1.7rem; font-weight:800; letter-spacing:0.18em; color:#39FF88; font-family:monospace; margin:4px 0;">${res.transfer_code || '------'}</div>
+                                    <div style="font-size:0.78rem; color:var(--text); margin-top:4px;">Show this 6-digit PIN to your Team Lead or Workspace Admin to authorize immediately.</div>
+                                </div>
+                            `;
+                        }
+                        showToast('Transfer PIN generated. Provide to your Team Lead or Admin.', 'info');
+                    }
+                } else {
+                    if (reqMsg) {
+                        reqMsg.style.display = 'block';
+                        reqMsg.style.color = '#ef4444';
+                        reqMsg.textContent = (res && res.message) || 'Could not process transfer request.';
+                    }
+                    showToast((res && res.message) || 'Transfer request failed.', 'error');
                 }
-                showToast('Device transfer request sent to workspace administrator.', 'success');
             } catch(e) {
                 if (reqMsg) {
                     reqMsg.style.display = 'block';
@@ -2491,9 +2525,161 @@ function initDeviceTransferModal() {
                 }
             } finally {
                 requestTransferBtn.disabled = false;
-                requestTransferBtn.innerHTML = '<i data-lucide="send" size="14"></i> Send Transfer Request to Admin';
+                requestTransferBtn.innerHTML = '<i data-lucide="send" size="14"></i> Request Device Transfer';
                 if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons();
             }
+        });
+    }
+}
+
+/* ---------- Item 1: Team Lead In-App Approvals ---------- */
+
+window.cachedLeadPendingTransfers = [];
+
+async function checkLeadPendingApprovals() {
+    try {
+        const savedName = safeStorage.getItem('saved_name') || getLocalDeviceLockHint();
+        if (!savedName) return;
+
+        const staffList = await getTenantStaffList();
+        const currentStaff = (staffList || []).find(s => (s.name || '').toLowerCase() === savedName.toLowerCase());
+        if (!currentStaff || !currentStaff.is_team_lead) return;
+
+        const leadBadge = document.getElementById('linked-lead-badge');
+        if (leadBadge) leadBadge.style.display = 'inline-flex';
+
+        const deviceId = getDeviceId();
+        const { data, error } = await supabaseClient.rpc('get_pending_transfers_for_lead', {
+            p_lead_staff_id: currentStaff.id,
+            p_lead_device_id: deviceId
+        });
+
+        const banner = document.getElementById('lead-pending-banner');
+        const countEl = document.getElementById('lead-pending-count');
+
+        if (!error && Array.isArray(data) && data.length > 0) {
+            window.cachedLeadPendingTransfers = data;
+            if (countEl) countEl.textContent = data.length;
+            if (banner) {
+                banner.style.display = 'flex';
+                if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons();
+            }
+        } else {
+            window.cachedLeadPendingTransfers = [];
+            if (banner) banner.style.display = 'none';
+        }
+    } catch(e) {
+        console.warn('Error checking lead pending transfers:', e);
+    }
+}
+
+function openLeadApprovalsModal() {
+    const modal = document.getElementById('lead-approvals-modal');
+    const listEl = document.getElementById('lead-approvals-list');
+    const emptyEl = document.getElementById('lead-approvals-empty');
+    if (!modal) return;
+
+    modal.style.display = 'flex';
+    const transfers = window.cachedLeadPendingTransfers || [];
+
+    if (!transfers.length) {
+        if (listEl) listEl.innerHTML = '';
+        if (emptyEl) emptyEl.style.display = 'block';
+    } else {
+        if (emptyEl) emptyEl.style.display = 'none';
+        if (listEl) {
+            listEl.innerHTML = transfers.map(t => `
+                <div class="lead-transfer-item" style="background:var(--surface-2); border:1px solid var(--border); border-radius:8px; padding:12px; display:flex; flex-direction:column; gap:8px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <strong style="color:var(--text); font-size:0.92rem;">${escapeHtml(t.staff_name)}</strong>
+                            <div style="font-size:0.75rem; color:var(--text-muted);">${escapeHtml(t.department || 'General')} • Requested ${t.requested_at ? new Date(t.requested_at).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' }) : 'recently'}</div>
+                        </div>
+                        <span style="font-size:0.75rem; background:rgba(57,255,136,0.15); color:#39FF88; padding:2px 8px; border-radius:4px; font-weight:700; font-family:monospace;">${escapeHtml(t.transfer_code || 'PIN')}</span>
+                    </div>
+                    <div style="display:flex; gap:8px; align-items:center; margin-top:4px;">
+                        <input type="text" id="pin-input-${t.request_id}" placeholder="Enter PIN" maxlength="6" value="${t.transfer_code || ''}" style="width:120px; padding:6px 8px; font-size:0.82rem; border-radius:6px; border:1px solid var(--border); background:var(--bg); color:var(--text); text-align:center; font-family:monospace; letter-spacing:0.1em;" />
+                        <button type="button" class="btn-primary small approve-lead-transfer-btn" data-req-id="${t.request_id}" data-staff-id="${t.staff_id}" style="flex:1; padding:6px 12px; font-size:0.82rem;">Approve Transfer</button>
+                    </div>
+                </div>
+            `).join('');
+
+            listEl.querySelectorAll('.approve-lead-transfer-btn').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const reqId = btn.getAttribute('data-req-id');
+                    const staffId = btn.getAttribute('data-staff-id');
+                    const pinInput = document.getElementById(`pin-input-${reqId}`);
+                    const enteredPin = pinInput ? pinInput.value.trim() : '';
+
+                    btn.disabled = true;
+                    btn.textContent = 'Approving...';
+
+                    try {
+                        const savedName = safeStorage.getItem('saved_name') || getLocalDeviceLockHint();
+                        const staffList = await getTenantStaffList();
+                        const leadStaff = staffList.find(s => s.name.toLowerCase() === savedName.toLowerCase());
+
+                        const { data, error } = await supabaseClient.rpc('approve_device_transfer_by_lead', {
+                            p_staff_id: staffId,
+                            p_transfer_code: enteredPin,
+                            p_lead_staff_id: leadStaff.id,
+                            p_lead_device_id: getDeviceId()
+                        });
+
+                        if (!error && data && data.ok) {
+                            showToast(data.message || 'Device transfer approved successfully!', 'success');
+                            btn.closest('.lead-transfer-item').remove();
+                            checkLeadPendingApprovals();
+                            if (!listEl.children.length && emptyEl) emptyEl.style.display = 'block';
+                        } else {
+                            showToast((data && data.message) || (error && error.message) || 'Could not approve transfer.', 'error');
+                        }
+                    } catch(e) {
+                        showToast('Approval error. Please try again.', 'error');
+                    } finally {
+                        btn.disabled = false;
+                        btn.textContent = 'Approve Transfer';
+                    }
+                });
+            });
+        }
+    }
+
+    if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons();
+}
+
+function closeLeadApprovalsModal() {
+    const modal = document.getElementById('lead-approvals-modal');
+    if (modal) modal.style.display = 'none';
+}
+
+function initLeadApprovalsModal() {
+    const banner = document.getElementById('lead-pending-banner');
+    if (banner && !banner.dataset.bound) {
+        banner.dataset.bound = 'true';
+        banner.addEventListener('click', openLeadApprovalsModal);
+    }
+
+    const reviewBtn = document.getElementById('lead-open-approvals-btn');
+    if (reviewBtn && !reviewBtn.dataset.bound) {
+        reviewBtn.dataset.bound = 'true';
+        reviewBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            openLeadApprovalsModal();
+        });
+    }
+
+    const closeBtn = document.getElementById('close-lead-approvals-btn');
+    if (closeBtn && !closeBtn.dataset.bound) {
+        closeBtn.dataset.bound = 'true';
+        closeBtn.addEventListener('click', closeLeadApprovalsModal);
+    }
+
+    const modal = document.getElementById('lead-approvals-modal');
+    if (modal && !modal.dataset.bound) {
+        modal.dataset.bound = 'true';
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeLeadApprovalsModal();
         });
     }
 }
@@ -2503,8 +2689,11 @@ function initKioskModules() {
     initPrivacyModal();
     initWorkspaceConnect();
     initDeviceTransferModal();
+    initLeadApprovalsModal();
     initTenantBranding();
+    checkLeadPendingApprovals();
 }
+
 
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initKioskModules);

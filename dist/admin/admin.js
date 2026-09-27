@@ -3307,6 +3307,16 @@ function renderAdminPanel() {
                         <p class="admin-intro" id="recovery-email-display">Active: Loading...</p>
                     </div>
                     <button id="set-recovery-email-btn" class="admin-btn secondary small" type="button">Set / Edit</button>
+                <div class="account-card" id="web-push-card" style="border:1px solid rgba(59,130,246,0.3); background:rgba(59,130,246,0.05);">
+                    <span class="account-icon" style="color:#3b82f6;"><i data-lucide="bell" size="18"></i></span>
+                    <div>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <strong>Web Push Notifications</strong>
+                            <span id="push-status-badge" class="status-pill-small" style="background:rgba(107,114,128,0.2); color:var(--text-muted); font-size:0.68rem; padding:1px 6px; border-radius:4px; font-weight:700;">NOT ENABLED</span>
+                        </div>
+                        <p class="admin-intro" id="push-status-text">Receive morning push alerts when staff submit phone transfer requests, even with Command Center closed.</p>
+                    </div>
+                    <button id="enable-push-notifications-btn" class="admin-btn primary small" type="button" style="white-space:nowrap;">Enable Alerts</button>
                 </div>
                 <div class="account-card">
                     <span class="account-icon"><i data-lucide="log-out" size="18"></i></span>
@@ -3430,6 +3440,8 @@ function renderAdminPanel() {
     });
 
     document.getElementById('add-admin-user-btn')?.addEventListener('click', handleAddAdminUser);
+    initAdminPushNotifications();
+
 
     document.getElementById('analytics-filter-all')?.addEventListener('click', (e) => {
         document.querySelectorAll('.analytics-filter-bar button').forEach(b => b.classList.remove('active'));
@@ -3848,8 +3860,23 @@ async function checkPendingDeviceTransferRequests() {
         const req = pendingRequests[0];
         const staffName = req.staff_name || req.staffName || req.name || 'A staff member';
         const reqTime = req.requested_at || req.requestedAt || req.time || 'Recently';
+        const pinCode = req.transfer_code ? String(req.transfer_code) : '';
+
+        // Browser push/desktop alert if permitted
+        if ('Notification' in window && Notification.permission === 'granted') {
+            try {
+                new Notification('The Perimeter: Device Transfer Request', {
+                    body: `${staffName} has requested to bind their attendance to a new phone (PIN: ${pinCode || 'Pending'}).`,
+                    icon: '../image/perimetrr-mark.svg'
+                });
+            } catch(e) {}
+        }
+
+        const existingModal = document.getElementById('device-req-dialog-box');
+        if (existingModal) return;
 
         const dialog = document.createElement('div');
+        dialog.id = 'device-req-dialog-box';
         dialog.className = 'dialog-overlay confirm-dialog-overlay active';
         dialog.style.zIndex = '10000';
         dialog.innerHTML = `
@@ -3858,10 +3885,15 @@ async function checkPendingDeviceTransferRequests() {
                     <h3 style="margin: 0; font-size: 1.1rem; color: var(--text);"><i data-lucide="smartphone" size="18" style="vertical-align:middle; margin-right:6px; color:var(--primary);"></i> Device Transfer Request</h3>
                     <button id="device-req-close-btn" style="background: none; border: none; color: var(--muted); font-size: 1.2rem; cursor: pointer; padding: 2px 6px;">&times;</button>
                 </div>
-                <p style="font-size: 0.88rem; color: var(--text); line-height: 1.5; margin-bottom: 16px;">
+                <p style="font-size: 0.88rem; color: var(--text); line-height: 1.5; margin-bottom: 12px;">
                     <strong>${escapeHtml(staffName)}</strong> has requested to bind their attendance account to a new phone.
                     <br><small style="color: var(--muted);">Requested at: ${escapeHtml(reqTime)}</small>
                 </p>
+                ${pinCode ? `
+                <div style="background: rgba(57,255,136,0.08); border: 1px solid rgba(57,255,136,0.35); border-radius: 6px; padding: 8px 12px; margin-bottom: 14px; text-align: center;">
+                    <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Authorization PIN</div>
+                    <div style="font-size: 1.4rem; font-weight: 800; letter-spacing: 0.15em; color: #10b981; font-family: monospace;">${escapeHtml(pinCode)}</div>
+                </div>` : ''}
                 <div style="display: flex; gap: 10px; justify-content: flex-end;">
                     <button id="device-req-reject-btn" class="admin-btn secondary small danger" type="button"><i data-lucide="x" size="13" style="vertical-align:middle; margin-right:2px;"></i> Reject</button>
                     <button id="device-req-approve-btn" class="admin-btn small" type="button"><i data-lucide="check" size="13" style="vertical-align:middle; margin-right:2px;"></i> Approve Transfer</button>
@@ -3875,14 +3907,21 @@ async function checkPendingDeviceTransferRequests() {
         document.getElementById('device-req-close-btn').addEventListener('click', () => dialog.remove());
         
         document.getElementById('device-req-reject-btn').addEventListener('click', async () => {
-            showToast('Transfer request rejected.', 'info');
+            try {
+                await callBackend({ mode: 'reject-device-transfer', tenantSlug: slug, staffName: staffName, requestId: req.id });
+                showToast('Transfer request rejected.', 'info');
+            } catch(e) {}
             dialog.remove();
         });
 
         document.getElementById('device-req-approve-btn').addEventListener('click', async () => {
             try {
-                await callBackend({ mode: 'approve-device-transfer', tenantSlug: slug, staffName: staffName });
-                showToast(`Device transfer approved for ${staffName}! Device unlinked.`, 'success');
+                const res = await callBackend({ mode: 'approve-device-transfer', tenantSlug: slug, staffName: staffName, requestId: req.id });
+                if (res && res.ok) {
+                    showToast(`Device transfer approved for ${staffName}! Device unlinked.`, 'success');
+                } else {
+                    showToast((res && res.message) || 'Could not approve transfer.', 'error');
+                }
             } catch (e) {
                 showToast('Could not process approval.', 'error');
             } finally {
@@ -3894,6 +3933,76 @@ async function checkPendingDeviceTransferRequests() {
         console.warn('Could not check pending device transfer requests:', err);
     }
 }
+
+async function initAdminPushNotifications() {
+    const btn = document.getElementById('enable-push-notifications-btn');
+    const badge = document.getElementById('push-status-badge');
+    const statusText = document.getElementById('push-status-text');
+    if (!btn) return;
+
+    if (!('Notification' in window)) {
+        if (badge) { badge.textContent = 'UNSUPPORTED'; badge.style.color = '#ef4444'; }
+        if (statusText) statusText.textContent = 'Desktop notifications are not supported in this browser.';
+        btn.disabled = true;
+        return;
+    }
+
+    const updateStatus = () => {
+        if (Notification.permission === 'granted') {
+            if (badge) { badge.textContent = 'ACTIVE'; badge.style.background = 'rgba(16,185,129,0.15)'; badge.style.color = '#10b981'; }
+            if (statusText) statusText.textContent = 'Push alerts active. You will be notified instantly when device transfers are requested.';
+            btn.innerHTML = '<i data-lucide="bell" size="13"></i> Send Test Alert';
+            if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons();
+        } else if (Notification.permission === 'denied') {
+            if (badge) { badge.textContent = 'BLOCKED'; badge.style.background = 'rgba(239,68,68,0.15)'; badge.style.color = '#ef4444'; }
+            if (statusText) statusText.textContent = 'Notifications blocked in browser settings. Please unblock in site permissions.';
+            btn.textContent = 'Blocked in Browser';
+            btn.disabled = true;
+        }
+    };
+    updateStatus();
+
+    btn.addEventListener('click', async () => {
+        try {
+            if (Notification.permission === 'granted') {
+                new Notification('The Perimeter Command Center', {
+                    body: 'Push alerts configured properly. Monitoring incoming staff transfer requests.',
+                    icon: '../image/perimetrr-mark.svg'
+                });
+                showToast('Test notification sent.', 'info');
+                return;
+            }
+
+            const permission = await Notification.requestPermission();
+            updateStatus();
+            if (permission === 'granted') {
+                showToast('Web notifications enabled!', 'success');
+                new Notification('The Perimeter Command Center', {
+                    body: 'Web notifications enabled. Morning transfer requests will alert here.',
+                    icon: '../image/perimetrr-mark.svg'
+                });
+
+                if ('serviceWorker' in navigator) {
+                    try {
+                        const reg = await navigator.serviceWorker.ready;
+                        if (reg && reg.pushManager) {
+                            const sub = await reg.pushManager.getSubscription();
+                            if (sub) {
+                                const slug = getActiveAdminTenantSlug() || 'default';
+                                await callBackend({ mode: 'save-push-subscription', tenantSlug: slug, subscription: sub.toJSON() });
+                            }
+                        }
+                    } catch(e) {}
+                }
+            } else {
+                showToast('Notification permission denied.', 'error');
+            }
+        } catch(e) {
+            showToast('Could not enable notifications.', 'error');
+        }
+    });
+}
+
 
 function setLoginLoading(isLoading) {
     const loginBtn = document.getElementById('admin-login-btn');

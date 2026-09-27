@@ -3,10 +3,11 @@ const hybridSupabaseClient = (typeof window !== 'undefined' && window.supabaseCl
     ? window.supabaseClient
     : ((typeof supabaseClient !== 'undefined')
         ? supabaseClient
-        : (window.supabase ? window.supabase.createClient(
-            (window.APP_CONFIG && window.APP_CONFIG.SUPABASE_URL) || 'https://akhditjeiwjuzvubnacw.supabase.co',
-            (window.APP_CONFIG && window.APP_CONFIG.SUPABASE_KEY) || 'sb_publishable_9BkVRtmi-6UG15Va5xNHbw_R7J_hKhi'
+        : (window.supabase && window.APP_CONFIG ? window.supabase.createClient(
+            window.APP_CONFIG.SUPABASE_URL,
+            window.APP_CONFIG.SUPABASE_KEY
           ) : null));
+
 
 const urlParams = new URLSearchParams(window.location.search);
 let activeTenantSlug = (typeof getActiveTenantSlug === 'function' ? getActiveTenantSlug() : null) || urlParams.get('tenant') || '';

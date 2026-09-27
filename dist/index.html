@@ -106,6 +106,18 @@
 
         <!-- Zero-Exposure Staff Identity Section -->
         <div class="staff-identity-container" style="margin-bottom: 14px;">
+            <!-- Team Lead Pending Approvals Banner -->
+            <div id="lead-pending-banner" style="display:none; margin-bottom: 12px; background: rgba(57, 255, 136, 0.08); border: 1px solid rgba(57, 255, 136, 0.35); border-radius: 8px; padding: 10px 14px; align-items: center; justify-content: space-between; cursor: pointer;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: #39FF88; color: #000; font-size: 0.75rem; font-weight: 700;" id="lead-pending-count">1</span>
+                    <div>
+                        <div style="font-size: 0.82rem; font-weight: 600; color: var(--text);">Pending Transfer Approvals</div>
+                        <div style="font-size: 0.72rem; color: var(--text-muted);">Staff waiting to link new phones</div>
+                    </div>
+                </div>
+                <button type="button" id="lead-open-approvals-btn" class="btn-primary small" style="font-size: 0.75rem; padding: 4px 10px;">Review</button>
+            </div>
+
             <!-- Linked Recognized Device Card (Only shows for recognized phone) -->
             <div id="linked-identity-card" class="linked-identity-card" style="display:none;">
                 <div class="linked-avatar"><i data-lucide="user-check" size="20"></i></div>
@@ -113,7 +125,9 @@
                     <strong id="linked-name-display">--</strong>
                     <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
                         <span id="linked-dept-display" class="linked-sub">Staff Member</span>
+                        <span id="linked-lead-badge" class="badge-team-lead" style="display:none; font-size:0.68rem; background:rgba(57,255,136,0.12); color:#39FF88; border:1px solid rgba(57,255,136,0.3); padding:1px 6px; border-radius:4px; font-weight:600;"><i data-lucide="shield" size="11" style="vertical-align:middle; margin-right:2px;"></i> Team Lead</span>
                         <span id="linked-bio-badge" class="badge-bio"
+
                             style="display:none; font-size:0.68rem; background:rgba(16,185,129,0.12); color:#10b981; border:1px solid rgba(16,185,129,0.3); padding:1px 6px; border-radius:4px; font-weight:600;"><i
                                 data-lucide="shield-check" size="11"
                                 style="vertical-align:middle; margin-right:2px;"></i> Biometrics</span>
@@ -895,21 +909,45 @@
                     style="background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px;">
                     <div
                         style="font-size: 0.88rem; font-weight: 600; color: var(--text); margin-bottom: 4px; display:flex; align-items:center; gap:6px;">
-                        <i data-lucide="send" size="14" style="color:#10b981;"></i> Request Remote Transfer
+                        <i data-lucide="smartphone" size="14" style="color:#10b981;"></i> Request Device Transfer
                     </div>
                     <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 8px;">
-                        Sends a transfer request notification to your workspace administrator to reset your device
-                        pairing remotely.
+                        If your previous phone was inactive for 7+ days, this phone will link automatically. Otherwise, an authorization PIN is generated for your Team Lead or Workspace Admin.
                     </p>
                     <button type="button" id="request-transfer-btn"
                         style="width: 100%; padding: 9px; background: transparent; border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 0.82rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
-                        <i data-lucide="send" size="14"></i> Send Transfer Request to Admin
+                        <i data-lucide="send" size="14"></i> Request Device Transfer
                     </button>
-                    <div id="transfer-request-msg" style="display:none; font-size: 0.75rem; margin-top: 6px;"></div>
+                    <div id="transfer-request-msg" style="display:none; font-size: 0.75rem; margin-top: 8px;"></div>
                 </div>
             </div>
         </div>
     </div>
+
+    <!-- Team Lead In-App Approvals Modal -->
+    <div id="lead-approvals-modal" class="faq-overlay" role="dialog" aria-modal="true"
+        style="display:none; z-index: 9999; backdrop-filter: blur(8px); background: rgba(0,0,0,0.75);">
+        <div class="faq-modal-content" style="max-width: 460px; text-align: left; padding: 24px 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <div style="color: var(--primary);"><i data-lucide="shield-check" size="22"></i></div>
+                    <h2 style="font-size: 1.15rem; font-weight: 700; margin: 0; color: var(--text);">Team Lead Approvals</h2>
+                </div>
+                <button type="button" id="close-lead-approvals-btn" class="faq-close-btn" aria-label="Close modal"
+                    style="position:static; margin:0;">&times;</button>
+            </div>
+            <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 14px; line-height: 1.45;">
+                As an authorized Team Lead, you can authorize and link new phones for team members in your workspace.
+            </p>
+            <div id="lead-approvals-list" style="display: flex; flex-direction: column; gap: 12px; max-height: 340px; overflow-y: auto;">
+                <!-- Rendered dynamically -->
+            </div>
+            <div id="lead-approvals-empty" style="display:none; text-align: center; padding: 24px 0; color: var(--text-muted); font-size: 0.85rem;">
+                No pending device transfer requests at this time.
+            </div>
+        </div>
+    </div>
+
 
     <script src="common.js?v=3.0.4"></script>
     <script src="script.js?v=3.0.4"></script>

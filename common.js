@@ -926,55 +926,37 @@ function clearBiometrics(staffName) {
 async function getTenantStaffList(tenantSlug) {
     const slug = String(tenantSlug || (typeof activeTenantSlug !== 'undefined' ? activeTenantSlug : (typeof getActiveTenantSlug === 'function' ? getActiveTenantSlug() : 'default'))).trim().toLowerCase();
     try {
-        // 1. Check scoped app_config key
-        const configKey = `TENANT_STAFF_${slug}`;
-        const { data, error } = await supabaseClient.from('app_config').select('value').eq('key', configKey).single();
-        if (!error && data && data.value) {
-            const parsed = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
-            if (Array.isArray(parsed) && parsed.length) return parsed;
+        const { data, error } = await supabaseClient.rpc('manage_tenant_staff', {
+            p_action: 'list',
+            p_tenant_slug: slug
+        });
+        if (!error && data && data.ok && Array.isArray(data.staff)) {
+            try { safeStorage.setItem(`staff_cache_${slug}`, JSON.stringify(data.staff)); } catch(e) {}
+            return data.staff;
         }
-
-        // 2. Query staff table scoped to this tenant
-        const { data: dbStaff } = await supabaseClient
-            .from('staff')
-            .select('*')
-            .eq('tenant_slug', slug)
-            .order('name');
-
-        if (dbStaff && dbStaff.length) {
-            const list = dbStaff.map(s => ({
-                id: s.id || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'staff_' + Math.random().toString(36).substring(2, 9)),
-                name: s.name,
-                dept: s.dept || 'General',
-                schedule_policy: s.schedule_policy || 'weekly_hybrid',
-                is_team_lead: Boolean(s.is_team_lead),
-                include_in_reports: s.include_in_reports !== false,
-                device_id: s.device_id || null,
-                device_token: s.device_token || null
-            }));
-            await saveTenantStaffList(slug, list);
-            return list;
-        }
-
-        return [];
     } catch (e) {
         console.warn(`Error in getTenantStaffList for ${slug}:`, e);
-        return [];
     }
+
+    // Fallback to local storage cache if offline or initializing
+    try {
+        const cached = safeStorage.getItem(`staff_cache_${slug}`);
+        if (cached) {
+            const parsed = JSON.parse(cached);
+            if (Array.isArray(parsed) && parsed.length) return parsed;
+        }
+    } catch (e) {}
+
+    return [];
 }
 
 async function saveTenantStaffList(tenantSlug, staffArray) {
     const slug = String(tenantSlug || (typeof activeTenantSlug !== 'undefined' ? activeTenantSlug : (typeof getActiveTenantSlug === 'function' ? getActiveTenantSlug() : 'default'))).trim().toLowerCase();
-    const configKey = `TENANT_STAFF_${slug}`;
     try {
-        await supabaseClient.from('app_config').upsert([{
-            key: configKey,
-            value: JSON.stringify(staffArray)
-        }], { onConflict: 'key' });
-    } catch (e) {
-        console.warn(`Error saving tenant staff for ${slug}:`, e);
-    }
+        safeStorage.setItem(`staff_cache_${slug}`, JSON.stringify(staffArray));
+    } catch (e) {}
 }
+
 
 async function getTenantAdminList(tenantSlug) {
     const slug = String(tenantSlug || (typeof activeTenantSlug !== 'undefined' ? activeTenantSlug : (typeof getActiveTenantSlug === 'function' ? getActiveTenantSlug() : 'default'))).trim().toLowerCase();
@@ -1017,12 +999,9 @@ async function getTenantConfig(tenantSlug) {
     const slug = String(tenantSlug || (typeof activeTenantSlug !== 'undefined' ? activeTenantSlug : (typeof getActiveTenantSlug === 'function' ? getActiveTenantSlug() : 'default'))).trim().toLowerCase();
     const configKey = `TENANT_CONFIG_${slug}`;
     try {
-        const { data, error } = await supabaseClient.from('app_config').select('value').eq('key', configKey).single();
-        if (!error && data && data.value) {
-            const parsed = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
-            if (!parsed.hybrid_office_days) parsed.hybrid_office_days = 2;
-            if (!parsed.slug) parsed.slug = slug;
-            return parsed;
+        const { data, error } = await supabaseClient.rpc('get_workspace_config', { p_slug: slug });
+        if (!error && data) {
+            return data;
         }
     } catch (e) {}
 
@@ -1056,16 +1035,29 @@ async function getTenantConfig(tenantSlug) {
 
 async function saveTenantConfig(tenantSlug, configObj) {
     const slug = String(tenantSlug || (typeof activeTenantSlug !== 'undefined' ? activeTenantSlug : (typeof getActiveTenantSlug === 'function' ? getActiveTenantSlug() : 'default'))).trim().toLowerCase();
-    const configKey = `TENANT_CONFIG_${slug}`;
     try {
-        await supabaseClient.from('app_config').upsert([{
-            key: configKey,
-            value: JSON.stringify(configObj)
-        }], { onConflict: 'key' });
+        const { data: tenant } = await supabaseClient.from('tenants').select('id').eq('slug', slug).maybeSingle();
+        if (tenant && tenant.id) {
+            await supabaseClient.from('tenants').update({
+                name: configObj.name,
+                brand_color: configObj.brand_color,
+                logo_url: configObj.logo_url,
+                timezone: configObj.timezone
+            }).eq('id', tenant.id);
+
+            if (configObj.latitude && configObj.longitude) {
+                await supabaseClient.from('offices').update({
+                    name: configObj.office_name || 'Main Office',
+                    radius_meters: configObj.radius || 100,
+                    location: `POINT(${configObj.longitude} ${configObj.latitude})`
+                }).eq('tenant_id', tenant.id);
+            }
+        }
     } catch (e) {
         console.warn(`Error saving tenant config for ${slug}:`, e);
     }
 }
+
 
 async function resolveRequestedTenantSlug(payload) {
     if (payload && payload.tenantSlug) return String(payload.tenantSlug).trim().toLowerCase();
@@ -1343,67 +1335,88 @@ async function handleAttendanceBackend(mode, payload) {
                     }
                 }
 
-                const { data, error } = await supabaseClient.rpc('process_attendance', {
-                    p_name: payload.name,
-                    p_action: payload.action,
-                    p_lat: lat,
-                    p_lon: lon,
-                    p_device_id: payload.deviceId || ''
+                let staffId = payload.staffId;
+                const tenantSlug = await resolveRequestedTenantSlug(payload);
+                if (!staffId && payload.name) {
+                    const staffList = await getTenantStaffList(tenantSlug);
+                    const foundStaff = staffList.find(s => s.name.toLowerCase() === payload.name.trim().toLowerCase());
+                    if (foundStaff) staffId = foundStaff.id;
+                }
+
+                const deviceId = payload.deviceId || (typeof getDeviceId === 'function' ? getDeviceId() : null);
+
+                const { data, error } = await supabaseClient.rpc('record_attendance', {
+                    p_staff_id: staffId,
+                    p_device_id: deviceId,
+                    p_event_type: (payload.action || 'in').toLowerCase(),
+                    p_latitude: lat,
+                    p_longitude: lon
                 });
                 if (error) throw error;
 
-                if (data && data.ok && payload.action === 'OUT' && isRemoteSignout) {
-                    data.status = 'Off-Site Sign-Out';
-                    data.message = `Remote sign-out recorded for ${payload.name} (Post-Closing). Have a great evening!`;
-                    try {
-                        await supabaseClient.from('attendance_logs')
-                            .update({ status: 'Off-Site Sign-Out' })
-                            .eq('name', payload.name)
-                            .eq('action', 'OUT')
-                            .order('created_at', { ascending: false })
-                            .limit(1);
-                    } catch (e) {}
-                }
-
+                const resRow = Array.isArray(data) ? data[0] : data;
+                const isOk = Boolean(resRow && (resRow.ok === true || resRow.status === 'on_site' || resRow.status === 'provisional_transfer'));
                 return {
-                    ok: data.ok,
-                    allowed: data.ok,
-                    message: data.message,
-                    status: data.status,
-                    distance: data.distance,
-                    raw: data
+                    ok: isOk,
+                    allowed: isOk,
+                    status: (resRow && resRow.status) || 'recorded',
+                    message: (resRow && resRow.message) || 'Attendance recorded.',
+                    distance: resRow && resRow.distance_meters,
+                    distance_meters: resRow && resRow.distance_meters,
+                    raw: resRow
                 };
             }
             case 'list-logs': {
                 const tenantSlug = await resolveRequestedTenantSlug(payload);
                 if (!tenantSlug) return { ok: true, logs: [] };
 
-                let query = supabaseClient.from('attendance').select('*');
-                
-                // Strict multi-tenant isolation
-                if (tenantSlug === 'lifecard') {
-                    query = query.or('tenant_slug.eq.lifecard,tenant_slug.is.null');
-                } else {
-                    query = query.eq('tenant_slug', tenantSlug);
-                }
+                const { data: tenant } = await supabaseClient.from('tenants').select('id').eq('slug', tenantSlug).maybeSingle();
+                if (!tenant) return { ok: true, logs: [] };
 
-                if (payload.name) {
-                    query = query.ilike('name', `%${payload.name.trim()}%`);
+                let query = supabaseClient.from('attendance_logs').select(`
+                    id,
+                    occurred_at,
+                    event_type,
+                    status,
+                    distance_meters,
+                    verification_method,
+                    staff:staff_id(id, name, department),
+                    office:office_id(name)
+                `).eq('tenant_id', tenant.id);
+
+                if (payload.staffId) {
+                    query = query.eq('staff_id', payload.staffId);
                 }
                 if (payload.fromDate) {
-                    query = query.gte('date', payload.fromDate);
+                    query = query.gte('occurred_at', payload.fromDate);
                 }
                 if (payload.toDate) {
-                    query = query.lte('date', payload.toDate);
+                    query = query.lte('occurred_at', payload.toDate);
                 }
 
                 const limitVal = parseInt(payload.limit, 10) || 200;
-                query = query.order('created_at', { ascending: false }).limit(limitVal);
+                query = query.order('occurred_at', { ascending: false }).limit(limitVal);
 
                 const { data, error } = await query;
                 if (error) throw error;
-                return { ok: true, logs: data || [] };
+
+                const logs = (data || []).map(row => ({
+                    id: row.id,
+                    name: row.staff ? row.staff.name : (payload.name || 'Staff Member'),
+                    dept: row.staff ? (row.staff.department || 'General') : 'General',
+                    action: (row.event_type || 'IN').toUpperCase(),
+                    status: row.status === 'on_site' ? 'Verified Present' : (row.status === 'provisional_transfer' ? 'Provisional Transfer' : (row.status === 'outside_perimeter' ? 'Outside Perimeter' : row.status)),
+                    time: new Date(row.occurred_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    date: row.occurred_at ? row.occurred_at.split('T')[0] : '',
+                    occurred_at: row.occurred_at,
+                    distance: row.distance_meters,
+                    verification_method: row.verification_method,
+                    office: row.office ? row.office.name : 'Office'
+                }));
+
+                return { ok: true, logs };
             }
+
         default:
             return null;
     }
@@ -1431,36 +1444,23 @@ async function handleStaffBackend(mode, payload) {
                 const name = String(payload.name || '').trim();
                 if (!name) return { ok: false, message: 'Staff name is required.' };
 
-                const staff = await getTenantStaffList(tenantSlug);
-                if (staff.some(s => s.name.toLowerCase() === name.toLowerCase())) {
-                    return { ok: false, message: `Staff member "${name}" already exists.` };
+                const res = await supabaseClient.rpc('manage_tenant_staff', {
+                    p_action: 'add',
+                    p_tenant_slug: tenantSlug,
+                    p_staff_data: {
+                        name,
+                        dept: String(payload.dept || 'General').trim(),
+                        schedule_policy: normalizeSchedulePolicy(payload.schedule_policy),
+                        is_team_lead: Boolean(payload.is_team_lead),
+                        include_in_reports: payload.include_in_reports !== false
+                    }
+                });
+
+                try { safeStorage.removeItem(`staff_cache_${tenantSlug}`); safeStorage.removeItem('attendance_staff_cache_v2'); } catch(e) {}
+                if (res && res.data && res.data.ok) {
+                    return { ok: true, message: res.data.message || 'Staff added successfully.' };
                 }
-
-                const newMember = {
-                    id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : 'staff_' + Math.random().toString(36).substring(2, 9),
-                    name,
-                    dept: String(payload.dept || 'General').trim(),
-                    schedule_policy: normalizeSchedulePolicy(payload.schedule_policy),
-                    is_team_lead: Boolean(payload.is_team_lead),
-                    include_in_reports: payload.include_in_reports !== false,
-                    device_id: null,
-                    device_token: null,
-                    created_at: new Date().toISOString()
-                };
-
-                staff.push(newMember);
-                await saveTenantStaffList(tenantSlug, staff);
-
-                if (tenantSlug === 'lifecard') {
-                    try {
-                        await supabaseClient.from('staff').insert([{ name }]);
-                    } catch (e) {}
-                    const metaMap = await getStaffMetadataMap();
-                    metaMap[name] = { dept: newMember.dept, schedule_policy: newMember.schedule_policy, is_team_lead: newMember.is_team_lead, include_in_reports: newMember.include_in_reports };
-                    await saveStaffMetadataMap(metaMap);
-                }
-
-                return { ok: true, message: 'Staff added successfully.', staffMember: newMember };
+                return { ok: false, message: (res && res.data && res.data.message) || 'Could not add staff.' };
             }
             case 'batch-import-staff': {
                 const tenantSlug = await resolveRequestedTenantSlug(payload);
@@ -1468,123 +1468,104 @@ async function handleStaffBackend(mode, payload) {
                 const list = Array.isArray(payload.staff) ? payload.staff : [];
                 if (!list.length) return { ok: false, message: 'No staff data provided.' };
 
-                const staff = await getTenantStaffList(tenantSlug);
-                const existingNames = new Set(staff.map(s => String(s.name || '').trim().toLowerCase()));
-                let addedCount = 0;
-                let updatedCount = 0;
+                const cleanList = list.map(item => ({
+                    name: String(item.name || '').trim(),
+                    dept: String(item.dept || item.department || 'General').trim(),
+                    schedule_policy: normalizeSchedulePolicy(item.schedule_policy),
+                    is_team_lead: Boolean(item.is_team_lead),
+                    include_in_reports: item.include_in_reports !== false
+                })).filter(i => Boolean(i.name));
 
-                for (const item of list) {
-                    const name = String(item.name || '').trim();
-                    if (!name) continue;
-                    const dept = String(item.dept || 'General').trim();
-                    const schedule_policy = normalizeSchedulePolicy(item.schedule_policy);
-                    const is_team_lead = Boolean(item.is_team_lead);
-                    const include_in_reports = item.include_in_reports !== false;
+                const res = await supabaseClient.rpc('manage_tenant_staff', {
+                    p_action: 'batch_import',
+                    p_tenant_slug: tenantSlug,
+                    p_staff_data: cleanList
+                });
 
-                    const existingIdx = staff.findIndex(s => s.name.toLowerCase() === name.toLowerCase());
-                    if (existingIdx !== -1) {
-                        staff[existingIdx] = {
-                            ...staff[existingIdx],
-                            dept,
-                            schedule_policy,
-                            is_team_lead,
-                            include_in_reports
-                        };
-                        updatedCount++;
-                    } else {
-                        staff.push({
-                            id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : 'staff_' + Math.random().toString(36).substring(2, 9),
-                            name,
-                            dept,
-                            schedule_policy,
-                            is_team_lead,
-                            include_in_reports,
-                            device_id: null,
-                            device_token: null,
-                            created_at: new Date().toISOString()
-                        });
-                        existingNames.add(name.toLowerCase());
-                        addedCount++;
-                    }
+                try { safeStorage.removeItem(`staff_cache_${tenantSlug}`); safeStorage.removeItem('attendance_staff_cache_v2'); } catch(e) {}
+                if (res && res.data && res.data.ok) {
+                    return {
+                        ok: true,
+                        message: res.data.message || `Processed ${cleanList.length} staff records.`,
+                        count: res.data.count || cleanList.length
+                    };
                 }
-
-                await saveTenantStaffList(tenantSlug, staff);
-                return {
-                    ok: true,
-                    message: `Imported ${addedCount} new staff, updated ${updatedCount} existing.`,
-                    addedCount,
-                    updatedCount
-                };
+                return { ok: false, message: (res && res.data && res.data.message) || 'Import failed.' };
             }
             case 'update-staff': {
                 const tenantSlug = await resolveRequestedTenantSlug(payload);
                 if (!tenantSlug) return { ok: false, message: 'No active workspace selected or authorized.' };
                 const name = String(payload.name || '').trim();
-                const staff = await getTenantStaffList(tenantSlug);
-                const idx = staff.findIndex(s => s.name.toLowerCase() === name.toLowerCase());
-                if (idx === -1) return { ok: false, message: 'Staff member not found.' };
 
-                staff[idx] = {
-                    ...staff[idx],
-                    dept: payload.dept !== undefined ? String(payload.dept).trim() : staff[idx].dept,
-                    schedule_policy: payload.schedule_policy !== undefined ? String(payload.schedule_policy).trim() : staff[idx].schedule_policy,
-                    is_team_lead: payload.is_team_lead !== undefined ? Boolean(payload.is_team_lead) : staff[idx].is_team_lead,
-                    include_in_reports: payload.include_in_reports !== undefined ? Boolean(payload.include_in_reports) : staff[idx].include_in_reports
-                };
-                await saveTenantStaffList(tenantSlug, staff);
+                const res = await supabaseClient.rpc('manage_tenant_staff', {
+                    p_action: 'update',
+                    p_tenant_slug: tenantSlug,
+                    p_staff_data: {
+                        id: payload.id,
+                        name,
+                        dept: payload.dept !== undefined ? String(payload.dept).trim() : undefined,
+                        schedule_policy: payload.schedule_policy !== undefined ? normalizeSchedulePolicy(payload.schedule_policy) : undefined,
+                        is_team_lead: payload.is_team_lead !== undefined ? Boolean(payload.is_team_lead) : undefined,
+                        include_in_reports: payload.include_in_reports !== undefined ? Boolean(payload.include_in_reports) : undefined
+                    }
+                });
 
-                if (tenantSlug === 'lifecard') {
-                    const metaMap = await getStaffMetadataMap();
-                    metaMap[name] = { dept: staff[idx].dept, schedule_policy: staff[idx].schedule_policy, is_team_lead: staff[idx].is_team_lead, include_in_reports: staff[idx].include_in_reports };
-                    await saveStaffMetadataMap(metaMap);
+                try { safeStorage.removeItem(`staff_cache_${tenantSlug}`); safeStorage.removeItem('attendance_staff_cache_v2'); } catch(e) {}
+                if (res && res.data && res.data.ok) {
+                    return { ok: true, message: res.data.message || 'Staff updated successfully.' };
                 }
-
-                return { ok: true, message: 'Staff updated successfully.', staffMember: staff[idx] };
+                return { ok: false, message: (res && res.data && res.data.message) || 'Could not update staff.' };
             }
             case 'remove-staff': {
                 const tenantSlug = await resolveRequestedTenantSlug(payload);
                 if (!tenantSlug) return { ok: false, message: 'No active workspace selected or authorized.' };
                 const name = String(payload.name || '').trim();
-                let staff = await getTenantStaffList(tenantSlug);
-                staff = staff.filter(s => s.name.toLowerCase() !== name.toLowerCase());
-                await saveTenantStaffList(tenantSlug, staff);
 
-                if (tenantSlug === 'lifecard') {
-                    try { await supabaseClient.from('staff').delete().eq('name', name); } catch(e) {}
-                    const metaMap = await getStaffMetadataMap();
-                    if (metaMap[name]) { delete metaMap[name]; await saveStaffMetadataMap(metaMap); }
+                const res = await supabaseClient.rpc('manage_tenant_staff', {
+                    p_action: 'remove',
+                    p_tenant_slug: tenantSlug,
+                    p_staff_data: { name, id: payload.id }
+                });
+
+                try { safeStorage.removeItem(`staff_cache_${tenantSlug}`); safeStorage.removeItem('attendance_staff_cache_v2'); } catch(e) {}
+                if (res && res.data && res.data.ok) {
+                    return { ok: true, message: res.data.message || 'Staff removed successfully.' };
                 }
-
-                return { ok: true, message: 'Staff removed successfully.' };
+                return { ok: false, message: (res && res.data && res.data.message) || 'Could not remove staff.' };
             }
             case 'reset-staff-lock': {
                 const tenantSlug = await resolveRequestedTenantSlug(payload);
                 if (!tenantSlug) return { ok: false, message: 'No active workspace selected or authorized.' };
                 const name = String(payload.name || '').trim();
-                const staff = await getTenantStaffList(tenantSlug);
-                const member = staff.find(s => s.name.toLowerCase() === name.toLowerCase());
-                if (member) {
-                    member.device_id = null;
-                    member.device_token = null;
-                    member.was_unlinked_by_admin = true;
-                    await saveTenantStaffList(tenantSlug, staff);
+
+                const res = await supabaseClient.rpc('manage_tenant_staff', {
+                    p_action: 'reset_lock',
+                    p_tenant_slug: tenantSlug,
+                    p_staff_data: { name, id: payload.id }
+                });
+
+                try { safeStorage.removeItem(`staff_cache_${tenantSlug}`); safeStorage.removeItem('attendance_staff_cache_v2'); } catch(e) {}
+                if (res && res.data && res.data.ok) {
+                    return { ok: true, message: res.data.message || 'Device lock reset successfully.' };
                 }
-                if (tenantSlug === 'lifecard') {
-                    try { await supabaseClient.from('staff').update({ device_id: null }).eq('name', name); } catch(e) {}
-                }
-                return { ok: true, message: 'Device lock reset successfully.' };
+                return { ok: false, message: (res && res.data && res.data.message) || 'Could not reset device lock.' };
             }
             case 'reset-all-locks': {
                 const tenantSlug = await resolveRequestedTenantSlug(payload);
                 if (!tenantSlug) return { ok: false, message: 'No active workspace selected or authorized.' };
-                const staff = await getTenantStaffList(tenantSlug);
-                staff.forEach(s => { s.device_id = null; s.device_token = null; s.was_unlinked_by_admin = true; });
-                await saveTenantStaffList(tenantSlug, staff);
-                if (tenantSlug === 'lifecard') {
-                    try { await supabaseClient.from('staff').update({ device_id: null }).neq('name', 'dummy'); } catch(e) {}
+
+                const res = await supabaseClient.rpc('manage_tenant_staff', {
+                    p_action: 'reset_all_locks',
+                    p_tenant_slug: tenantSlug
+                });
+
+                try { safeStorage.removeItem(`staff_cache_${tenantSlug}`); safeStorage.removeItem('attendance_staff_cache_v2'); } catch(e) {}
+                if (res && res.data && res.data.ok) {
+                    return { ok: true, message: res.data.message || 'All device locks reset successfully.' };
                 }
-                return { ok: true, message: 'All device locks reset successfully.' };
+                return { ok: false, message: (res && res.data && res.data.message) || 'Could not reset all device locks.' };
             }
+
             case 'verify-staff-member': {
                 const activeTenant = await getActiveTenant(payload.tenantSlug);
                 const tenantSlug = (payload.tenantSlug || (activeTenant ? activeTenant.slug : 'default')).toLowerCase();
@@ -2074,58 +2055,58 @@ async function handleDeviceBackend(mode, payload) {
             case 'request-device-transfer': {
                 const staffName = payload.staffName || 'Employee';
                 const tenantSlug = payload.tenantSlug || 'default';
-                const deviceId = payload.deviceId || '';
-                const queueKey = `device_transfers_${tenantSlug}`;
-                let queue = readStoredJson(queueKey, []);
+                const deviceId = payload.deviceId || (typeof getDeviceId === 'function' ? getDeviceId() : null);
 
-                // 1. Single Pending Request Constraint Check
-                const existingPending = queue.find(item => item.staffName && item.staffName.toLowerCase() === staffName.toLowerCase() && item.status === 'pending');
-                if (existingPending) {
-                    return { ok: false, duplicate: true, message: `A device transfer request for ${staffName} is already pending admin approval.` };
+                let staffId = payload.staffId;
+                if (!staffId && staffName) {
+                    const staffList = await getTenantStaffList(tenantSlug);
+                    const s = staffList.find(item => item.name.toLowerCase() === staffName.toLowerCase());
+                    if (s) staffId = s.id;
                 }
 
-                // 2. 15-Minute Rejection Cooldown Rate-Limiting Check
-                const recentRejected = queue.find(item => {
-                    if (item.staffName && item.staffName.toLowerCase() === staffName.toLowerCase() && item.status === 'rejected') {
-                        const rejectedTime = new Date(item.rejectedAt || item.resolved_at || item.requestedAt).getTime();
-                        const diffMs = Date.now() - rejectedTime;
-                        return diffMs < 15 * 60 * 1000; // 15 minutes
-                    }
-                    return false;
-                });
-
-                if (recentRejected) {
-                    const rejectedTime = new Date(recentRejected.rejectedAt || recentRejected.resolved_at || recentRejected.requestedAt).getTime();
-                    const remainingMins = Math.ceil((15 * 60 * 1000 - (Date.now() - rejectedTime)) / 60000);
-                    return { ok: false, rateLimited: true, message: `A recent transfer request for ${staffName} was rejected. Please wait ${remainingMins} minute(s) before submitting again.` };
+                if (!staffId) {
+                    return { ok: false, message: `Staff member "${staffName}" not found.` };
                 }
 
                 try {
-                    await supabaseClient.from('device_transfers').insert([{
-                        tenant_slug: tenantSlug,
-                        staff_name: staffName,
-                        device_id: deviceId,
-                        requested_at: new Date().toISOString(),
-                        status: 'pending'
-                    }]);
-                } catch(e) {}
-                
-                queue.unshift({
-                    id: 'tr_' + Date.now(),
-                    staffName: staffName,
-                    deviceId: deviceId,
-                    requestedAt: new Date().toISOString(),
-                    status: 'pending'
-                });
-                writeStoredJson(queueKey, queue.slice(0, 50));
-
-                return { ok: true, message: 'Transfer request submitted.' };
+                    const { data, error } = await supabaseClient.rpc('request_device_transfer', {
+                        p_staff_id: staffId,
+                        p_device_id: deviceId
+                    });
+                    if (error) throw error;
+                    return data;
+                } catch(e) {
+                    console.warn('Error in request_device_transfer RPC:', e);
+                    return { ok: false, message: e.message || 'Could not request transfer.' };
+                }
             }
             case 'get-device-transfers': {
                 const tenantSlug = payload.tenantSlug || 'default';
                 try {
-                    const { data } = await supabaseClient.from('device_transfers').select('*').eq('tenant_slug', tenantSlug).order('requested_at', { ascending: false });
-                    if (Array.isArray(data) && data.length) return { ok: true, transfers: data };
+                    const { data: tenant } = await supabaseClient.from('tenants').select('id').eq('slug', tenantSlug).maybeSingle();
+                    if (tenant && tenant.id) {
+                        const { data, error } = await supabaseClient
+                            .from('device_transfer_requests')
+                            .select('id, staff_id, requested_device_id, status, requested_at, transfer_code, staff:staff_id(name, department)')
+                            .eq('tenant_id', tenant.id)
+                            .eq('status', 'pending')
+                            .order('requested_at', { ascending: false });
+
+                        if (!error && Array.isArray(data)) {
+                            const mapped = data.map(r => ({
+                                id: r.id,
+                                staffName: r.staff ? r.staff.name : 'Employee',
+                                staff_name: r.staff ? r.staff.name : 'Employee',
+                                dept: r.staff ? (r.staff.department || 'General') : 'General',
+                                deviceId: r.requested_device_id,
+                                requestedAt: r.requested_at,
+                                requested_at: r.requested_at,
+                                transfer_code: r.transfer_code,
+                                status: r.status
+                            }));
+                            return { ok: true, transfers: mapped };
+                        }
+                    }
                 } catch(e) {}
                 const queueKey = `device_transfers_${tenantSlug}`;
                 const localTransfers = readStoredJson(queueKey, []);
@@ -2133,29 +2114,58 @@ async function handleDeviceBackend(mode, payload) {
             }
             case 'approve-device-transfer': {
                 const tenantSlug = payload.tenantSlug || 'default';
-                const staffName = payload.staffName;
-                try {
-                    await supabaseClient.from('device_transfers').update({ status: 'approved', resolved_at: new Date().toISOString() }).eq('tenant_slug', tenantSlug).eq('staff_name', staffName);
-                    await supabaseClient.from('staff').update({ device_id: null }).eq('tenant_slug', tenantSlug).eq('name', staffName);
-                } catch(e) {}
-                const queueKey = `device_transfers_${tenantSlug}`;
-                let queue = readStoredJson(queueKey, []);
-                queue = queue.map(item => item.staffName === staffName ? { ...item, status: 'approved' } : item);
-                writeStoredJson(queueKey, queue);
-                return { ok: true, message: 'Device transfer approved and reset successfully.' };
+                let reqId = payload.requestId;
+                if (!reqId && payload.staffName) {
+                    const transfersRes = await handleStaffBackend('get-device-transfers', { tenantSlug });
+                    const item = (transfersRes.transfers || []).find(t => (t.staffName || t.staff_name || '').toLowerCase() === payload.staffName.toLowerCase());
+                    if (item) reqId = item.id;
+                }
+                if (reqId) {
+                    try {
+                        const { data, error } = await supabaseClient.rpc('admin_resolve_device_transfer', {
+                            p_request_id: reqId,
+                            p_action: 'approve'
+                        });
+                        if (!error && data && data.ok) {
+                            try { safeStorage.removeItem(`staff_cache_${tenantSlug}`); safeStorage.removeItem('attendance_staff_cache_v2'); } catch(e) {}
+                            return data;
+                        }
+                    } catch(e) {}
+                }
+                return { ok: false, message: 'Could not approve device transfer.' };
             }
             case 'reject-device-transfer': {
                 const tenantSlug = payload.tenantSlug || 'default';
-                const staffName = payload.staffName;
-                const nowIso = new Date().toISOString();
+                let reqId = payload.requestId;
+                if (!reqId && payload.staffName) {
+                    const transfersRes = await handleStaffBackend('get-device-transfers', { tenantSlug });
+                    const item = (transfersRes.transfers || []).find(t => (t.staffName || t.staff_name || '').toLowerCase() === payload.staffName.toLowerCase());
+                    if (item) reqId = item.id;
+                }
+                if (reqId) {
+                    try {
+                        const { data, error } = await supabaseClient.rpc('admin_resolve_device_transfer', {
+                            p_request_id: reqId,
+                            p_action: 'reject'
+                        });
+                        if (!error && data && data.ok) return data;
+                    } catch(e) {}
+                }
+                return { ok: false, message: 'Could not reject device transfer.' };
+            }
+            case 'save-push-subscription': {
+                const tenantSlug = payload.tenantSlug || 'default';
                 try {
-                    await supabaseClient.from('device_transfers').update({ status: 'rejected', resolved_at: nowIso }).eq('tenant_slug', tenantSlug).eq('staff_name', staffName).eq('status', 'pending');
-                } catch(e) {}
-                const queueKey = `device_transfers_${tenantSlug}`;
-                let queue = readStoredJson(queueKey, []);
-                queue = queue.map(item => (item.staffName === staffName && item.status === 'pending') ? { ...item, status: 'rejected', rejectedAt: nowIso } : item);
-                writeStoredJson(queueKey, queue);
-                return { ok: true, message: 'Device transfer request rejected.' };
+                    const { data: tenant } = await supabaseClient.from('tenants').select('id').eq('slug', tenantSlug).maybeSingle();
+                    await supabaseClient.from('push_subscriptions').upsert([{
+                        tenant_id: tenant ? tenant.id : null,
+                        subscription: payload.subscription,
+                        user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null
+                    }], { onConflict: 'tenant_id,subscription' });
+                    return { ok: true, message: 'Push subscription saved successfully.' };
+                } catch(e) {
+                    return { ok: false, message: e.message };
+                }
             }
         default:
             return null;

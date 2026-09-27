@@ -276,3 +276,29 @@ grant select on public.tenants, public.offices, public.staff, public.attendance_
 grant insert, update, delete on public.tenants, public.offices, public.staff, public.hybrid_schedules, public.device_transfer_requests to authenticated;
 grant execute on function public.get_workspace_for_pairing(text), public.get_workspace_staff(text), public.bind_staff_device(uuid, uuid), public.verify_staff_device(uuid, uuid), public.record_attendance(uuid, uuid, text, double precision, double precision), public.get_fleet_overview() to anon, authenticated;
 grant execute on function public.create_workspace(text, text, text, text, text, text, double precision, double precision, integer, text, text) to authenticated;
+
+-- Roadmap: Push Subscriptions & Team Lead / Device Transfer RPCs
+create table if not exists public.push_subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  tenant_id uuid references public.tenants(id) on delete cascade,
+  user_id uuid references auth.users(id) on delete set null,
+  subscription jsonb not null,
+  user_agent text,
+  created_at timestamptz not null default now(),
+  unique (tenant_id, subscription)
+);
+
+alter table public.push_subscriptions enable row level security;
+create policy "Admins manage push subscriptions" on public.push_subscriptions for all to authenticated using (public.is_tenant_admin(tenant_id)) with check (public.is_tenant_admin(tenant_id));
+create policy "Anyone can register push subscriptions" on public.push_subscriptions for insert to anon, authenticated with check (true);
+grant select, insert, update, delete on public.push_subscriptions to anon, authenticated;
+
+grant execute on function public.request_device_transfer(uuid, uuid), 
+  public.approve_device_transfer_by_lead(uuid, text, uuid, uuid),
+  public.get_pending_transfers_for_lead(uuid, uuid),
+  public.admin_resolve_device_transfer(uuid, text),
+  public.get_workspace_config(text),
+  public.manage_tenant_staff(text, text, jsonb)
+to anon, authenticated;
+
+
