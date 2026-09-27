@@ -12,12 +12,12 @@
 <body>
 
 <div class="onboard-wrapper">
-    <div style="display:flex; justify-content:space-between; align-items:center; padding: 4px 0;">
-        <a href="../" style="display:inline-flex; align-items:center; gap:6px; font-size:0.82rem; color:var(--text-muted); text-decoration:none; font-weight:500;">
-            <i data-lucide="arrow-left" size="14"></i> Back
+    <div class="onboard-top-nav">
+        <a href="../" style="display:inline-flex; align-items:center; gap:6px; font-size:0.85rem; color:var(--text-muted); text-decoration:none; font-weight:600; min-height:44px; padding:0 4px;">
+            <i data-lucide="arrow-left" size="16"></i> Back
         </a>
-        <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch theme" title="Toggle Theme" style="padding:6px 10px; border-radius:8px; border:1px solid var(--border); background:var(--surface); color:var(--text); cursor:pointer; display:inline-flex; align-items:center; justify-content:center;">
-            <i data-lucide="moon" size="14"></i>
+        <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch theme" title="Toggle Theme" style="min-width:44px; min-height:44px; border-radius:8px; border:1px solid var(--border); background:var(--surface); color:var(--text); cursor:pointer; display:inline-flex; align-items:center; justify-content:center;">
+            <i data-lucide="moon" size="16"></i>
         </button>
     </div>
     <header class="onboard-header">
@@ -337,9 +337,6 @@
             <button type="button" class="btn-secondary" onclick="closeEmailVerifyModal()" style="width:100%; justify-content:center;">Cancel</button>
         </div>
     </div>
-</div>
-
-    </main>
 </div>
 
 <script src="../common.js?v=3.0.3"></script>

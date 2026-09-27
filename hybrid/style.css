@@ -375,21 +375,67 @@ td {
 }
 
 @media (max-width: 680px) {
+    body {
+        padding: 8px;
+    }
+    .container {
+        padding: 1rem 0.75rem;
+        border-radius: 8px;
+    }
     header {
         flex-direction: column;
-        align-items: flex-start;
+        align-items: stretch;
+        gap: 10px;
+    }
+    .brand {
+        width: 100%;
     }
     .header-right {
         width: 100%;
-        justify-content: space-between;
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 8px;
+    }
+    .dept-filter-select {
+        grid-column: 1 / 2;
+        width: 100%;
+    }
+    #export-controls {
+        grid-column: 1 / -1;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 6px;
+        width: 100%;
+    }
+    #export-controls button {
+        width: 100%;
+        justify-content: center;
+        padding: 8px 4px;
+        font-size: 0.75rem;
     }
     #admin-controls {
+        grid-column: 1 / -1;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
         width: 100%;
-        justify-content: space-between;
     }
-    button {
-        flex: 1 1 45%;
+    #admin-controls button {
+        width: 100%;
         justify-content: center;
+    }
+    #hybrid-admin-login-btn {
+        grid-column: 1 / -1;
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+@media (max-width: 400px) {
+    .brand h1 {
+        font-size: 1.1rem;
+    }
+    .table-container {
+        border-radius: 6px;
     }
 }
 
