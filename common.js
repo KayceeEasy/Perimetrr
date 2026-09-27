@@ -16,8 +16,8 @@ const STORAGE_KEYS = {
 };
 
 // Supabase Initialization
-const supabaseUrl = 'https://akhditjeiwjuzvubnacw.supabase.co';
-const supabaseKey = 'sb_publishable_9BkVRtmi-6UG15Va5xNHbw_R7J_hKhi';
+const supabaseUrl = 'https://opstrnvrraimoqoqpawg.supabase.co';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9wc3RybnZycmFpbW9xb3FwYXdnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAyNzQ5NTMsImV4cCI6MjEwNTg1MDk1M30.0h6c6g289vNJ-IQWRzLChLjcMXKR7kXXLCklZWcMVfQ';
 const supabaseClient = (typeof window !== 'undefined' && window.supabase) ? window.supabase.createClient(supabaseUrl, supabaseKey) : null;
 if (typeof window !== 'undefined') {
     window.supabaseUrl = supabaseUrl;
