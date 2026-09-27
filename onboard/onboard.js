@@ -40,13 +40,13 @@ function updateSlugPreview(slugVal) {
     const slugPreviewEl = document.getElementById('full-slug-preview');
 
     if (prefixEl) {
-        prefixEl.textContent = `${window.location.host}${basePath}/tenant/`;
+        prefixEl.textContent = `${window.location.host}${basePath}/`;
     }
     if (adminPreviewEl) {
-        adminPreviewEl.textContent = `${origin}${basePath}/tenant/${clean}/admin/`;
+        adminPreviewEl.textContent = `${origin}${basePath}/${clean}/admin/`;
     }
     if (slugPreviewEl) {
-        slugPreviewEl.textContent = `${origin}${basePath}/tenant/${clean}/`;
+        slugPreviewEl.textContent = `${origin}${basePath}/${clean}/`;
     }
 }
 
@@ -691,8 +691,8 @@ function showSuccessScreen(tenant) {
 
     const code = tenant.workspace_code || 'LIFE-26';
     const staffJoinUrl = `${origin}${basePath}/?join=${encodeURIComponent(code)}`;
-    const adminUrl = `${origin}${basePath}/tenant/${tenant.slug}/admin/`;
-    const hybridUrl = `${origin}${basePath}/tenant/${tenant.slug}/hybrid/`;
+    const adminUrl = `${origin}${basePath}/${tenant.slug}/admin/`;
+    const hybridUrl = `${origin}${basePath}/${tenant.slug}/hybrid/`;
 
     currentStaffJoinUrl = staffJoinUrl;
     currentWorkspaceCode = code;

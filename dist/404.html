@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Redirecting…</title>
+    <script>
+        // GitHub Pages SPA Router for Perimetrr
+        // When GH Pages can't find a file it serves this 404.html.
+        // We parse the path, extract the workspace slug, and redirect
+        // to the correct static page with ?tenant=slug preserved.
+        (function () {
+            var loc = window.location;
+            var segments = loc.pathname.split('/').filter(Boolean);
+
+            // Detect GitHub Pages repo prefix (e.g. /Perimetrr/)
+            var isGhio = loc.hostname.indexOf('.github.io') !== -1;
+            var repoName = isGhio && segments.length > 0 ? segments.shift() : null;
+            var basePath = repoName ? '/' + repoName : '';
+
+            // Known static routes that are NOT workspace slugs
+            var knownRoutes = ['admin', 'watch-tower', 'onboard', 'hybrid', 'image'];
+
+            var slug = '';
+            var targetPage = '/';
+
+            if (segments.length > 0 && knownRoutes.indexOf(segments[0]) === -1) {
+                // First segment is a workspace slug
+                slug = segments[0];
+                if (segments.length > 1 && knownRoutes.indexOf(segments[1]) !== -1) {
+                    // e.g. /acme/admin/ → redirect to /admin/?tenant=acme
+                    targetPage = '/' + segments[1] + '/';
+                }
+                // else /acme/ → redirect to /?tenant=acme
+            }
+
+            // Build redirect URL
+            var query = slug ? '?tenant=' + encodeURIComponent(slug) : '';
+            // Preserve any existing query params
+            if (loc.search) {
+                query = query
+                    ? query + '&' + loc.search.substring(1)
+                    : loc.search;
+            }
+
+            var dest = loc.protocol + '//' + loc.host + basePath + targetPage + query + loc.hash;
+            loc.replace(dest);
+        })();
+    </script>
+</head>
+<body>
+    <p>Redirecting&hellip;</p>
+</body>
+</html>

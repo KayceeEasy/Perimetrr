@@ -84,6 +84,6 @@ Staff Attendance Cloud is engineered with strict privacy standards:
 
 ## 💼 Getting Started
 
-Visit your company's customized workspace link (e.g. `https://your-domain.com/tenant/your-company/`) or scan your office QR code to start tracking daily attendance effortlessly.
+Visit your company's customized workspace link (e.g. `https://perimetrr.com/your-company/`) or scan your office QR code to start tracking daily attendance effortlessly.
 
 &copy; 2026 Staff Attendance Cloud. All rights reserved.

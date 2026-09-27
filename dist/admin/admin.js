@@ -63,6 +63,12 @@ function getActiveAdminTenantSlug() {
     const localTenant = (typeof safeStorage !== 'undefined' && safeStorage.getItem('active_tenant_slug')) || null;
     if (localTenant) return localTenant;
     if (typeof window !== 'undefined' && window.location) {
+        // Path-based slug: /:slug/admin/ → first segment is the slug
+        const pathParts = window.location.pathname.split('/').filter(Boolean);
+        const knownRoutes = ['admin', 'watch-tower', 'onboard', 'hybrid', 'image'];
+        if (pathParts.length > 1 && pathParts[1] === 'admin' && !knownRoutes.includes(pathParts[0].toLowerCase())) {
+            return pathParts[0];
+        }
         const p = new URLSearchParams(window.location.search);
         const q = p.get('tenant') || p.get('company');
         if (q) return q;

@@ -12,7 +12,8 @@ const FILES_TO_COPY = [
     'version.js',
     'manifest.json',
     'sw.js',
-    'robots.txt'
+    'robots.txt',
+    '404.html'
 ];
 
 const DIRS_TO_COPY = [

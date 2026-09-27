@@ -710,18 +710,18 @@ async function getActiveTenant(optionalSlug = null) {
                         safeStorage.setItem('active_tenant_slug', matched.slug);
                         // Clean the URL immediately to '/' so zero code or slug remains in address bar/history
                         if (window.history && window.history.replaceState) {
-                            window.history.replaceState({}, document.title, window.location.pathname.replace(/\/tenant\/[^\/]+/i, '') || '/');
+                            window.history.replaceState({}, document.title, '/');
                         }
                     } catch (e) {}
                 }
             }
 
-            // 2. Direct clean path fallback: /tenant/:slug
+            // 2. Direct clean path fallback: /:slug (first path segment if not a known route)
             if (!slug) {
                 const pathParts = window.location.pathname.split('/').filter(Boolean);
-                const tenantIdx = pathParts.indexOf('tenant');
-                if (tenantIdx !== -1 && pathParts[tenantIdx + 1]) {
-                    slug = pathParts[tenantIdx + 1];
+                const knownRoutes = ['admin', 'watch-tower', 'onboard', 'hybrid', 'image', 'sw.js'];
+                if (pathParts.length > 0 && !knownRoutes.includes(pathParts[0].toLowerCase())) {
+                    slug = pathParts[0];
                 }
             }
 

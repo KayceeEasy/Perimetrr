@@ -208,7 +208,7 @@ function renderTenantsTable(tenants) {
                             </div>
                             <div class="company-slug" style="display:flex; align-items:center; gap:6px;">
                                 <span style="background:rgba(26,86,219,0.1); color:var(--primary); padding:1px 5px; border-radius:4px; font-weight:700; font-size:0.72rem; letter-spacing:1px;">${escapeHtml(code)}</span>
-                                <span style="font-size:0.75rem; color:var(--text-muted);">/tenant/${escapeHtml(t.slug)}/</span>
+                                <span style="font-size:0.75rem; color:var(--text-muted);">/${escapeHtml(t.slug)}/</span>
                             </div>
                         </div>
                     </div>
@@ -288,7 +288,7 @@ async function openTenantMasterModal(slug) {
 
     // Set header
     document.getElementById('modal-company-name').textContent = tenant.name;
-    document.getElementById('modal-company-slug-badge').textContent = `/tenant/${tenant.slug}/`;
+    document.getElementById('modal-company-slug-badge').textContent = `/${tenant.slug}/`;
     const logoWrap = document.getElementById('modal-company-logo-wrap');
     if (tenant.logo_url) {
         logoWrap.innerHTML = `<img src="${tenant.logo_url}" alt="logo" style="max-height:36px; max-width:80px; object-fit:contain;" />`;
@@ -722,20 +722,20 @@ async function handleMasqueradeAdmin(slug) {
     const token = await generateMasqueradeToken(targetSlug);
     const basePath = window.location.pathname.replace(/\/watch-tower(\/.*)?$/, '');
     const origin = window.location.origin;
-    const url = `${origin}${basePath}/tenant/${encodeURIComponent(targetSlug)}/admin/?masquerade=${encodeURIComponent(token)}`;
+    const url = `${origin}${basePath}/${encodeURIComponent(targetSlug)}/admin/?masquerade=${encodeURIComponent(token)}`;
     window.open(url, '_blank');
 }
 
 function handleMasqueradePortal() {
     if (!activeMasterTenantSlug) return;
     const basePath = window.location.pathname.replace(/\/watch-tower(\/.*)?$/, '');
-    window.open(`${window.location.origin}${basePath}/tenant/${activeMasterTenantSlug}/`, '_blank');
+    window.open(`${window.location.origin}${basePath}/${activeMasterTenantSlug}/`, '_blank');
 }
 
 function handleMasqueradeHybrid() {
     if (!activeMasterTenantSlug) return;
     const basePath = window.location.pathname.replace(/\/watch-tower(\/.*)?$/, '');
-    window.open(`${window.location.origin}${basePath}/tenant/${activeMasterTenantSlug}/hybrid/`, '_blank');
+    window.open(`${window.location.origin}${basePath}/${activeMasterTenantSlug}/hybrid/`, '_blank');
 }
 
 async function handleExportTenantData() {
