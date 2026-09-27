@@ -1007,6 +1007,13 @@ async function loadAdminUsersList() {
                     showToast('Passwords do not match.', 'error');
                     return;
                 }
+                if (typeof validatePasswordStrength === 'function') {
+                    const check = validatePasswordStrength(result[0]);
+                    if (!check.ok) {
+                        showToast(check.message, 'error');
+                        return;
+                    }
+                }
                 // Send plain-text password — Auth hashes it internally
                 const res = await callBackend({ mode: 'admin-reset-user-password', targetUsername: target, newPassword: result[0], tenantSlug: getActiveAdminTenantSlug() });
                 showToast(res.message || 'Password reset successfully.', res.ok ? 'success' : 'error');
@@ -1053,6 +1060,18 @@ async function handleAddAdminUser() {
     const email = result[1].trim();
     const newPass = result[2];
     const selectedRole = result[3] || (isSuper ? 'admin' : 'sub_admin');
+
+    if (typeof isValidEmail === 'function' && !isValidEmail(email)) {
+        showToast('A valid email address is required for administrator accounts.', 'error');
+        return;
+    }
+    if (typeof validatePasswordStrength === 'function') {
+        const check = validatePasswordStrength(newPass);
+        if (!check.ok) {
+            showToast(check.message, 'error');
+            return;
+        }
+    }
 
     const res = await callBackend({
         mode: 'add-admin-user',
@@ -2035,7 +2054,7 @@ async function handleEditStaff(name) {
             { 
                 label: 'Work Policy', 
                 type: 'select', 
-                value: (member.schedule_policy === 'executive') ? 'field_flexible' : (member.schedule_policy || 'weekly_hybrid'),
+                value: (member.schedule_policy === 'executive' || member.schedule_policy === 'field_flexible') ? 'remote' : (member.schedule_policy === 'office_only' ? 'office' : (member.schedule_policy || 'weekly_hybrid')),
                 options: [
                     { value: 'weekly_hybrid', label: 'Hybrid' },
                     { value: 'field_flexible', label: 'Flexible / Remote' },
@@ -2257,6 +2276,27 @@ async function handleImportStaffCsv() {
         const confirmBtn = overlay.querySelector('#csv-confirm-btn');
 
         browseBtn.addEventListener('click', () => fileInput.click());
+
+        const templateBtn = overlay.querySelector('#staff-csv-template-btn');
+        if (templateBtn) {
+            templateBtn.addEventListener('click', () => {
+                const sampleRows = [
+                    'Name,Department,Policy,Team Lead,Include In Reports',
+                    'Adaeze Obi,Operations,Hybrid,yes,yes',
+                    'Alex Taylor,Media,Flexible / Remote,no,no',
+                    'Chidi Okafor,Engineering,On-site Only,no,yes'
+                ].join('\r\n');
+                const blob = new Blob([sampleRows], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'perimetrr_staff_template.csv';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(url);
+            });
+        }
 
         fileInput.addEventListener('change', (e) => {
             const file = e.target.files && e.target.files[0];
@@ -3358,6 +3398,13 @@ function renderAdminPanel() {
             confirmLabel: 'Update'
         });
         if (!result) return;
+        if (typeof validatePasswordStrength === 'function') {
+            const check = validatePasswordStrength(result[1]);
+            if (!check.ok) {
+                showToast(check.message, 'error');
+                return;
+            }
+        }
         try {
             const r = await changeAdminPassword(currentAdminUsername, result[0], result[1]);
             showToast(r.message || 'Password updated.', r.ok ? 'success' : 'error');
@@ -4179,6 +4226,37 @@ function copyShareInviteLink() {
         });
     } else {
         showToast(joinUrl, 'info');
+    }
+}
+
+async function saveShareQrCode() {
+    const qrImg = document.getElementById('share-modal-qr-img');
+    if (!qrImg?.src) return;
+    try {
+        const response = await fetch(qrImg.src);
+        if (!response.ok) throw new Error('QR image unavailable');
+        const url = URL.createObjectURL(await response.blob());
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `perimetrr-workspace-${getTenantPairingDetails().code}.png`;
+        link.click();
+        URL.revokeObjectURL(url);
+        showToast('QR code saved.', 'success');
+    } catch (error) {
+        window.open(qrImg.src, '_blank', 'noopener');
+        showToast('Opened the QR image so you can save it.', 'info');
+    }
+}
+
+async function shareWorkspaceInvite() {
+    const { code, joinUrl } = getTenantPairingDetails();
+    const shareData = { title: 'Join our Perimetrr workspace', text: `Use workspace code ${code} to join our Perimetrr workspace.`, url: joinUrl };
+    try {
+        if (navigator.share) return await navigator.share(shareData);
+        await navigator.clipboard.writeText(`${shareData.text}\n${joinUrl}`);
+        showToast('Workspace invitation copied to clipboard.', 'success');
+    } catch (error) {
+        if (error?.name !== 'AbortError') showToast('Could not share the invitation.', 'error');
     }
 }
 

@@ -17,7 +17,6 @@ const FILES_TO_COPY = [
 
 const DIRS_TO_COPY = [
     'admin',
-    'super-admin',
     'watch-tower',
     'onboard',
     'hybrid',

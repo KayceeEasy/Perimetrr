@@ -17,6 +17,34 @@ let activeSubmission = null;
 let syncInProgress = false;
 let syncRetryTimer = null;
 let installPromptDismissed = false;
+let activePerimeter = null;
+
+function distanceInMeters(aLat, aLon, bLat, bLon) {
+    const earthRadius = 6371000;
+    const rad = (value) => value * Math.PI / 180;
+    const dLat = rad(bLat - aLat);
+    const dLon = rad(bLon - aLon);
+    const x = Math.sin(dLat / 2) ** 2 + Math.cos(rad(aLat)) * Math.cos(rad(bLat)) * Math.sin(dLon / 2) ** 2;
+    return earthRadius * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
+}
+
+function updatePerimeterFeedback(position) {
+    if (!position || !activePerimeter) return;
+    const latitude = Number(activePerimeter.latitude);
+    const longitude = Number(activePerimeter.longitude);
+    const radius = Number(activePerimeter.radius || activePerimeter.radius_meters || 100);
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || !Number.isFinite(radius)) return;
+
+    const distance = distanceInMeters(position.lat, position.lon, latitude, longitude);
+    const inside = distance <= radius;
+    const status = document.getElementById('loc-status');
+    const label = document.getElementById('distance-label');
+    if (label) label.textContent = `${Math.round(distance)} m from the Perimeter • ${inside ? 'Inside' : 'Outside'}`;
+    if (status) {
+        status.textContent = inside ? '● Inside the Perimeter — ready to verify' : '○ Outside the Perimeter — move closer to check in';
+        status.className = inside ? 'status ready' : 'status waiting';
+    }
+}
 
 /* ---------- Device identity ---------- */
 
@@ -104,14 +132,16 @@ async function getOrCreateDeviceIdentity() {
 
 async function generateIdentity() {
     try {
-        const { uuid, hw } = await getOrCreateDeviceIdentity();
-        return `ID-${hw || 'xx'}-${uuid}`;
+        // A durable UUID is sufficient for device binding. Browser fingerprinting is
+        // neither reliable nor necessary for Perimetrr's privacy-first model.
+        const { uuid } = await getOrCreateDeviceIdentity();
+        return uuid;
     } catch (error) {
         console.warn('generateIdentity failed completely, using fallback:', error.message);
         const emergencyUuid = (window.crypto && crypto.getRandomValues)
             ? Array.from(crypto.getRandomValues(new Uint8Array(16))).map((b) => b.toString(16).padStart(2, '0')).join('')
             : (Date.now().toString(36) + Math.random().toString(36).slice(2));
-        return `ID-xx-${emergencyUuid}`;
+        return emergencyUuid;
     }
 }
 
@@ -217,50 +247,14 @@ function updateDistanceLabel(distanceStr) {
     label.textContent = `~${dist.toFixed(0)} meters from office`;
 }
 
-/* ---------- Device ownership & Passkey authentication ---------- */
+/* ---------- Server-backed device ownership ---------- */
 
-async function authenticateStaffWithPasskey(name) {
-    if (!supabaseClient) return { ok: false, allowed: false, message: 'Client not ready' };
-    
-    // Check if device authorization is valid via server RPC first
-    const claim = await callBackend({ mode: 'claim-account', name, deviceId });
-    if (!claim.ok) {
-        return { ok: false, allowed: false, message: claim.message || 'Device authorization failed.' };
-    }
-
-    // Check existing auth session
-    try {
-        const { data: sessionData } = await supabaseClient.auth.getSession();
-        if (sessionData && sessionData.session) {
-            return { ok: true, allowed: true };
-        }
-    } catch (e) {
-        console.warn('Session check error:', e);
-    }
-
-    // Silent password authentication via account claim credentials
-    try {
-        if (claim.email && claim.password) {
-            const { error: signInError } = await supabaseClient.auth.signInWithPassword({
-                email: claim.email,
-                password: claim.password
-            });
-            if (signInError) {
-                console.warn('Supabase Auth signIn warning (falling back to claim approval):', signInError.message);
-            }
-        }
-        return { ok: true, allowed: true };
-    } catch (err) {
-        return { ok: true, allowed: true };
-    }
+function verifyDeviceOwnership(name, staffId) {
+    return callBackend({ mode: OWNERSHIP_MODES.verify, deviceId, name: name || '', staffId: staffId || null });
 }
 
-function verifyDeviceOwnership(name) {
-    return authenticateStaffWithPasskey(name);
-}
-
-function registerDeviceOwnership(name) {
-    return callBackend({ mode: OWNERSHIP_MODES.register, deviceId, name: name || '' });
+function registerDeviceOwnership(name, staffId) {
+    return callBackend({ mode: OWNERSHIP_MODES.register, deviceId, name: name || '', staffId: staffId || null });
 }
 
 async function reassignDeviceOwnership(newName, resetCode) {
@@ -606,19 +600,6 @@ function updateActionHeroState() {
     setIcon('log-in');
     if (outBtn) outBtn.disabled = !canUse;
 
-    // Biometric 1-tap quick trigger synchronization
-    const bioTriggerBtn = document.getElementById('biometric-auth-trigger');
-    if (bioTriggerBtn) {
-        const showBioTrigger = Boolean(name) && isBiometricsEnrolled(name) && (currentHeroAction === 'IN' || currentHeroAction === 'OUT');
-        bioTriggerBtn.style.display = showBioTrigger ? 'inline-flex' : 'none';
-        if (showBioTrigger) {
-            bioTriggerBtn.disabled = !canUse;
-            const bioSpan = bioTriggerBtn.querySelector('span');
-            if (bioSpan) {
-                bioSpan.textContent = currentHeroAction === 'OUT' ? 'Confirm Sign Out with Biometrics' : 'Confirm Sign In with Biometrics';
-            }
-        }
-    }
 }
 
 function updateSignInButtonsState() {
@@ -843,58 +824,13 @@ function initSearchableStaffDropdown() {
             return;
         }
 
-        // Workflow Step 3: MUST verify biometrics / device PIN BEFORE linking name to device
-        const bioAvail = await isBiometricsAvailable().catch(() => false);
-        const isEnrolled = isBiometricsEnrolled(name);
-
-        if (isEnrolled) {
-            showToast(`Verifying Biometrics / PIN for ${name}...`, 'info');
-            const verifyRes = await verifyBiometrics(name);
-            if (verifyRes && verifyRes.success) {
-                select.value = name;
-                input.value = name;
-                if (clearBtn) clearBtn.style.display = 'block';
-                safeStorage.setItem('saved_name', name);
-                safeStorage.setItem('saved_dept', dept);
-                setLocalDeviceLockHint(name);
-                closeDropdown();
-                initStaffIdentityView();
-                updateSignInButtonsState();
-                showToast(`Biometrics verified! Device linked to ${name}.`, 'success');
-            } else {
-                clearSelection();
-                showToast(`Biometric verification failed. Device not linked.`, 'error');
-            }
-            return;
-        }
-
-        if (bioAvail) {
-            showBiometricEnrollModal(
-                staffObj?.id || name, 
-                name, 
-                () => {
-                    select.value = name;
-                    input.value = name;
-                    if (clearBtn) clearBtn.style.display = 'block';
-                    safeStorage.setItem('saved_name', name);
-                    safeStorage.setItem('saved_dept', dept);
-                    setLocalDeviceLockHint(name);
-                    closeDropdown();
-                    initStaffIdentityView();
-                    updateSignInButtonsState();
-                    showToast(`Device linked to ${name} with biometric protection!`, 'success');
-                },
-                () => {
-                    clearSelection();
-                    showToast(`Biometric / Device PIN verification required to link phone to ${name}.`, 'error');
-                }
-            );
-            return;
-        }
-
-        // Fallback for browsers/devices without WebAuthn
         const confirmBind = window.confirm(`Verify device linking for ${name} (${dept})?\n\nThis will pair this phone to your profile for daily 1-tap sign-ins.`);
         if (confirmBind) {
+            const binding = await registerDeviceOwnership(name, staffObj?.id);
+            if (!binding.ok) {
+                showToast(binding.message || 'This device cannot be linked to that staff profile.', 'error');
+                return;
+            }
             select.value = name;
             input.value = name;
             if (clearBtn) clearBtn.style.display = 'block';
@@ -1098,6 +1034,14 @@ function showBiometricEnrollModal(staffId, staffName, onEnrollSuccess, onEnrollC
 }
 
 async function loadStaffDropdown() {
+    const activeTenant = await getActiveTenant();
+    if (!activeTenant) {
+        safeStorage.removeItem('attendance_staff_cache_v2');
+        staffDirectoryData = [];
+        populateStaffDropdown([]);
+        return;
+    }
+
     // 1. Check local cache first for instantaneous rendering
     const cachedStaff = readStoredJson('attendance_staff_cache_v2', []);
     if (Array.isArray(cachedStaff) && cachedStaff.length) {
@@ -1199,7 +1143,8 @@ async function submit(action) {
     setMessage('Checking device authorization...', 'msg-welcome');
     let verified;
     try {
-        const response = await verifyDeviceOwnership(name);
+        const member = staffDirectoryData.find(s => s.name && s.name.toLowerCase() === name.toLowerCase());
+        const response = await verifyDeviceOwnership(name, member?.id);
         verified = response.allowed;
         if (!verified) {
             setMessage(response.message || 'This device is not authorized for that staff member.', 'msg-late');
@@ -1214,19 +1159,6 @@ async function submit(action) {
         return;
     }
 
-    // WebAuthn Biometric Verification Gate
-    if (isBiometricsEnrolled(name)) {
-        setMessage('Waiting for Face ID / Fingerprint...', 'msg-welcome');
-        const bioResult = await verifyBiometrics(name);
-        if (!bioResult.success) {
-            setMessage('Biometric verification cancelled or failed.', 'msg-late');
-            showToast(bioResult.message || 'Biometric authentication cancelled.', 'error');
-            updateSignInButtonsState();
-            return;
-        }
-        setMessage('Biometrics verified! Syncing...', 'msg-welcome');
-    }
-
     document.getElementById('in-btn').disabled = true;
     document.getElementById('out-btn').disabled = true;
     setMessage('Syncing...', 'msg-welcome');
@@ -1237,6 +1169,7 @@ async function submit(action) {
         const data = await callBackend({
             mode: 'attendance',
             name,
+            staffId: staffDirectoryData.find(s => s.name && s.name.toLowerCase() === name.toLowerCase())?.id || null,
             action,
             lat: submitLat,
             lon: submitLon,
@@ -1374,6 +1307,39 @@ async function handleAttendanceResponse(data) {
 let locationWatchId = null;
 let locationWatchErrorShown = false;
 let coordsTimestamp = 0;
+function warmUpGps() {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+        (pos) => {
+            coords = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+            coordsTimestamp = Date.now();
+            updatePerimeterFeedback(coords);
+        },
+        () => {},
+        { enableHighAccuracy: true, maximumAge: 10000, timeout: 6000 }
+    );
+}
+
+function stopLocationWatch() {
+    if (locationWatchId !== null) {
+        navigator.geolocation.clearWatch(locationWatchId);
+        locationWatchId = null;
+    }
+}
+
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+        stopLocationWatch();
+    } else {
+        const staff = document.getElementById('staff-name')?.value || safeStorage.getItem('saved_name') || getLocalDeviceLockHint();
+        if (staff) {
+            requestLocation();
+        } else {
+            warmUpGps();
+        }
+    }
+});
+
 
 function requestLocation() {
     if (!navigator.geolocation) {
@@ -1391,6 +1357,7 @@ function requestLocation() {
         (pos) => {
             coords = { lat: pos.coords.latitude, lon: pos.coords.longitude };
             coordsTimestamp = Date.now();
+            updatePerimeterFeedback(coords);
             const locStatus = document.getElementById('loc-status');
             const distLabel = document.getElementById('distance-label');
             const currentSelectedStaff = document.getElementById('staff-name')?.value || safeStorage.getItem('saved_name') || getLocalDeviceLockHint();
@@ -1406,7 +1373,7 @@ function requestLocation() {
                     locStatus.className = 'status ready';
                 }
                 if (distLabel) distLabel.textContent = '';
-            } else {
+            } else if (!activePerimeter) {
                 if (locStatus) {
                     locStatus.innerText = t('officeMode', '📍 Office');
                     locStatus.className = 'status ready';
@@ -1552,10 +1519,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                 syncScheduleToMobileNative(name);
                 refreshRecentLogsFromDb();
                 updateScheduleBanner(name);
+                if (!document.hidden) requestLocation();
             } else {
                 safeStorage.removeItem('saved_name');
                 syncScheduleToMobileNative(null);
                 updateScheduleBanner(null);
+                stopLocationWatch();
             }
             updateActionHeroState();
         });
@@ -1579,7 +1548,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateLastActionLabel();
     updateLastSyncedLabel();
     updateActionHeroState();
-    requestLocation();
+    if (safeStorage.getItem('saved_name') || getLocalDeviceLockHint()) {
+        requestLocation();
+    } else {
+        warmUpGps();
+    }
     flushPendingQueue();
     loadStaffDropdown();
 
@@ -2050,10 +2023,17 @@ function initPrivacyModal() {
     });
 }
 
-function openWorkspaceConnectModal() {
+async function openWorkspaceConnectModal() {
     const overlay = document.getElementById('workspace-connect-overlay');
     const input = document.getElementById('workspace-code-input');
     const err = document.getElementById('workspace-connect-error');
+    const closeBtn = document.getElementById('workspace-connect-close');
+    const tenant = await getActiveTenant();
+
+    if (closeBtn) {
+        closeBtn.style.display = tenant ? 'inline-flex' : 'none';
+    }
+
     if (overlay) {
         overlay.style.display = 'flex';
         overlay.classList.add('active');
@@ -2066,7 +2046,10 @@ function openWorkspaceConnectModal() {
     }
 }
 
-function closeWorkspaceConnectModal() {
+async function closeWorkspaceConnectModal() {
+    const tenant = await getActiveTenant();
+    if (!tenant) return; // Disallow closing if no organization workspace is currently paired
+
     const overlay = document.getElementById('workspace-connect-overlay');
     if (overlay) {
         overlay.style.display = 'none';
@@ -2337,9 +2320,12 @@ function initWorkspaceConnect() {
     const overlay = document.getElementById('workspace-connect-overlay');
     if (overlay && !overlay.dataset.bound) {
         overlay.dataset.bound = 'true';
-        overlay.addEventListener('click', (e) => {
+        overlay.addEventListener('click', async (e) => {
             if (e.target === overlay) {
-                closeWorkspaceConnectModal();
+                const tenant = await getActiveTenant();
+                if (tenant) {
+                    closeWorkspaceConnectModal();
+                }
             }
         });
     }
@@ -2373,6 +2359,9 @@ async function initTenantBranding() {
         if (tenant.brand_color) {
             document.documentElement.style.setProperty('--primary', tenant.brand_color);
         }
+
+        // Provide an immediate, pre-click Perimeter signal as soon as GPS resolves.
+        activePerimeter = await getTenantConfig(tenant.slug);
 
         // Carry tenant slug to admin button
         if (adminBtn && tenant.slug) {
@@ -2445,13 +2434,9 @@ function initDeviceTransferModal() {
             try {
                 const activeTenant = await getActiveTenant();
                 let valid = false;
-                if (activeTenant && activeTenant.admin_password && activeTenant.admin_password === pwd) {
-                    valid = true;
-                } else if (activeTenant && activeTenant.admin_email) {
-                    const check = await callBackend({ mode: 'admin-login', email: activeTenant.admin_email, password: pwd });
-                    if (check && check.ok) valid = true;
-                } else {
-                    const check = await callBackend({ mode: 'admin-login', email: 'admin@perimetrr.com', password: pwd });
+                const adminEmail = (activeTenant && (activeTenant.admin_email || activeTenant.email || activeTenant.contact_email)) ? (activeTenant.admin_email || activeTenant.email || activeTenant.contact_email) : null;
+                if (adminEmail) {
+                    const check = await callBackend({ mode: 'admin-login', email: adminEmail, password: pwd });
                     if (check && check.ok) valid = true;
                 }
 

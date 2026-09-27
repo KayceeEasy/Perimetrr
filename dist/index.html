@@ -24,9 +24,8 @@
         rel="stylesheet">
     <link rel="stylesheet" href="style.css?v=3.0.3" />
     <link rel="manifest" href="manifest.json" />
-    <link rel="icon" type="image/png" sizes="192x192" href="image/png/icon-192.png" />
-    <link rel="icon" type="image/png" sizes="512x512" href="image/png/icon-512.png" />
-    <link rel="apple-touch-icon" href="image/png/icon-192.png" />
+    <link rel="icon" type="image/svg+xml" href="image/perimetrr-mark.svg" />
+    <link rel="apple-touch-icon" href="image/perimetrr-mark.svg" />
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://unpkg.com/lucide@0.344.0/dist/umd/lucide.min.js"></script>
     <script>
@@ -35,8 +34,8 @@
         window.APP_PATHS = {
             sw: APP_BASE + 'sw.js',
             manifest: APP_BASE + 'manifest.json',
-            icon192: APP_BASE + 'image/png/icon-192.png',
-            icon512: APP_BASE + 'image/png/icon-512.png'
+            icon192: APP_BASE + 'image/perimetrr-mark.svg',
+            icon512: APP_BASE + 'image/perimetrr-mark.svg'
         };
 
         // Capture PWA beforeinstallprompt early so it is never missed
@@ -171,13 +170,6 @@
             </button>
             <button id="out-btn" class="sr-only" aria-hidden="true" tabindex="-1" style="display: none;">Sign
                 Out</button>
-            <!-- Biometric 1-Tap Confirmation Trigger -->
-            <button id="biometric-auth-trigger" type="button" class="btn-bio-trigger"
-                data-tooltip="1-tap verification using Face ID, Touch ID, or fingerprint"
-                style="display:none; margin:12px auto 0 auto; background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.3); color:#10b981; border-radius:8px; padding:7px 16px; font-size:0.82rem; font-weight:600; cursor:pointer; align-items:center; gap:6px;">
-                <i data-lucide="fingerprint" size="15"></i>
-                <span>Confirm with Face ID / Touch ID</span>
-            </button>
         </div>
         <div id="msg" role="alert" aria-live="assertive"></div>
         <div id="last-action" class="last-action" aria-live="polite">Last action: none yet</div>

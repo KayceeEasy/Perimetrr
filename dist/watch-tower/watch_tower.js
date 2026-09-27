@@ -146,24 +146,28 @@ async function checkSystemHealth() {
 
 async function loadFleetData() {
     try {
+        if (supabaseClient) {
+            const { data: fleet, error } = await supabaseClient.rpc('get_fleet_overview');
+            if (!error && fleet) {
+                const tenantsCountEl = document.getElementById('metric-tenants-count');
+                const staffCountEl = document.getElementById('metric-staff-count');
+                const checkinsEl = document.getElementById('metric-checkins-today');
+                if (tenantsCountEl) tenantsCountEl.textContent = fleet.tenants_count ?? '--';
+                if (staffCountEl) staffCountEl.textContent = fleet.staff_count ?? '--';
+                if (checkinsEl) checkinsEl.textContent = fleet.checkins_today ?? '0';
+
+                if (Array.isArray(fleet.tenants) && fleet.tenants.length) {
+                    tenantsCache = fleet.tenants;
+                    renderTenantsTable(tenantsCache);
+                    return;
+                }
+            }
+        }
+
         tenantsCache = await getTenantRegistry();
         renderTenantsTable(tenantsCache);
-
-        document.getElementById('metric-tenants-count').textContent = tenantsCache.length;
-
-        // Fetch cross-tenant staff count
-        if (supabaseClient) {
-            const { count: staffCount } = await supabaseClient.from('staff').select('*', { count: 'exact', head: true });
-            document.getElementById('metric-staff-count').textContent = staffCount || '--';
-
-            // Today's attendance
-            const todayIso = new Date().toISOString().split('T')[0];
-            const { count: checkinCount } = await supabaseClient
-                .from('attendance')
-                .select('*', { count: 'exact', head: true })
-                .gte('created_at', todayIso + 'T00:00:00Z');
-            document.getElementById('metric-checkins-today').textContent = checkinCount || '0';
-        }
+        const fallbackCount = document.getElementById('metric-tenants-count');
+        if (fallbackCount) fallbackCount.textContent = tenantsCache.length;
     } catch (e) {
         console.error('Error loading fleet data:', e);
     }
@@ -179,7 +183,7 @@ function renderTenantsTable(tenants) {
         return;
     }
 
-    const basePath = window.location.pathname.substring(0, window.location.pathname.indexOf('/super-admin'));
+    const basePath = window.location.pathname.replace(/\/watch-tower(\/.*)?$/, '');
     const origin = window.location.origin;
 
     tbody.innerHTML = tenants.map(t => {
@@ -716,7 +720,7 @@ async function handleMasqueradeAdmin(slug) {
     const targetSlug = slug || activeMasterTenantSlug;
     if (!targetSlug) return;
     const token = await generateMasqueradeToken(targetSlug);
-    const basePath = window.location.pathname.substring(0, window.location.pathname.indexOf('/super-admin'));
+    const basePath = window.location.pathname.replace(/\/watch-tower(\/.*)?$/, '');
     const origin = window.location.origin;
     const url = `${origin}${basePath}/tenant/${encodeURIComponent(targetSlug)}/admin/?masquerade=${encodeURIComponent(token)}`;
     window.open(url, '_blank');
@@ -724,13 +728,13 @@ async function handleMasqueradeAdmin(slug) {
 
 function handleMasqueradePortal() {
     if (!activeMasterTenantSlug) return;
-    const basePath = window.location.pathname.substring(0, window.location.pathname.indexOf('/super-admin'));
+    const basePath = window.location.pathname.replace(/\/watch-tower(\/.*)?$/, '');
     window.open(`${window.location.origin}${basePath}/tenant/${activeMasterTenantSlug}/`, '_blank');
 }
 
 function handleMasqueradeHybrid() {
     if (!activeMasterTenantSlug) return;
-    const basePath = window.location.pathname.substring(0, window.location.pathname.indexOf('/super-admin'));
+    const basePath = window.location.pathname.replace(/\/watch-tower(\/.*)?$/, '');
     window.open(`${window.location.origin}${basePath}/tenant/${activeMasterTenantSlug}/hybrid/`, '_blank');
 }
 

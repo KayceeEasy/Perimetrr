@@ -458,7 +458,14 @@ async function submitTenantOnboarding() {
 
     if (!adminName) { showToast('Please provide your full name.', 'warning'); return; }
     if (!adminEmail || !EMAIL_REGEX.test(adminEmail)) { showToast('Please provide a valid work email address.', 'warning'); return; }
-    if (!adminPass || adminPass.length < 6) { showToast('Please enter a secure password (at least 6 characters).', 'warning'); return; }
+    if (!adminPass || adminPass.length < 8) { showToast('Please enter a secure password (at least 8 characters).', 'warning'); return; }
+    if (typeof validatePasswordStrength === 'function') {
+        const passCheck = validatePasswordStrength(adminPass);
+        if (!passCheck.ok) {
+            showToast(passCheck.message, 'warning');
+            return;
+        }
+    }
 
     const validation = validateTenantSlug(companySlug, companyName);
     if (!validation.valid) {
@@ -489,13 +496,6 @@ async function submitTenantOnboarding() {
     };
 
     pendingTenantPayload = tenantPayload;
-
-    // Check Email Verification
-    if (!isEmailVerified) {
-        openEmailVerifyModal(adminEmail);
-        return;
-    }
-
     await executeFinalOnboarding(tenantPayload);
 }
 
@@ -509,13 +509,14 @@ function openEmailVerifyModal(email) {
     const input = document.getElementById('email-otp-input');
     const err = document.getElementById('otp-error-msg');
     const hint = document.getElementById('otp-hint-msg');
+    const btn = document.getElementById('btn-confirm-otp');
     if (!modal) return;
 
-    activeEmailOtp = Math.floor(100000 + Math.random() * 900000).toString();
     if (target) target.textContent = email;
     if (input) { input.value = ''; input.focus(); }
     if (err) { err.style.display = 'none'; err.textContent = ''; }
-    if (hint) { hint.textContent = `(Session verification code: ${activeEmailOtp})`; }
+    if (hint) { hint.textContent = 'Check your inbox for the 6-digit confirmation code from Perimetrr.'; }
+    if (btn) { btn.disabled = false; btn.textContent = 'Verify & Launch Workspace'; }
     modal.style.display = 'flex';
     if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons();
 }
@@ -537,53 +538,128 @@ async function confirmEmailOtp() {
     const btn = document.getElementById('btn-confirm-otp');
     const entered = (input?.value || '').trim();
 
-    if (!entered) {
-        if (err) { err.style.display = 'block'; err.textContent = 'Please enter the 6-digit code.'; }
+    if (!entered || entered.length < 6) {
+        if (err) { err.style.display = 'block'; err.textContent = 'Please enter the 6-digit verification code.'; }
         return;
     }
 
-    if (entered !== activeEmailOtp && entered !== '123456') {
-        if (err) { err.style.display = 'block'; err.textContent = 'Incorrect verification code. Please try again.'; }
+    if (!pendingTenantPayload || !pendingTenantPayload.admin_email) {
+        if (err) { err.style.display = 'block'; err.textContent = 'Session expired. Please restart workspace setup.'; }
         return;
     }
 
-    isEmailVerified = true;
+    if (btn) { btn.disabled = true; btn.textContent = 'Verifying...'; }
     if (err) err.style.display = 'none';
-    if (btn) { btn.disabled = true; btn.textContent = 'Launching Workspace...'; }
 
-    closeEmailVerifyModal();
-    if (pendingTenantPayload) {
-        await executeFinalOnboarding(pendingTenantPayload);
+    try {
+        if (!supabaseClient) throw new Error('Secure account service is unavailable.');
+
+        let verifyRes = await supabaseClient.auth.verifyOtp({
+            email: pendingTenantPayload.admin_email,
+            token: entered,
+            type: 'signup'
+        });
+
+        if (verifyRes.error) {
+            // Also try type: 'email' if provider configured as magic link/code
+            verifyRes = await supabaseClient.auth.verifyOtp({
+                email: pendingTenantPayload.admin_email,
+                token: entered,
+                type: 'email'
+            });
+        }
+
+        if (verifyRes.error) throw verifyRes.error;
+
+        // Email successfully verified and session is active
+        isEmailVerified = true;
+        closeEmailVerifyModal();
+        await finalizeWorkspaceCreation(pendingTenantPayload);
+    } catch (verifyErr) {
+        console.warn('OTP verification error:', verifyErr);
+        if (btn) { btn.disabled = false; btn.textContent = 'Verify & Launch Workspace'; }
+        if (err) {
+            err.style.display = 'block';
+            err.textContent = verifyErr.message || 'Invalid or expired confirmation code. Please check your inbox and try again.';
+        }
     }
 }
 
 async function executeFinalOnboarding(tenantPayload) {
+    pendingTenantPayload = tenantPayload;
     const submitBtn = document.getElementById('submit-onboard-btn');
     if (submitBtn) {
         submitBtn.disabled = true;
-        submitBtn.innerHTML = '<i data-lucide="loader" size="16" class="spin"></i> Creating Workspace...';
+        submitBtn.innerHTML = '<i data-lucide="loader" size="16" class="spin"></i> Creating Administrator Account...';
         if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons();
     }
 
     try {
-        const res = await callBackend({
-            mode: 'onboard-tenant',
-            tenant: tenantPayload
+        if (!supabaseClient) throw new Error('Secure account service is unavailable. Please try again shortly.');
+        const { data: authData, error: authError } = await supabaseClient.auth.signUp({
+            email: tenantPayload.admin_email,
+            password: tenantPayload.admin_password,
+            options: { data: { full_name: tenantPayload.admin_name } }
         });
+        if (authError) throw authError;
 
-        if (res.ok) {
-            showSuccessScreen(tenantPayload);
-        } else {
-            showToast(res.message || 'Failed to create workspace.', 'error');
+        // If email confirmation is enabled in Supabase, session is null until OTP verified
+        if (!authData?.session) {
             if (submitBtn) {
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = '<i data-lucide="rocket" size="16"></i> Complete Setup & Launch Workspace';
                 if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons();
             }
+            openEmailVerifyModal(tenantPayload.admin_email);
+            return;
         }
+
+        // Email confirmation is disabled or session is already active
+        await finalizeWorkspaceCreation(tenantPayload);
     } catch (e) {
         console.error('Onboard error:', e);
-        showToast('An unexpected error occurred while saving your workspace.', 'error');
+        showToast(e.message || 'An error occurred during account registration.', 'error');
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i data-lucide="rocket" size="16"></i> Complete Setup & Launch Workspace';
+            if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons();
+        }
+    }
+}
+
+async function finalizeWorkspaceCreation(tenantPayload) {
+    const submitBtn = document.getElementById('submit-onboard-btn');
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i data-lucide="loader" size="16" class="spin"></i> Provisioning Workspace Vault...';
+        if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons();
+    }
+
+    try {
+        const { data: tenantRow, error: workspaceError } = await supabaseClient.rpc('create_workspace', {
+            p_name: tenantPayload.name,
+            p_slug: tenantPayload.slug,
+            p_workspace_code: tenantPayload.workspace_code,
+            p_brand_color: tenantPayload.brand_color,
+            p_logo_url: tenantPayload.logo_url || '',
+            p_office_name: tenantPayload.office_name,
+            p_latitude: tenantPayload.latitude,
+            p_longitude: tenantPayload.longitude,
+            p_radius_meters: tenantPayload.radius,
+            p_plan_tier: tenantPayload.plan_tier,
+            p_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Africa/Lagos'
+        });
+        if (workspaceError) throw workspaceError;
+
+        if (tenantRow) {
+            try { safeStorage.setItem('active_tenant', JSON.stringify(tenantRow)); } catch (e) {}
+            showSuccessScreen(tenantPayload);
+        } else {
+            throw new Error('Failed to provision workspace.');
+        }
+    } catch (err) {
+        console.error('Workspace provisioning error:', err);
+        showToast(err.message || 'Failed to provision workspace database records.', 'error');
         if (submitBtn) {
             submitBtn.disabled = false;
             submitBtn.innerHTML = '<i data-lucide="rocket" size="16"></i> Complete Setup & Launch Workspace';

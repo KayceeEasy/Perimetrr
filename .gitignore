@@ -1,0 +1,9 @@
+mobile_app/.expo/
+mobile_app/node_modules/
+node_modules/
+.wrangler/
+
+.env
+.env.local
+.mcp.json
+*.log

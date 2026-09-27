@@ -1,6 +1,5 @@
 importScripts('./version.js');
-// Force update 2
-const CACHE_NAME = 'staff-attendance-v' + (typeof APP_VERSION !== 'undefined' ? APP_VERSION : '26');
+const CACHE_NAME = 'perimetrr-v' + (typeof APP_VERSION !== 'undefined' ? APP_VERSION : '1.0.0');
 const APP_SHELL = [
   './',
   './index.html',
@@ -9,8 +8,7 @@ const APP_SHELL = [
   './common.js',
   './manifest.json',
   './version.js',
-  './image/png/icon-192.png',
-  './image/png/icon-512.png'
+  './image/perimetrr-mark.svg'
 ];
 
 self.addEventListener('install', (event) => {
@@ -31,8 +29,8 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
-  // Bypass service worker completely for admin, watch-tower, and super-admin portals
-  if (event.request.url.includes('/admin/') || event.request.url.includes('/watch-tower/') || event.request.url.includes('/super-admin/')) return;
+  // Bypass service worker completely for administrative interfaces
+  if (event.request.url.includes('/admin/') || event.request.url.includes('/watch-tower/')) return;
 
   // Network-First for HTML navigation so users never get trapped in stale app shells
   if (event.request.mode === 'navigate') {

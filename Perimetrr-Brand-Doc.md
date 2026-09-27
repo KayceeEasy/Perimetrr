@@ -1,0 +1,111 @@
+# Perimetrr — Brand Document
+
+**perimetrr.com**
+
+---
+
+## 1. Brand Foundation
+
+**What it is:** A GPS-geofenced, biometric-verified attendance and presence platform, scaling from free sign-in for micro-teams (≤5 employees) up to a full enterprise white-label/reseller tier with a fleet-monitoring dashboard.
+
+**Mission line:** Perimetrr makes presence provable — for a five-person team or a five-hundred-client reseller network.
+
+**Elevator pitch:** Most attendance apps trust a tap. Perimetrr verifies it — GPS, biometrics, and device-binding confirm someone is actually where they say they are, the instant they check in. Free for small teams, and built to scale into a white-labeled platform enterprises can resell under their own brand.
+
+**Core metaphor:** The perimeter — a defined boundary you must be inside to be counted present. Every naming and visual decision downstream should reinforce "boundary, verified entry, presence" rather than generic "clock" or "punch" imagery, since that's what differentiates this from commodity attendance apps.
+
+---
+
+## 2. Audience & Tiers
+
+This matters for tone because you're bridging two very different buyers in one brand:
+
+- **Free tier (≤5 employees):** small business owner, likely non-technical, price-sensitive, wants something that "just works" without setup friction.
+- **SMB/paid tier:** ops manager or HR lead, cares about reliability, reporting, and reducing proxy check-in fraud.
+- **Enterprise/white-label tier:** IT/ops decision-maker or a reseller/agency buying Perimetrr to resell under their own brand to *their* clients — this buyer cares about dashboard depth, fleet oversight, and how well the white-label can hide "Perimetrr" entirely.
+
+The brand voice needs to feel trustworthy enough for the enterprise buyer without feeling cold or inaccessible to the 5-person free-tier owner. That's a common tightrope (Slack and Notion both walk it) — approachable but not lightweight.
+
+---
+
+## 3. Voice & Tone
+
+- **Direct, not corporate.** Say what the product does in plain terms before reaching for jargon.
+- **Confident about security, humble about hype.** Avoid absolute claims ("eliminates fraud," "guarantees accuracy") unless backed by something verifiable — reads as more credible to enterprise buyers, and is safer from a claims/liability standpoint.
+- **No forced cuteness.** The perimeter/boundary metaphor gives you enough personality — lean on it instead of generic SaaS playfulness (no "let's get this party started" onboarding copy).
+
+**Tagline options** (pick one primary, others become secondary/contextual):
+- *"Presence you can prove."* — strongest for enterprise/security positioning.
+- *"Know who's really there."* — strongest for SMB, plain-language.
+- *"The edge of accountability."* — more abstract, good for a hero banner, not for a signup button.
+
+Recommendation: lead with **"Presence you can prove"** site-wide, use **"Know who's really there"** in SMB/free-tier-facing marketing (onboarding emails, small-business landing page).
+
+---
+
+## 4. Naming System
+
+Keep the perimeter metaphor consistent across the product so every touchpoint reinforces the brand, rather than defaulting to generic SaaS terms:
+
+| Generic term | Perimetrr term |
+|---|---|
+| Geofence radius | **The Perimeter** |
+| Admin dashboard | **Command Center** |
+| Enterprise fleet-monitoring view | **Watch Tower** (e.g. "monitor your fleet from Watch Tower") |
+| Mobile companion app | **Perimetrr Go** |
+| White-label instance | **Perimetrr for [Client Brand]** (kept low-key — white-label buyers generally want *their* name foregrounded, not Perimetrr's internal naming system bleeding through) |
+
+Note: don't over-apply this system in dense UI copy (e.g. a busy admin table) — it reads as cute the tenth time you see it and slows scanning. Reserve it for headers, marketing copy, and onboarding; keep dense data tables in plain language ("Check-ins," "Employees," "Status").
+
+---
+
+## 5. Tier Naming (draft — confirm against your actual pricing structure before publishing)
+
+- **Perimetrr Free** — ≤5 employees, core check-in/out, single location.
+- **Perimetrr Team** — SMB paid tier, multi-location, reporting/exports.
+- **Perimetrr Enterprise** — full fleet dashboard, admin controls, priority support.
+- **Perimetrr White Label** (or **Perimetrr Reseller**) — full white-labeling, client-fleet monitoring dashboard for resellers/agencies managing multiple downstream companies.
+
+[Inference] These tier names follow common SaaS convention (Free/Team/Enterprise) — worth sanity-checking against 2-3 competitor pricing pages before finalizing, since this is a fast-moving space and naming conventions shift.
+
+---
+
+## 6. Visual Direction
+
+### Color palette
+- **Primary:** Deep navy or charcoal (#0F1B2D-ish range) — security, trust, "night watch" feel.
+- **Accent:** Electric green or amber (#39FF88 or #FFB020-ish range) — reads as a "verified/active" signal, similar to a GPS pin or radar-ping, and gives you a strong color for status indicators (checked-in = accent color, absent = muted gray).
+- **Neutral base:** Off-white/light gray for dashboard backgrounds — keeps long admin sessions (Command Center view) easy on the eyes; avoid pure white, which feels harsh in data-dense dashboards.
+
+*(These are starting-point suggestions, not final hex codes pulled from any existing brand — treat as a direction to react to, then lock exact values once you're in design tooling.)*
+
+### Iconography
+- **Core mark concept:** concentric rings or a radar-ping motif — doubles as a literal geofence visualization and a logo mark. A pin-in-ring or target-style icon works well at small sizes (favicon, app icon) and scales cleanly to a wordmark lockup.
+- Avoid literal clock/punch-card imagery as the primary mark — it undersells the security/verification angle that differentiates you from commodity attendance apps.
+
+### Typography
+- **Headings:** a geometric sans (e.g. in the style of Inter, Space Grotesk, or IBM Plex Sans) — technical enough to read as "security software," not so cold it feels enterprise-1990s.
+- **Body:** a highly legible sans for dashboard density (Inter or system-ui stack works well and keeps load times fast).
+- Avoid rounded/friendly typefaces (e.g. Nunito-style) as the primary heading font — undercuts the security positioning, even on the free-tier-facing pages.
+
+### Logo lockup notes
+- Wordmark should work in all-lowercase (**perimetrr**) as a clean, modern option, with an uppercase/title-case (**Perimetrr**) variant for formal contexts (invoices, enterprise contracts, white-label negotiation decks).
+- Icon mark (rings/radar-ping) should work standalone as an app icon/favicon without the wordmark attached.
+
+---
+
+## 7. What I'd Flag Before You Lock Any of This In
+
+- [Unverified] I haven't checked whether "Perimetrr," any tier names above, or the icon concept collide with existing registered trademarks — worth a proper USPTO TESS search (or a trademark attorney, given the white-label/reseller model raises the stakes if you ever need to defend the mark on behalf of resellers using your brand).
+- The exact hex codes and font names above are directional suggestions for you to react to, not a locked design system — treat this section as a starting brief for whoever builds the actual visual assets (you, a designer, or a tool like Figma).
+- Tier names/pricing structure are placeholders based on common SaaS patterns — confirm against your actual business model before this goes into any customer-facing material.
+
+---
+
+## 8. Next Steps (suggested order)
+
+1. Confirm/verify perimetrr.com trademark clearance is safe to build on.
+2. Lock exact color hex values and typography choices (or hand this doc to a designer).
+3. Design the icon mark (rings/radar-ping) — this is the piece most worth getting right first, since it'll be reused everywhere (favicon, app icon, white-label contexts).
+4. Draft onboarding copy for the free tier using the "Know who's really there" voice.
+5. Draft enterprise/reseller sales copy using the "Presence you can prove" voice.
