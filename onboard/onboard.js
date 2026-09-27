@@ -1,4 +1,3 @@
-
 function initOnboardModalDismissals() {
     const modals = [
         { id: 'email-verify-modal', closeFn: closeEmailVerifyModal },
@@ -28,56 +27,26 @@ function initOnboardModalDismissals() {
 let currentStep = 1;
 let uploadedLogoBase64 = "";
 
-function updateSlugPreview(slugVal) {
-    if (typeof window === 'undefined') return;
-    const origin = window.location.origin;
-    const pathname = window.location.pathname || '';
-    const basePath = pathname.includes('/onboard') ? pathname.substring(0, pathname.indexOf('/onboard')) : '';
-    const clean = String(slugVal || '').trim().toLowerCase() || 'acme';
-
-    const prefixEl = document.getElementById('slug-domain-prefix');
-    const adminPreviewEl = document.getElementById('full-admin-preview');
-    const slugPreviewEl = document.getElementById('full-slug-preview');
-
-    if (prefixEl) {
-        prefixEl.textContent = `${window.location.host}${basePath}/`;
-    }
-    if (adminPreviewEl) {
-        adminPreviewEl.textContent = `${origin}${basePath}/${clean}/admin/`;
-    }
-    if (slugPreviewEl) {
-        slugPreviewEl.textContent = `${origin}${basePath}/${clean}/`;
-    }
-}
-
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
     lucide.createIcons();
-    updateSlugPreview('');
 
     const companyNameInput = document.getElementById('company-name');
-    const companySlugInput = document.getElementById('company-slug');
+    const shortNameInput = document.getElementById('company-short-name');
 
-    companyNameInput.addEventListener('input', () => {
-        const generated = companyNameInput.value
-            .toLowerCase()
-            .trim()
-            .replace(/[^a-z0-9]+/g, '-')
-            .replace(/^-|-$/g, '');
-        if (!companySlugInput.dataset.touched) {
-            companySlugInput.value = generated;
-            updateSlugPreview(generated);
-            checkSlugAvailabilityRealtime(generated);
-        }
-    });
+    if (companyNameInput && shortNameInput) {
+        companyNameInput.addEventListener('input', () => {
+            if (!shortNameInput.dataset.touched) {
+                const words = companyNameInput.value.trim().split(/\s+/);
+                const firstWord = words[0] || '';
+                shortNameInput.value = firstWord.substring(0, 16);
+            }
+        });
 
-    companySlugInput.addEventListener('input', () => {
-        companySlugInput.dataset.touched = "true";
-        const val = companySlugInput.value.toLowerCase().replace(/[^a-z0-9-]+/g, '');
-        companySlugInput.value = val;
-        updateSlugPreview(val);
-        checkSlugAvailabilityRealtime(val);
-    });
+        shortNameInput.addEventListener('input', () => {
+            shortNameInput.dataset.touched = "true";
+        });
+    }
 
     const adminEmailInput = document.getElementById('admin-email');
     if (adminEmailInput) {
@@ -96,19 +65,24 @@ document.addEventListener('DOMContentLoaded', () => {
     // Color picker sync
     const colorInput = document.getElementById('brand-color');
     const colorDisplay = document.getElementById('color-code-display');
-    colorInput.addEventListener('input', () => {
-        colorDisplay.textContent = colorInput.value;
-    });
+    if (colorInput && colorDisplay) {
+        colorInput.addEventListener('input', () => {
+            colorDisplay.textContent = colorInput.value;
+        });
+    }
 
     // Radius slider sync
     const radiusSlider = document.getElementById('geofence-radius');
     const radiusDisplay = document.getElementById('radius-display');
-    radiusSlider.addEventListener('input', () => {
-        radiusDisplay.textContent = `${radiusSlider.value} meters`;
-    });
+    if (radiusSlider && radiusDisplay) {
+        radiusSlider.addEventListener('input', () => {
+            radiusDisplay.textContent = `${radiusSlider.value} meters`;
+        });
+    }
 
     // Logo dropzone setup
     setupLogoDropzone();
+    initOnboardModalDismissals();
 });
 
 function setupLogoDropzone() {
@@ -120,49 +94,53 @@ function setupLogoDropzone() {
     const filenameLabel = document.getElementById('logo-filename');
     const removeBtn = document.getElementById('remove-logo-btn');
 
+    if (!dropzone || !fileInput) return;
+
     dropzone.addEventListener('click', (e) => {
         if (e.target !== removeBtn) fileInput.click();
     });
 
-    ['dragenter', 'dragover'].forEach(eventName => {
-        dropzone.addEventListener(eventName, (e) => {
-            e.preventDefault();
-            dropzone.classList.add('dragover');
-        });
+    dropzone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropzone.classList.add('dragover');
     });
 
-    ['dragleave', 'drop'].forEach(eventName => {
-        dropzone.addEventListener(eventName, (e) => {
-            e.preventDefault();
-            dropzone.classList.remove('dragover');
-        });
+    dropzone.addEventListener('dragleave', () => {
+        dropzone.classList.remove('dragover');
     });
 
     dropzone.addEventListener('drop', (e) => {
-        const files = e.dataTransfer.files;
-        if (files && files[0]) handleLogoFile(files[0]);
+        e.preventDefault();
+        dropzone.classList.remove('dragover');
+        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+            handleFile(e.dataTransfer.files[0]);
+        }
     });
 
-    fileInput.addEventListener('change', () => {
-        if (fileInput.files && fileInput.files[0]) handleLogoFile(fileInput.files[0]);
+    fileInput.addEventListener('change', (e) => {
+        if (e.target.files && e.target.files[0]) {
+            handleFile(e.target.files[0]);
+        }
     });
 
-    removeBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        uploadedLogoBase64 = "";
-        fileInput.value = "";
-        emptyState.style.display = 'block';
-        previewState.style.display = 'none';
-        previewImg.src = "";
-    });
+    if (removeBtn) {
+        removeBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            fileInput.value = '';
+            uploadedLogoBase64 = '';
+            previewImg.src = '';
+            previewState.style.display = 'none';
+            emptyState.style.display = 'block';
+        });
+    }
 
-    function handleLogoFile(file) {
-        if (!file.type.startsWith('image/')) {
-            showToast('Please select a valid image file (PNG, JPG, or SVG).', 'warning');
+    function handleFile(file) {
+        if (!file.type.match(/image\/(png|jpeg|svg\+xml)/)) {
+            showToast('Please upload a PNG, JPG, or SVG image.', 'error');
             return;
         }
         if (file.size > 2 * 1024 * 1024) {
-            showToast('File size exceeds 2MB limit. Please choose a smaller logo.', 'warning');
+            showToast('Logo file size must be less than 2MB.', 'error');
             return;
         }
 
@@ -209,92 +187,10 @@ function detectCurrentLocation() {
     );
 }
 
-const RESERVED_SLUGS = new Set([
-    'admin', 'super-admin', 'api', 'auth', 'app', 'login', 'logout', 'onboard', 
-    'billing', 'root', 'support', 'status', 'attendance', 'null', 'undefined',
-    'system', 'help', 'docs', 'dashboard'
-]);
-
-const PROHIBITED_HATE_WORDS = [
-    'nigger', 'nigga', 'faggot', 'kike', 'chink', 'spic', 'retard'
-];
-
-const SENSITIVE_REVIEW_TERMS = [
-    'dick', 'cock', 'ass', 'fcuk', 'schit', 'porn', 'sex', 'bitch', 'tits'
-];
-
 const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-let slugCheckTimeout = null;
-let isSlugAvailable = true;
 let isEmailValid = false;
 let currentStaffJoinUrl = '';
 let currentWorkspaceCode = '';
-
-function checkSlugAvailabilityRealtime(slug) {
-    clearTimeout(slugCheckTimeout);
-    const msgEl = document.getElementById('slug-availability-msg');
-    const hintEl = document.getElementById('slug-hint-text');
-    if (!msgEl) return;
-
-    const clean = String(slug || '').trim().toLowerCase();
-    if (!clean) {
-        msgEl.style.display = 'none';
-        if (hintEl) hintEl.style.display = 'block';
-        isSlugAvailable = false;
-        return;
-    }
-
-    if (clean.length < 2) {
-        msgEl.className = 'slug-status unavailable';
-        msgEl.textContent = 'Workspace identifier must be at least 2 characters.';
-        msgEl.style.display = 'block';
-        if (hintEl) hintEl.style.display = 'none';
-        isSlugAvailable = false;
-        return;
-    }
-
-    if (!/^[a-z0-9-]+$/.test(clean)) {
-        msgEl.className = 'slug-status unavailable';
-        msgEl.textContent = 'May only contain lowercase letters, numbers, and hyphens.';
-        msgEl.style.display = 'block';
-        if (hintEl) hintEl.style.display = 'none';
-        isSlugAvailable = false;
-        return;
-    }
-
-    if (RESERVED_SLUGS.has(clean)) {
-        msgEl.className = 'slug-status unavailable';
-        msgEl.textContent = `"${clean}" is a reserved system keyword. Please choose another identifier.`;
-        msgEl.style.display = 'block';
-        if (hintEl) hintEl.style.display = 'none';
-        isSlugAvailable = false;
-        return;
-    }
-
-    msgEl.className = 'slug-status checking';
-    msgEl.textContent = 'Checking availability...';
-    msgEl.style.display = 'block';
-    if (hintEl) hintEl.style.display = 'none';
-
-    slugCheckTimeout = setTimeout(async () => {
-        try {
-            const res = await callBackend({ mode: 'check-tenant-slug', slug: clean });
-            if (res.ok && res.available) {
-                msgEl.className = 'slug-status available';
-                msgEl.textContent = `✓ Identifier "${clean}" is available!`;
-                isSlugAvailable = true;
-            } else {
-                msgEl.className = 'slug-status unavailable';
-                msgEl.textContent = `"${clean}" is already in use. Please choose another identifier.`;
-                isSlugAvailable = false;
-            }
-        } catch (e) {
-            msgEl.className = 'slug-status available';
-            msgEl.textContent = `✓ Identifier "${clean}" selected.`;
-            isSlugAvailable = true;
-        }
-    }, 350);
-}
 
 function validateEmailRealtime(email) {
     const msgEl = document.getElementById('email-validation-msg');
@@ -354,52 +250,14 @@ function updatePasswordStrength(pass) {
     }
 }
 
-function validateTenantSlug(slug, companyName = '') {
-    const clean = String(slug || '').trim().toLowerCase();
-    if (!clean) return { valid: false, message: 'Workspace identifier is required.' };
-    if (clean.length < 2) return { valid: false, message: 'Workspace identifier must be at least 2 characters.' };
-    if (!/^[a-z0-9-]+$/.test(clean)) return { valid: false, message: 'Workspace identifier may only contain lowercase letters, numbers, and hyphens.' };
-
-    if (RESERVED_SLUGS.has(clean)) {
-        return { valid: false, message: `The workspace identifier "${clean}" is a reserved system keyword. Please choose a custom name.` };
-    }
-
-    const lowerCombined = `${clean} ${companyName.toLowerCase()}`;
-    for (const hate of PROHIBITED_HATE_WORDS) {
-        if (lowerCombined.includes(hate)) {
-            return { valid: false, message: 'This workspace identifier contains prohibited offensive language.' };
-        }
-    }
-
-    let needsReview = false;
-    for (const sens of SENSITIVE_REVIEW_TERMS) {
-        if (lowerCombined.includes(sens)) {
-            needsReview = true;
-            break;
-        }
-    }
-
-    return { valid: true, cleanSlug: clean, needsReview };
-}
-
 function goToStep(step) {
     // Validate current step before advancing
     if (step > currentStep) {
         if (currentStep === 1) {
             const name = document.getElementById('company-name').value.trim();
-            const slug = document.getElementById('company-slug').value.trim();
+            const shortName = document.getElementById('company-short-name').value.trim();
             if (!name) { showToast('Please enter the Company Legal Name.', 'warning'); return; }
-            if (!slug) { showToast('Please enter a Workspace Identifier.', 'warning'); return; }
-
-            const val = validateTenantSlug(slug, name);
-            if (!val.valid) {
-                showToast(val.message, 'warning');
-                return;
-            }
-            if (!isSlugAvailable) {
-                showToast(`The workspace identifier "${slug}" is already in use or reserved. Please choose another identifier.`, 'warning');
-                return;
-            }
+            if (!shortName || shortName.length < 2) { showToast('Please enter a Company Short Name (at least 2 characters).', 'warning'); return; }
         } else if (currentStep === 2) {
             const office = document.getElementById('office-name').value.trim();
             const lat = document.getElementById('office-lat').value;
@@ -454,33 +312,22 @@ async function submitTenantOnboarding() {
     const adminEmail = document.getElementById('admin-email').value.trim();
     const adminPass = document.getElementById('admin-pass').value.trim();
     const companyName = document.getElementById('company-name').value.trim();
-    const companySlug = document.getElementById('company-slug').value.trim();
+    const shortName = document.getElementById('company-short-name').value.trim();
 
+    if (!companyName) { showToast('Please provide the Company Legal Name.', 'warning'); return; }
+    if (!shortName) { showToast('Please provide a Company Short Name.', 'warning'); return; }
     if (!adminName) { showToast('Please provide your full name.', 'warning'); return; }
     if (!adminEmail || !EMAIL_REGEX.test(adminEmail)) { showToast('Please provide a valid work email address.', 'warning'); return; }
-    if (!adminPass || adminPass.length < 8) { showToast('Please enter a secure password (at least 8 characters).', 'warning'); return; }
-    if (typeof validatePasswordStrength === 'function') {
-        const passCheck = validatePasswordStrength(adminPass);
-        if (!passCheck.ok) {
-            showToast(passCheck.message, 'warning');
-            return;
-        }
-    }
-
-    const validation = validateTenantSlug(companySlug, companyName);
-    if (!validation.valid) {
-        showToast(validation.message, 'warning');
-        return;
-    }
+    if (!adminPass || adminPass.length < 6) { showToast('Please enter a secure password (at least 6 characters).', 'warning'); return; }
 
     submitBtn.disabled = true;
     submitBtn.innerHTML = 'Setting up your workspace...';
 
-    const workspaceCode = typeof generateWorkspaceCode === 'function' ? generateWorkspaceCode(validation.cleanSlug) : (validation.cleanSlug.substring(0, 4).toUpperCase() + '-' + Math.floor(10 + Math.random() * 90));
+    const workspaceCode = typeof generateWorkspaceCode === 'function' ? generateWorkspaceCode(shortName || companyName) : (shortName.substring(0, 4).toUpperCase() + '-' + Math.floor(1000 + Math.random() * 9000));
 
     const tenantPayload = {
         name: companyName,
-        slug: validation.cleanSlug,
+        short_name: shortName,
         workspace_code: workspaceCode,
         logo_url: uploadedLogoBase64,
         brand_color: document.getElementById('brand-color').value,
@@ -492,7 +339,7 @@ async function submitTenantOnboarding() {
         admin_email: adminEmail,
         admin_password: adminPass,
         plan_tier: document.getElementById('plan-tier').value,
-        status: validation.needsReview ? 'pending_review' : 'active'
+        status: 'active'
     };
 
     pendingTenantPayload = tenantPayload;
@@ -561,7 +408,6 @@ async function confirmEmailOtp() {
         });
 
         if (verifyRes.error) {
-            // Also try type: 'email' if provider configured as magic link/code
             verifyRes = await supabaseClient.auth.verifyOtp({
                 email: pendingTenantPayload.admin_email,
                 token: entered,
@@ -571,7 +417,6 @@ async function confirmEmailOtp() {
 
         if (verifyRes.error) throw verifyRes.error;
 
-        // Email successfully verified and session is active
         isEmailVerified = true;
         closeEmailVerifyModal();
         await finalizeWorkspaceCreation(pendingTenantPayload);
@@ -603,7 +448,6 @@ async function executeFinalOnboarding(tenantPayload) {
         });
         if (authError) throw authError;
 
-        // If email confirmation is enabled in Supabase, session is null until OTP verified
         if (!authData?.session) {
             if (submitBtn) {
                 submitBtn.disabled = false;
@@ -614,7 +458,6 @@ async function executeFinalOnboarding(tenantPayload) {
             return;
         }
 
-        // Email confirmation is disabled or session is already active
         await finalizeWorkspaceCreation(tenantPayload);
     } catch (e) {
         console.error('Onboard error:', e);
@@ -636,9 +479,9 @@ async function finalizeWorkspaceCreation(tenantPayload) {
     }
 
     try {
-        const { data: tenantRow, error: workspaceError } = await supabaseClient.rpc('create_workspace', {
+        const { data: tenantRows, error: workspaceError } = await supabaseClient.rpc('create_workspace', {
             p_name: tenantPayload.name,
-            p_slug: tenantPayload.slug,
+            p_short_name: tenantPayload.short_name,
             p_workspace_code: tenantPayload.workspace_code,
             p_brand_color: tenantPayload.brand_color,
             p_logo_url: tenantPayload.logo_url || '',
@@ -646,13 +489,13 @@ async function finalizeWorkspaceCreation(tenantPayload) {
             p_latitude: tenantPayload.latitude,
             p_longitude: tenantPayload.longitude,
             p_radius_meters: tenantPayload.radius,
-            p_plan_tier: tenantPayload.plan_tier,
             p_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Africa/Lagos'
         });
         if (workspaceError) throw workspaceError;
 
-        if (tenantRow) {
-            try { safeStorage.setItem('active_tenant', JSON.stringify(tenantRow)); } catch (e) {}
+        const row = Array.isArray(tenantRows) ? tenantRows[0] : tenantRows;
+        if (row) {
+            try { safeStorage.setItem('active_tenant', JSON.stringify(row)); } catch (e) {}
             showSuccessScreen(tenantPayload);
         } else {
             throw new Error('Failed to provision workspace.');
@@ -686,19 +529,18 @@ function togglePasswordVisibility() {
 
 function showSuccessScreen(tenant) {
     const origin = window.location.origin;
-    // Calculate path root
     const basePath = window.location.pathname.substring(0, window.location.pathname.indexOf('/onboard'));
 
-    const code = tenant.workspace_code || 'LIFE-26';
+    const code = tenant.workspace_code || 'LIFE-2624';
     const staffJoinUrl = `${origin}${basePath}/?join=${encodeURIComponent(code)}`;
-    const adminUrl = `${origin}${basePath}/${tenant.slug}/admin/`;
-    const hybridUrl = `${origin}${basePath}/${tenant.slug}/hybrid/`;
+    const adminUrl = `${origin}${basePath}/${encodeURIComponent(code)}/command-center/`;
+    const hybridUrl = `${origin}${basePath}/${encodeURIComponent(code)}/hybrid/`;
 
     currentStaffJoinUrl = staffJoinUrl;
     currentWorkspaceCode = code;
 
     document.getElementById('success-company-sub').textContent = 
-        `${tenant.name} (${tenant.slug}) is ready on the ${tenant.plan_tier}. Perimeter bound to ${tenant.office_name} (${tenant.radius}m radius).`;
+        `${tenant.name} (${tenant.short_name || code}) is ready on the ${tenant.plan_tier || 'Pro Trial'}. Perimeter bound to ${tenant.office_name} (${tenant.radius || 100}m radius).`;
 
     const displayCodeEl = document.getElementById('display-workspace-code');
     if (displayCodeEl) displayCodeEl.textContent = code;
@@ -725,31 +567,65 @@ function showSuccessScreen(tenant) {
 function openQrModal() {
     const modal = document.getElementById('qr-modal');
     const qrImg = document.getElementById('qr-image');
-    const codeEl = document.getElementById('qr-modal-code');
-    if (!modal || !qrImg) return;
+    const qrCodeDisplay = document.getElementById('qr-modal-code');
 
-    if (codeEl) codeEl.textContent = currentWorkspaceCode || 'CODE';
-    qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=8&data=${encodeURIComponent(currentStaffJoinUrl)}`;
+    if (!currentStaffJoinUrl) return;
+
+    const qrServiceUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(currentStaffJoinUrl)}`;
+    qrImg.src = qrServiceUrl;
+    if (qrCodeDisplay) qrCodeDisplay.textContent = currentWorkspaceCode;
+
     modal.style.display = 'flex';
-    if (window.lucide && typeof window.lucide.createIcons === 'function') {
-        window.lucide.createIcons();
-    }
 }
 
 function closeQrModal() {
     const modal = document.getElementById('qr-modal');
-    if (modal) modal.style.display = 'none';
+    modal.style.display = 'none';
 }
 
 function copyLink(elementId) {
-    const text = document.getElementById(elementId).textContent;
-    navigator.clipboard.writeText(text).then(() => {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    const textToCopy = el.textContent || el.value;
+
+    navigator.clipboard.writeText(textToCopy).then(() => {
         showToast('Copied to clipboard!', 'success');
     }).catch(() => {
-        prompt('Copy code/link:', text);
+        showToast('Failed to copy. Please copy manually.', 'error');
     });
 }
 
-function resetOnboardingForm() {
-    window.location.reload();
+function showToast(message, type = 'info') {
+    const existing = document.querySelector('.onboard-toast');
+    if (existing) existing.remove();
+
+    const toast = document.createElement('div');
+    toast.className = `onboard-toast ${type}`;
+    toast.textContent = message;
+
+    Object.assign(toast.style, {
+        position: 'fixed',
+        bottom: '24px',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        background: type === 'error' ? '#ef4444' : type === 'warning' ? '#f59e0b' : type === 'success' ? '#10b981' : '#1e293b',
+        color: '#ffffff',
+        padding: '12px 24px',
+        borderRadius: '8px',
+        fontSize: '0.88rem',
+        fontWeight: '600',
+        boxShadow: '0 10px 15px -3px rgba(0,0,0,0.3)',
+        zIndex: '999999',
+        textAlign: 'center',
+        maxWidth: '90%',
+        animation: 'slideUp 0.3s ease-out'
+    });
+
+    document.body.appendChild(toast);
+
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transition = 'opacity 0.3s ease';
+        setTimeout(() => toast.remove(), 300);
+    }, 4000);
 }

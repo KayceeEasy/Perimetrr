@@ -10,8 +10,8 @@ Evaluate Trade-offs & Edge Cases: Don't just agree with every prompt. Provide sh
 
 3. Surgical Deprecation & Complete Cleanup
 Zero Ghost Code / Residual UI: When a feature, button, or concept is deprecated or updated (e.g., removing PINs/biometrics or renaming terms):
-Purge ALL residual text, buttons, modals, and event listeners across HTML (index.html, admin/index.html, onboard/index.html, hybrid/index.html).
-Purge ALL dead functions, unused state variables, and orphaned event bindings in JavaScript (script.js, common.js, admin/admin.js, hybrid/script.js).
+Purge ALL residual text, buttons, modals, and event listeners across HTML (index.html, command-center/index.html, onboard/index.html, hybrid/index.html).
+Purge ALL dead functions, unused state variables, and orphaned event bindings in JavaScript (script.js, common.js, command-center/admin.js, hybrid/script.js).
 Purge ALL dead columns and indexes from database schemas (supabase_schema_v3.sql).
 
 4. Strict Brand Symmetry & Terminology Alignment

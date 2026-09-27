@@ -14,9 +14,10 @@ $$;
 -- A customer workspace. Billing/reseller controls deliberately remain out of v1.
 create table public.tenants (
   id uuid primary key default gen_random_uuid(),
-  slug text not null unique check (slug ~ '^[a-z0-9]+(?:-[a-z0-9]+)*$'),
   name text not null check (char_length(name) between 2 and 128),
+  short_name text not null default '' check (char_length(short_name) between 2 and 16),
   workspace_code text not null unique check (workspace_code ~ '^[A-Z]{4}-[0-9]{4}$'),
+  slug text,
   brand_color text not null default '#39FF88' check (brand_color ~ '^#[0-9A-Fa-f]{6}$'),
   logo_url text,
   plan_tier text not null default 'free' check (plan_tier in ('free', 'team', 'enterprise', 'white_label')),

@@ -18,19 +18,20 @@
             var basePath = repoName ? '/' + repoName : '';
 
             // Known static routes that are NOT workspace slugs
-            var knownRoutes = ['admin', 'watch-tower', 'onboard', 'hybrid', 'image'];
+            var knownRoutes = ['command-center', 'admin', 'watch-tower', 'onboard', 'hybrid', 'image'];
 
             var slug = '';
             var targetPage = '/';
 
             if (segments.length > 0 && knownRoutes.indexOf(segments[0]) === -1) {
-                // First segment is a workspace slug
+                // First segment is a workspace code / slug
                 slug = segments[0];
                 if (segments.length > 1 && knownRoutes.indexOf(segments[1]) !== -1) {
-                    // e.g. /acme/admin/ → redirect to /admin/?tenant=acme
-                    targetPage = '/' + segments[1] + '/';
+                    // e.g. /ACME-4821/command-center/ → redirect to /command-center/?tenant=ACME-4821
+                    var route = segments[1] === 'admin' ? 'command-center' : segments[1];
+                    targetPage = '/' + route + '/';
                 }
-                // else /acme/ → redirect to /?tenant=acme
+                // else /ACME-4821/ → redirect to /?tenant=ACME-4821
             }
 
             // Build redirect URL

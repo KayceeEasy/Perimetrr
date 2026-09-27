@@ -30,7 +30,7 @@ self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
   // Bypass service worker completely for administrative interfaces
-  if (event.request.url.includes('/admin/') || event.request.url.includes('/watch-tower/')) return;
+  if (event.request.url.includes('/command-center/') || event.request.url.includes('/watch-tower/')) return;
 
   // Network-First for HTML navigation so users never get trapped in stale app shells
   if (event.request.mode === 'navigate') {
@@ -83,7 +83,7 @@ self.addEventListener('push', (event) => {
     badge: './image/perimetrr-mark.svg',
     vibrate: [100, 50, 100],
     data: {
-      url: data.url || './admin/',
+      url: data.url || './command-center/',
       timestamp: Date.now()
     }
   };
@@ -95,7 +95,7 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const targetUrl = (event.notification.data && event.notification.data.url) || './admin/';
+  const targetUrl = (event.notification.data && event.notification.data.url) || './command-center/';
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {

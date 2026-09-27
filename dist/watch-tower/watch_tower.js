@@ -208,6 +208,7 @@ function renderTenantsTable(tenants) {
                             </div>
                             <div class="company-slug" style="display:flex; align-items:center; gap:6px;">
                                 <span style="background:rgba(26,86,219,0.1); color:var(--primary); padding:1px 5px; border-radius:4px; font-weight:700; font-size:0.72rem; letter-spacing:1px;">${escapeHtml(code)}</span>
+                                ${t.short_name ? `<span style="background:rgba(255,255,255,0.06); padding:1px 5px; border-radius:4px; font-size:0.72rem; color:var(--text-main); font-weight:500;">${escapeHtml(t.short_name)}</span>` : ''}
                                 <span style="font-size:0.75rem; color:var(--text-muted);">/${escapeHtml(t.slug)}/</span>
                             </div>
                         </div>
@@ -230,8 +231,8 @@ function renderTenantsTable(tenants) {
                         <button type="button" class="action-btn primary" onclick="openTenantMasterModal('${escapeHtml(t.slug)}')" title="Full Master Control">
                             <i data-lucide="sliders" size="13"></i> Master Control
                         </button>
-                        <button type="button" class="action-btn" onclick="handleMasqueradeAdmin('${escapeHtml(t.slug)}')" title="Launch Admin Console as Operator">
-                            <i data-lucide="zap" size="13"></i> Launch Admin
+                        <button type="button" class="action-btn" onclick="handleMasqueradeAdmin('${escapeHtml(t.slug)}')" title="Launch Command Center as Operator">
+                            <i data-lucide="zap" size="13"></i> Command Center
                         </button>
                         <a href="${staffLink}" target="_blank" class="action-btn" title="Open Staff Check-In Clean Link">
                             <i data-lucide="link-2" size="13"></i> Clean Link
@@ -722,7 +723,7 @@ async function handleMasqueradeAdmin(slug) {
     const token = await generateMasqueradeToken(targetSlug);
     const basePath = window.location.pathname.replace(/\/watch-tower(\/.*)?$/, '');
     const origin = window.location.origin;
-    const url = `${origin}${basePath}/${encodeURIComponent(targetSlug)}/admin/?masquerade=${encodeURIComponent(token)}`;
+    const url = `${origin}${basePath}/${encodeURIComponent(targetSlug)}/command-center/?masquerade=${encodeURIComponent(token)}`;
     window.open(url, '_blank');
 }
 

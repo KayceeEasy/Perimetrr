@@ -17,7 +17,7 @@ const FILES_TO_COPY = [
 ];
 
 const DIRS_TO_COPY = [
-    'admin',
+    'command-center',
     'watch-tower',
     'onboard',
     'hybrid',

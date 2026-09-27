@@ -69,21 +69,9 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="company-slug">Workspace Identifier <span class="req">*</span></label>
-                    <div class="input-with-prefix">
-                        <span class="prefix" id="slug-domain-prefix">/</span>
-                        <input type="text" id="company-slug" placeholder="acme" required />
-                    </div>
-                    <div id="slug-availability-msg" class="slug-status" style="margin-top:4px; font-size:0.78rem; font-weight:600; display:none;"></div>
-                    <small class="helper-text" id="slug-hint-text" style="display:block; margin-top:6px; line-height:1.5;">
-                        <span style="display:block; margin-bottom:3px;">
-                            <strong>Admin Portal:</strong> <code id="full-admin-preview">https://.../acme/admin/</code>
-                        </span>
-                        <span style="display:block; color:var(--text-muted);">
-                            <strong>One-Time Staff Setup:</strong> <code id="full-slug-preview">https://.../acme/</code>
-                            <span style="display:block; font-size:0.75rem; opacity:0.85; margin-top:2px;">(Auto-cleans to root <code>/</code> after pairing for Zero-Exposure privacy)</span>
-                        </span>
-                    </small>
+                    <label for="company-short-name">Company Short Name <span class="req">*</span></label>
+                    <input type="text" id="company-short-name" placeholder="e.g. Acme Tech" maxlength="16" required />
+                    <small class="helper-text">Display name used on mobile check-in headers and app badges (2–16 chars).</small>
                 </div>
 
                 <div class="form-group">
@@ -265,12 +253,12 @@
 
                 <div class="link-card">
                     <div class="link-info" style="flex:1;">
-                        <span class="link-tag" style="display:flex; align-items:center; gap:6px;"><i data-lucide="shield-check" size="14"></i> Company Admin Dashboard</span>
+                        <span class="link-tag" style="display:flex; align-items:center; gap:6px;"><i data-lucide="shield-check" size="14"></i> Command Center Dashboard</span>
                         <div class="link-url" id="link-admin-url">--</div>
                     </div>
                     <div class="link-buttons">
                         <button type="button" class="btn-copy" onclick="copyLink('link-admin-url')"><i data-lucide="copy" size="13"></i> Copy Link</button>
-                        <a id="btn-open-admin" href="#" target="_blank" class="btn-open"><i data-lucide="external-link" size="13"></i> Open Admin</a>
+                        <a id="btn-open-admin" href="#" target="_blank" class="btn-open"><i data-lucide="external-link" size="13"></i> Open Command Center</a>
                     </div>
                 </div>
 
@@ -287,7 +275,7 @@
             </div>
 
             <div class="step-actions centered" style="display:flex; gap:12px; justify-content:center; flex-wrap:wrap; margin-top:24px;">
-                <a id="btn-primary-launch-admin" href="#" class="btn-primary" style="text-decoration:none; padding:12px 24px; font-weight:700;"><i data-lucide="shield-check" size="16"></i> Go to My Admin Dashboard</a>
+                <a id="btn-primary-launch-admin" href="#" class="btn-primary" style="text-decoration:none; padding:12px 24px; font-weight:700;"><i data-lucide="shield-check" size="16"></i> Go to Command Center</a>
                 <a id="btn-secondary-launch-portal" href="#" class="btn-secondary" style="text-decoration:none; padding:12px 24px;"><i data-lucide="smartphone" size="16"></i> Open Employee Sign-In Portal</a>
             </div>
         </section>

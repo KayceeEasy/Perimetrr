@@ -63,10 +63,10 @@ function getActiveAdminTenantSlug() {
     const localTenant = (typeof safeStorage !== 'undefined' && safeStorage.getItem('active_tenant_slug')) || null;
     if (localTenant) return localTenant;
     if (typeof window !== 'undefined' && window.location) {
-        // Path-based slug: /:slug/admin/ → first segment is the slug
+        // Path-based slug: /:slug/command-center/ → first segment is the slug
         const pathParts = window.location.pathname.split('/').filter(Boolean);
-        const knownRoutes = ['admin', 'watch-tower', 'onboard', 'hybrid', 'image'];
-        if (pathParts.length > 1 && pathParts[1] === 'admin' && !knownRoutes.includes(pathParts[0].toLowerCase())) {
+        const knownRoutes = ['command-center', 'admin', 'watch-tower', 'onboard', 'hybrid', 'image'];
+        if (pathParts.length > 1 && (pathParts[1] === 'command-center' || pathParts[1] === 'admin') && !knownRoutes.includes(pathParts[0].toLowerCase())) {
             return pathParts[0];
         }
         const p = new URLSearchParams(window.location.search);
@@ -3037,7 +3037,8 @@ function renderAdminPanel() {
     if (currentTenantConfig && titleWrap) {
         titleWrap.style.display = 'flex';
         if (tenantNameEl) {
-            tenantNameEl.innerHTML = `${escapeHtml(currentTenantConfig.name || 'Company Workspace')} <button type="button" onclick="handleLogout(false)" title="Switch company workspace" style="background:none; border:none; color:var(--text-muted); font-size:0.72rem; cursor:pointer; text-decoration:underline; margin-left:4px;">(Switch)</button>`;
+            const displayName = currentTenantConfig.short_name || currentTenantConfig.name || 'Company Workspace';
+            tenantNameEl.innerHTML = `${escapeHtml(displayName)} <button type="button" onclick="handleLogout(false)" title="Switch company workspace" style="background:none; border:none; color:var(--text-muted); font-size:0.72rem; cursor:pointer; text-decoration:underline; margin-left:4px;">(Switch)</button>`;
         }
     }
 
@@ -4297,7 +4298,7 @@ function getTenantPairingDetails() {
     const slug = currentTenantConfig?.slug || (typeof getActiveTenantSlug === 'function' ? getActiveTenantSlug() : 'workspace');
     const code = currentTenantConfig?.workspace_code || currentTenantConfig?.workspaceCode || (typeof generateWorkspaceCode === 'function' ? generateWorkspaceCode(slug) : `${slug.substring(0, 4).toUpperCase()}-26`);
     const origin = (typeof window !== 'undefined' && window.location) ? window.location.origin : '';
-    const basePath = (typeof window !== 'undefined' && window.location) ? window.location.pathname.replace(/\/admin\/.*$/, '/') : '/';
+    const basePath = (typeof window !== 'undefined' && window.location) ? window.location.pathname.replace(/\/command-center(\/.*)?$/, '/') : '/';
     const joinUrl = `${origin}${basePath}?join=${encodeURIComponent(code)}`;
     return { slug, code, joinUrl };
 }

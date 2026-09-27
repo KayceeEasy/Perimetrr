@@ -2350,9 +2350,9 @@ async function initTenantBranding() {
         const logoImg = document.getElementById('tenant-logo-img');
         const adminBtn = document.getElementById('admin-access-btn');
 
-        if (brandNameEl && tenant.name) {
-            brandNameEl.textContent = tenant.name;
-            document.title = `${tenant.name} - Attendance`;
+        if (brandNameEl && (tenant.short_name || tenant.name)) {
+            brandNameEl.textContent = tenant.short_name || tenant.name;
+            document.title = `${tenant.short_name || tenant.name} - Attendance`;
         }
 
         if (tenant.logo_url && logoWrap && logoImg) {
@@ -2367,9 +2367,12 @@ async function initTenantBranding() {
         // Provide an immediate, pre-click Perimeter signal as soon as GPS resolves.
         activePerimeter = await getTenantConfig(tenant.slug);
 
-        // Carry tenant slug to admin button
-        if (adminBtn && tenant.slug) {
-            adminBtn.href = `./admin/index.html?tenant=${encodeURIComponent(tenant.slug)}`;
+        // Carry tenant workspace code or slug to command-center button
+        if (adminBtn) {
+            const tenantIdentifier = tenant.workspace_code || tenant.slug;
+            if (tenantIdentifier) {
+                adminBtn.href = `./command-center/index.html?tenant=${encodeURIComponent(tenantIdentifier)}`;
+            }
         }
 
         const switchBtn = document.getElementById('switch-workspace-btn');

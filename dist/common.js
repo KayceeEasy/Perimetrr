@@ -1,6 +1,6 @@
 /**
  * Shared utilities for Perimetrr Presence Verification.
- * Loaded by index.html, admin/index.html, and related portal surfaces.
+ * Loaded by index.html, command-center/index.html, and related portal surfaces.
  */
 
 const STORAGE_KEYS = {
@@ -659,9 +659,9 @@ async function getTenantByWorkspaceCode(code) {
         const { data, error } = await supabaseClient.rpc('get_workspace_for_pairing', { p_workspace_code: clean });
         const row = Array.isArray(data) ? data[0] : null;
         if (error || !row) return null;
-        const tenant = { id: row.tenant_id, slug: row.slug, name: row.tenant_name, workspace_code: row.workspace_code, brand_color: row.brand_color, logo_url: row.logo_url };
+        const tenant = { id: row.tenant_id, slug: row.slug, name: row.tenant_name, short_name: row.short_name || row.tenant_name, workspace_code: row.workspace_code, brand_color: row.brand_color, logo_url: row.logo_url };
         safeStorage.setItem('active_tenant', JSON.stringify(tenant));
-        safeStorage.setItem('active_tenant_slug', tenant.slug);
+        safeStorage.setItem('active_tenant_slug', tenant.slug || tenant.workspace_code);
         return tenant;
     } catch (e) { return null; }
 }
@@ -719,7 +719,7 @@ async function getActiveTenant(optionalSlug = null) {
             // 2. Direct clean path fallback: /:slug (first path segment if not a known route)
             if (!slug) {
                 const pathParts = window.location.pathname.split('/').filter(Boolean);
-                const knownRoutes = ['admin', 'watch-tower', 'onboard', 'hybrid', 'image', 'sw.js'];
+                const knownRoutes = ['command-center', 'admin', 'watch-tower', 'onboard', 'hybrid', 'image', 'sw.js'];
                 if (pathParts.length > 0 && !knownRoutes.includes(pathParts[0].toLowerCase())) {
                     slug = pathParts[0];
                 }
@@ -746,12 +746,21 @@ async function getActiveTenant(optionalSlug = null) {
         try { storedTenant = JSON.parse(safeStorage.getItem('active_tenant') || 'null'); } catch (e) {}
         if (slug) {
             const cleanSlug = String(slug).trim().toLowerCase();
-            const match = registry.find(t => (t.slug && t.slug.toLowerCase() === cleanSlug) || (t.id && t.id.toLowerCase() === cleanSlug));
+            const match = registry.find(t => 
+                (t.slug && t.slug.toLowerCase() === cleanSlug) || 
+                (t.workspace_code && t.workspace_code.toLowerCase() === cleanSlug) ||
+                (t.short_name && t.short_name.toLowerCase() === cleanSlug) ||
+                (t.id && t.id.toLowerCase() === cleanSlug)
+            );
             if (match) {
-                try { safeStorage.setItem('active_tenant_slug', match.slug); } catch(e) {}
+                try { safeStorage.setItem('active_tenant_slug', match.workspace_code || match.slug); } catch(e) {}
                 return match;
             }
-            if (storedTenant && ((storedTenant.slug || '').toLowerCase() === cleanSlug || (storedTenant.id || '').toLowerCase() === cleanSlug)) return storedTenant;
+            if (storedTenant && (
+                (storedTenant.slug || '').toLowerCase() === cleanSlug || 
+                (storedTenant.workspace_code || '').toLowerCase() === cleanSlug ||
+                (storedTenant.id || '').toLowerCase() === cleanSlug
+            )) return storedTenant;
         }
 
         if (storedTenant) return storedTenant;
