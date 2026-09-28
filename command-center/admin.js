@@ -4469,8 +4469,53 @@ function initAdminModalDismissals() {
     });
 }
 
+/* ---------- Rolling 15-Minute Inactivity Session Guard ---------- */
+let idleTimeoutTimer = null;
+const IDLE_LIMIT_MS = 15 * 60 * 1000; // 15 Minutes
+const MAX_SESSION_MS = 8 * 60 * 60 * 1000; // 8 Hours Max
+
+function resetOperatorIdleTimer() {
+    clearTimeout(idleTimeoutTimer);
+
+    const sessionStart = parseInt(sessionStorage.getItem('operator_session_start') || sessionStorage.getItem('masquerade_start_ts') || '0', 10);
+    if (sessionStart && (Date.now() - sessionStart > MAX_SESSION_MS)) {
+        terminateOperatorSession('Maximum session duration (8 hours) reached.');
+        return;
+    }
+
+    idleTimeoutTimer = setTimeout(() => {
+        terminateOperatorSession('Session terminated due to 15 minutes of inactivity.');
+    }, IDLE_LIMIT_MS);
+}
+
+function initOperatorIdleMonitor() {
+    const isMasquerade = Boolean(sessionStorage.getItem('masquerade_active') || sessionStorage.getItem('admin_token') || sessionStorage.getItem('attendance_super_admin_unlocked'));
+    if (!isMasquerade) return;
+
+    if (!sessionStorage.getItem('operator_session_start')) {
+        sessionStorage.setItem('operator_session_start', Date.now().toString());
+    }
+
+    ['mousedown', 'keydown', 'scroll', 'touchstart'].forEach(evt => {
+        window.addEventListener(evt, resetOperatorIdleTimer, { passive: true });
+    });
+
+    resetOperatorIdleTimer();
+}
+
+function terminateOperatorSession(reason) {
+    clearTimeout(idleTimeoutTimer);
+    sessionStorage.clear();
+    alert(`[Security Alert] ${reason}`);
+    window.location.href = '../watch-tower/';
+}
+
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initAdminApp);
+    document.addEventListener('DOMContentLoaded', () => {
+        initAdminApp();
+        initOperatorIdleMonitor();
+    });
 } else {
     initAdminApp();
+    initOperatorIdleMonitor();
 }

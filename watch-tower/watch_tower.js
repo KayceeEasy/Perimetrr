@@ -82,32 +82,92 @@ function checkMasterAuth() {
 
 async function handleMasterLogin(e) {
     e.preventDefault();
+    const emailEl = document.getElementById('operator-email');
     const input = document.getElementById('master-key-input');
     const errorEl = document.getElementById('auth-error-msg');
     const submitBtn = document.getElementById('auth-submit-btn');
-    const val = (input.value || '').trim();
+    const email = (emailEl ? emailEl.value : '').trim();
+    const password = (input.value || '').trim();
 
-    if (!val) return;
+    if (!password) return;
     if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Verifying...'; }
+    if (errorEl) errorEl.style.display = 'none';
 
-    const isValid = await verifyMasterKey(val);
-    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Unlock Command Console'; }
+    let authenticated = false;
+    let operatorRole = 'super_admin';
 
-    if (isValid) {
+    // 1. If email is provided, try Supabase Auth Sign In (Fleet Operators & Admins)
+    if (email && typeof supabaseClient !== 'undefined' && supabaseClient && supabaseClient.auth) {
+        try {
+            const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+            if (!error && data && data.user) {
+                authenticated = true;
+                operatorRole = data.user.app_metadata?.role || 'super_admin';
+                sessionStorage.setItem('operator_id', data.user.id);
+                sessionStorage.setItem('operator_email', data.user.email);
+                sessionStorage.setItem('operator_role', operatorRole);
+            }
+        } catch(e) {
+            console.warn('Supabase Auth check skipped:', e);
+        }
+    }
+
+    // 2. Fallback / Direct Master Platform Key Check (Dev Root)
+    if (!authenticated) {
+        const isValidMaster = await verifyMasterKey(password);
+        if (isValidMaster) {
+            authenticated = true;
+            const hash = await sha256Hex(password);
+            sessionStorage.setItem('active_master_key_hash', hash);
+            sessionStorage.setItem('operator_role', 'super_admin');
+        }
+    }
+
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Unlock Watch Tower'; }
+
+    if (authenticated) {
         sessionStorage.setItem(SESSION_KEY, 'true');
-        const hash = await sha256Hex(val);
-        sessionStorage.setItem('active_master_key_hash', hash);
+        sessionStorage.setItem('operator_session_start', Date.now().toString());
         checkMasterAuth();
     } else {
-        errorEl.textContent = 'Invalid Master Platform Key. Access Denied.';
+        errorEl.textContent = 'Invalid credentials or Master Key. Access Denied.';
         errorEl.style.display = 'block';
         input.value = '';
         input.focus();
     }
 }
 
+async function openForgotPasswordModal() {
+    const emailEl = document.getElementById('operator-email');
+    const email = (emailEl ? emailEl.value : '').trim();
+    const targetEmail = prompt('Enter your operator email address for password reset instructions:', email);
+    if (!targetEmail) return;
+
+    if (typeof supabaseClient !== 'undefined' && supabaseClient && supabaseClient.auth) {
+        try {
+            const origin = window.location.origin;
+            const basePath = window.location.pathname.replace(/\/watch-tower(\/.*)?$/, '/watch-tower/');
+            const { error } = await supabaseClient.auth.resetPasswordForEmail(targetEmail, {
+                redirectTo: `${origin}${basePath}?reset=true`
+            });
+            if (error) {
+                alert('Password reset error: ' + error.message);
+            } else {
+                alert('If an operator account exists for ' + targetEmail + ', password reset instructions have been sent.');
+            }
+        } catch(e) {
+            alert('Password reset service unavailable. Please contact the platform engineering team.');
+        }
+    } else {
+        alert('Authentication service offline. Please verify network connectivity.');
+    }
+}
+
 function handleLockConsole() {
     sessionStorage.removeItem(SESSION_KEY);
+    sessionStorage.removeItem('active_master_key_hash');
+    sessionStorage.removeItem('operator_id');
+    sessionStorage.removeItem('operator_role');
     window.location.reload();
 }
 

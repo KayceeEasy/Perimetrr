@@ -63,16 +63,17 @@
 }
 
 :root[data-theme="dark"] {
-    --primary:        #39ff88;
-    --primary-dark:   #22c76a;
-    --primary-glow:   rgba(57, 255, 136, 0.16);
-    --success:        #39ff88;
-    --success-light:  rgba(52, 211, 153, 0.12);
+    --primary:        #27FB8A;
+    --primary-dark:   #1eb865;
+    --primary-glow:   rgba(39, 251, 138, 0.22);
+    --perimeter-green: #27FB8A;
+    --success:        #27FB8A;
+    --success-light:  rgba(39, 251, 138, 0.12);
     --error:          #f87171;
     --error-light:    rgba(248, 113, 113, 0.12);
     --warning:        #fbbf24;
-    --bg:             #0f1b2d;
-    --bg-2:           #132237;
+    --bg:             #0F1B2D;
+    --bg-2:           #152238;
     --glow-1:         rgba(57, 255, 136, 0.12);
     --glow-2:         rgba(15, 27, 45, 0.2);
     --surface:        rgba(10, 20, 40, 0.82);

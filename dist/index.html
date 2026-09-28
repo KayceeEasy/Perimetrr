@@ -4,19 +4,33 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Staff Attendance Portal | Perimetrr</title>
+    <title>Perimetrr — Presence You Can Prove | GPS-Verified Staff Attendance</title>
+    <meta name="title" content="Perimetrr — Presence You Can Prove | GPS-Verified Staff Attendance" />
     <meta name="description"
-        content="Staff attendance tracking with GPS perimeter verification. Sign in and sign out at the office." />
-    <meta name="theme-color" content="#2563eb" />
+        content="Eliminate proxy attendance and fake GPS spoofing with server-side geofencing. High-precision staff presence verification without expensive biometric hardware." />
+    <meta name="keywords" content="staff attendance, GPS geofence, time tracking, proxy attendance prevention, PWA attendance, biometric replacement, fleet operations" />
+    <meta name="author" content="Perimetrr Technologies" />
+    <meta name="theme-color" content="#0F1B2D" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="mobile-web-app-status-bar-style" content="default" />
+    <meta name="mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="mobile-web-app-title" content="Perimetrr" />
-    <meta property="og:title" content="Perimetrr Staff Attendance" />
-    <meta property="og:description"
-        content="Daily attendance tracking for staff with GPS verification and perimeter compliance." />
+    
+    <!-- Open Graph (Facebook, LinkedIn, WhatsApp, Slack) -->
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://kayceeeasy.github.io/Staff-Attendance/" />
-    <meta property="og:image" content="https://kayceeeasy.github.io/Staff-Attendance/image/png/icon-512.png" />
+    <meta property="og:url" content="https://perimetrr.com/" />
+    <meta property="og:site_name" content="Perimetrr" />
+    <meta property="og:title" content="Perimetrr — Presence You Can Prove" />
+    <meta property="og:description"
+        content="Stop proxy attendance and payroll leaks. Server-side geofenced presence verification without expensive hardware scanners." />
+    <meta property="og:image" content="https://perimetrr.com/image/perimetrr-mark.svg" />
+    
+    <!-- Twitter / X Cards -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:url" content="https://perimetrr.com/" />
+    <meta name="twitter:title" content="Perimetrr — Presence You Can Prove" />
+    <meta name="twitter:description"
+        content="Stop proxy attendance and payroll leaks. Server-side geofenced presence verification without expensive hardware scanners." />
+    <meta name="twitter:image" content="https://perimetrr.com/image/perimetrr-mark.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
@@ -755,35 +769,20 @@
         style="display:none; z-index: 9999; backdrop-filter: blur(8px); background: rgba(0,0,0,0.75);">
         <div class="faq-modal-content"
             style="max-width: 440px; text-align: center; padding: 22px 24px; position: relative;">
-            <div
-                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; width: 100%;">
-                <div class="lang-selector-wrap">
-                    <button class="lang-btn" type="button" aria-label="Select Language"
-                        data-tooltip="Language / Idioma / Langue">
-                        <span class="current-lang-flag">🇬🇧</span>
-                        <span class="current-lang-code">EN</span>
-                    </button>
-                    <div class="lang-dropdown-menu" style="display:none; text-align:left;">
-                        <button type="button" class="lang-option-btn" data-lang="en">🇬🇧 English</button>
-                        <button type="button" class="lang-option-btn" data-lang="es">🇪🇸 Español</button>
-                        <button type="button" class="lang-option-btn" data-lang="fr">🇫🇷 Français</button>
-                        <button type="button" class="lang-option-btn" data-lang="pt">🇵🇹 Português</button>
-                        <button type="button" class="lang-option-btn" data-lang="ar">🇸🇦 العربية</button>
-                    </div>
-                </div>
+            <div style="display: flex; justify-content: flex-end; margin-bottom: 8px; width: 100%;">
                 <button id="workspace-connect-close" class="faq-close-btn" type="button" aria-label="Close"
                     style="background:none; border:none; color:var(--text-muted); cursor:pointer; padding:4px; display:inline-flex; align-items:center;">
                     <i data-lucide="x" size="22"></i>
                 </button>
             </div>
             <div style="margin-bottom: 8px; color: var(--primary); display: flex; justify-content: center;"><i
-                    data-lucide="building" size="38"></i></div>
+                    data-lucide="shield-check" size="40"></i></div>
             <h2 style="font-size: 1.3rem; font-weight: 700; margin-bottom: 6px; color: var(--text);"
-                data-i18n="connectWorkspaceTitle">Connect to Your Workspace</h2>
+                data-i18n="connectWorkspaceTitle">Device Pairing • Access Terminal</h2>
             <p style="font-size: 0.86rem; color: var(--text-muted); margin-bottom: 20px; line-height: 1.5;"
                 data-i18n="connectWorkspaceDesc">
-                Enter your organization's Workspace Code (e.g. ABCD-1234) or open your company's setup link to pair this
-                phone.
+                Enter your organization's Workspace Code (e.g. ABCD-1234) or scan your team invite QR to pair this
+                device.
             </p>
             <div style="margin-bottom: 14px;">
                 <input type="text" id="workspace-code-input" placeholder="e.g. ABCD-1234"
@@ -793,8 +792,8 @@
             <div id="workspace-connect-error"
                 style="display:none; color: #ef4444; font-size: 0.82rem; margin-bottom: 12px; font-weight: 500;"></div>
             <button type="button" id="connect-workspace-btn" data-i18n="connectWorkspaceBtn"
-                style="width: 100%; padding: 12px; background: var(--primary); color: #ffffff; border: none; border-radius: 8px; font-size: 0.95rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                <i data-lucide="arrow-right" size="16"></i> Connect Workspace
+                style="width: 100%; padding: 12px; background: var(--primary); color: #0F1B2D; border: none; border-radius: 8px; font-size: 0.95rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                <i data-lucide="arrow-right" size="16"></i> Pair Device
             </button>
 
             <div
@@ -806,7 +805,7 @@
 
             <button type="button" id="scan-workspace-qr-btn" class="admin-btn secondary" data-i18n="scanQrBtn"
                 style="width: 100%; padding: 11px; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 600; font-size: 0.9rem;">
-                <i data-lucide="qr-code" size="18"></i> Scan a QR Code
+                <i data-lucide="qr-code" size="18"></i> Scan Invite QR Code
             </button>
 
             <!-- In-App Camera Viewport -->
@@ -831,8 +830,27 @@
                 </button>
             </div>
 
-            <p style="font-size: 0.76rem; color: var(--text-muted); margin-top: 14px;">
-                Ask your HR or team administrator for your company's Workspace Code or invite QR.
+            <!-- Centered Modal Language Bar -->
+            <div style="display: flex; justify-content: center; align-items: center; gap: 8px; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border);">
+                <div class="lang-selector-wrap">
+                    <button class="lang-btn" type="button" aria-label="Select Language"
+                        data-tooltip="Language / Idioma / Langue" style="font-size: 0.8rem; padding: 4px 10px;">
+                        <span class="current-lang-flag">🇬🇧</span>
+                        <span class="current-lang-code">EN</span>
+                        <i data-lucide="chevron-down" size="12" style="margin-left:4px;"></i>
+                    </button>
+                    <div class="lang-dropdown-menu" style="display:none; text-align:left; bottom: 100%; top: auto; margin-bottom: 6px;">
+                        <button type="button" class="lang-option-btn" data-lang="en">🇬🇧 English</button>
+                        <button type="button" class="lang-option-btn" data-lang="es">🇪🇸 Español</button>
+                        <button type="button" class="lang-option-btn" data-lang="fr">🇫🇷 Français</button>
+                        <button type="button" class="lang-option-btn" data-lang="pt">🇵🇹 Português</button>
+                        <button type="button" class="lang-option-btn" data-lang="ar">🇸🇦 العربية</button>
+                    </div>
+                </div>
+            </div>
+
+            <p style="font-size: 0.74rem; color: var(--text-muted); margin-top: 10px;">
+                Ask your HR or operations manager for your company's Workspace Code.
             </p>
         </div>
     </div>

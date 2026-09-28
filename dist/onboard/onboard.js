@@ -27,9 +27,37 @@ function initOnboardModalDismissals() {
 let currentStep = 1;
 let uploadedLogoBase64 = "";
 
+function initOnboardThemeToggle() {
+    const themeBtn = document.getElementById('theme-toggle');
+    if (!themeBtn) return;
+    const savedTheme = localStorage.getItem('attendance_theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+    const icon = themeBtn.querySelector('i');
+    if (icon) {
+        icon.setAttribute('data-lucide', savedTheme === 'dark' ? 'sun' : 'moon');
+    }
+
+    themeBtn.addEventListener('click', () => {
+        const current = document.documentElement.getAttribute('data-theme') || 'dark';
+        const nextTheme = current === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', nextTheme);
+        localStorage.setItem('attendance_theme', nextTheme);
+        const iconEl = themeBtn.querySelector('i');
+        if (iconEl) {
+            iconEl.setAttribute('data-lucide', nextTheme === 'dark' ? 'sun' : 'moon');
+            if (window.lucide && typeof window.lucide.createIcons === 'function') {
+                window.lucide.createIcons();
+            }
+        }
+    });
+}
+
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
-    lucide.createIcons();
+    initOnboardThemeToggle();
+    if (window.lucide && typeof window.lucide.createIcons === 'function') {
+        window.lucide.createIcons();
+    }
 
     const companyNameInput = document.getElementById('company-name');
     const shortNameInput = document.getElementById('company-short-name');

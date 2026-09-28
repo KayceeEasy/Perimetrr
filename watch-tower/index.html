@@ -8,7 +8,7 @@
     <!-- Strict Noindex & AI Crawler Blocking -->
     <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
     <meta name="googlebot" content="noindex, nofollow">
-    <link rel="icon" type="image/x-icon" href="../favicon.ico">
+    <link rel="icon" type="image/svg+xml" href="../image/perimetrr-mark.svg">
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://unpkg.com/lucide@0.344.0/dist/umd/lucide.min.js"></script>
@@ -41,9 +41,18 @@
                 Authorized Personnel Only.<br>
                 Enter your Master Platform Key to continue.</p>
             <form id="master-auth-form" onsubmit="handleMasterLogin(event)">
-                <div class="form-group">
-                    <input type="password" id="master-key-input" placeholder="Enter Master Platform Key"
-                        aria-label="Master Platform Key" autocomplete="current-password" required autofocus />
+                <div class="form-group" style="text-align: left; margin-bottom: 12px;">
+                    <label for="operator-email" style="font-size: 0.78rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 4px;">Operator Email <span style="font-size:0.7rem; font-weight:400; opacity:0.8;">(optional for Master Key)</span></label>
+                    <input type="email" id="operator-email" placeholder="operator@perimetrr.com"
+                        aria-label="Operator Email" autocomplete="username" />
+                </div>
+                <div class="form-group" style="text-align: left; margin-bottom: 8px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                        <label for="master-key-input" style="font-size: 0.78rem; font-weight: 600; color: var(--text-muted);">Password</label>
+                        <button type="button" onclick="openForgotPasswordModal()" style="background: none; border: none; color: var(--primary); font-size: 0.75rem; cursor: pointer; padding: 0;">Forgot Password?</button>
+                    </div>
+                    <input type="password" id="master-key-input" placeholder="Enter Password or Master Key"
+                        aria-label="Password" autocomplete="current-password" required autofocus />
                 </div>
                 <div id="auth-error-msg" class="auth-error" style="display:none;"></div>
                 <button type="submit" id="auth-submit-btn" class="btn-primary full-width">Unlock Watch Tower</button>
