@@ -62,7 +62,7 @@
     </script>
 </head>
 
-<body>
+<body class="homepage-active">
     <a href="#main-content" class="skip-link">Skip to main content</a>
 
     <!-- ============================================================
@@ -86,15 +86,15 @@
             </nav>
 
             <div class="hp-nav-actions">
-                <button type="button" onclick="openWorkspaceConnectModal()" class="btn-hp-secondary">
+                <button type="button" onclick="openWorkspaceConnectModal()" class="btn-hp-secondary hp-nav-pair-btn" title="Pair Device">
                     <i data-lucide="smartphone" size="14"></i>
                     <span>Pair Device</span>
                 </button>
-                <a href="./command-center/" class="btn-hp-secondary">
+                <a href="./command-center/" class="btn-hp-secondary hp-nav-admin-btn" title="Command Center">
                     <i data-lucide="sliders" size="14"></i>
                     <span>Command Center</span>
                 </a>
-                <a href="./onboard/" class="btn-hp-primary">
+                <a href="./onboard/" class="btn-hp-primary hp-nav-cta-btn">
                     <span>Get Started Free</span>
                     <i data-lucide="arrow-right" size="14"></i>
                 </a>
@@ -133,15 +133,15 @@
             </p>
 
             <div class="hp-hero-ctas">
-                <a href="./onboard/" class="btn-hp-primary" style="padding: 13px 26px; font-size: 1rem;">
+                <a href="./onboard/" class="btn-hp-primary">
                     <span>Get Started • Free for up to 5 employees</span>
                     <i data-lucide="arrow-right" size="16"></i>
                 </a>
-                <button type="button" onclick="launchPublicSandbox()" class="btn-hp-secondary" style="padding: 13px 22px; font-size: 0.95rem; border-color: rgba(39,251,138,0.4); color:#27FB8A;">
+                <button type="button" onclick="launchPublicSandbox()" class="btn-hp-secondary hp-hero-demo-btn">
                     <i data-lucide="play-circle" size="18"></i>
                     <span>See How It Works</span>
                 </button>
-                <button type="button" onclick="openWorkspaceConnectModal()" class="btn-hp-secondary" style="padding: 13px 20px; font-size: 0.95rem;">
+                <button type="button" onclick="openWorkspaceConnectModal()" class="btn-hp-secondary">
                     <i data-lucide="key" size="16"></i>
                     <span>Enter Pairing Code</span>
                 </button>
@@ -215,52 +215,54 @@
                 <p>Traditional punch clocks cost thousands in maintenance and break when staff need them most.</p>
             </div>
 
-            <table class="hp-comparison-table">
-                <thead>
-                    <tr>
-                        <th>Capability</th>
-                        <th style="color:#ef4444;">Hardware Fingerprint Machines</th>
-                        <th style="color:#27FB8A;">Perimetrr</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td><strong>Upfront Hardware Cost</strong></td>
-                        <td>$800 – $1,500 per device + technician wiring</td>
-                        <td><strong>$0 (Zero Hardware Needed)</strong></td>
-                    </tr>
-                    <tr>
-                        <td><strong>Setup Time</strong></td>
-                        <td>2–4 weeks (technician installation)</td>
-                        <td><strong>Under 2 minutes</strong></td>
-                    </tr>
-                    <tr>
-                        <td><strong>Clocking In for Others</strong></td>
-                        <td>Dirty optical sensors frequently fail or get bypassed</td>
-                        <td><strong>1 Phone = 1 Verified Employee</strong></td>
-                    </tr>
-                    <tr>
-                        <td><strong>Multiple Offices / Field Sites</strong></td>
-                        <td>Requires purchasing hardware for every location</td>
-                        <td><strong>Unlimited Locations from 1 Account</strong></td>
-                    </tr>
-                    <tr>
-                        <td><strong>Maintenance & Downtime</strong></td>
-                        <td>Frequent breakdowns and costly repair calls</td>
-                        <td><strong>Always updated, zero maintenance</strong></td>
-                    </tr>
-                </tbody>
-            </table>
+            <div class="hp-table-wrapper">
+                <table class="hp-comparison-table">
+                    <thead>
+                        <tr>
+                            <th>Capability</th>
+                            <th style="color:#ef4444;">Hardware Fingerprint Machines</th>
+                            <th style="color:#27FB8A;">Perimetrr</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Upfront Hardware Cost</strong></td>
+                            <td>$800 – $1,500 per device + technician wiring</td>
+                            <td><strong>$0 (Zero Hardware Needed)</strong></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Setup Time</strong></td>
+                            <td>2–4 weeks (technician installation)</td>
+                            <td><strong>Under 2 minutes</strong></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Clocking In for Others</strong></td>
+                            <td>Dirty optical sensors frequently fail or get bypassed</td>
+                            <td><strong>1 Phone = 1 Verified Employee</strong></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Multiple Offices / Field Sites</strong></td>
+                            <td>Requires purchasing hardware for every location</td>
+                            <td><strong>Unlimited Locations from 1 Account</strong></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Maintenance & Downtime</strong></td>
+                            <td>Frequent breakdowns and costly repair calls</td>
+                            <td><strong>Always updated, zero maintenance</strong></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </section>
 
         <!-- Interactive Demo Callout -->
         <section id="demo" class="hp-features-section" style="text-align:center;">
-            <div class="hp-card" style="background: linear-gradient(135deg, rgba(21, 34, 56, 0.9), rgba(15, 27, 45, 0.95)); border: 1px solid rgba(39, 251, 138, 0.3); padding: 40px 24px;">
-                <h2 style="font-size:1.8rem; color:#F8FAFC; margin-bottom:12px;">See How It Works in Real Time</h2>
-                <p style="color:var(--text-muted); max-width:540px; margin:0 auto 24px auto;">
+            <div class="hp-card" style="background: linear-gradient(135deg, rgba(21, 34, 56, 0.9), rgba(15, 27, 45, 0.95)); border: 1px solid rgba(39, 251, 138, 0.3); padding: 36px 20px;">
+                <h2 style="font-size:clamp(1.4rem, 4vw, 1.8rem); color:#F8FAFC; margin-bottom:12px;">See How It Works in Real Time</h2>
+                <p style="color:var(--text-muted); max-width:540px; margin:0 auto 24px auto; font-size:clamp(0.85rem, 2vw, 0.95rem);">
                     Experience how fast presence verification feels on your phone or computer. Test-drive the demo terminal in 1 click with zero signup.
                 </p>
-                <button type="button" onclick="launchPublicSandbox()" class="btn-hp-primary" style="padding:12px 28px; font-size:1rem;">
+                <button type="button" onclick="launchPublicSandbox()" class="btn-hp-primary" style="padding:12px 24px; font-size:0.95rem;">
                     <i data-lucide="play" size="18"></i>
                     <span>Launch Live Demo Terminal</span>
                 </button>
@@ -997,10 +999,8 @@
     </div>
 
     <!-- Workspace Connect Modal (Shown on clean '/' or when switching company workspaces) -->
-    <div id="workspace-connect-overlay" class="faq-overlay" role="dialog" aria-modal="true"
-        style="display:none; z-index: 9999; backdrop-filter: blur(8px); background: rgba(0,0,0,0.75);">
-        <div class="faq-modal-content"
-            style="max-width: 440px; text-align: center; padding: 22px 24px; position: relative;">
+    <div id="workspace-connect-overlay" class="faq-overlay" role="dialog" aria-modal="true" style="display:none;">
+        <div class="faq-modal-content" style="max-width: 440px; text-align: center;">
             <div style="display: flex; justify-content: flex-end; margin-bottom: 8px; width: 100%;">
                 <button id="workspace-connect-close" class="faq-close-btn" type="button" aria-label="Close"
                     style="background:none; border:none; color:var(--text-muted); cursor:pointer; padding:4px; display:inline-flex; align-items:center;">
@@ -1009,22 +1009,22 @@
             </div>
             <div style="margin-bottom: 8px; color: var(--primary); display: flex; justify-content: center;"><i
                     data-lucide="shield-check" size="40"></i></div>
-            <h2 style="font-size: 1.3rem; font-weight: 700; margin-bottom: 6px; color: var(--text);"
+            <h2 style="font-size: clamp(1.15rem, 4vw, 1.3rem); font-weight: 700; margin-bottom: 6px; color: var(--text);"
                 data-i18n="connectWorkspaceTitle">Device Pairing • Access Terminal</h2>
             <p style="font-size: 0.86rem; color: var(--text-muted); margin-bottom: 20px; line-height: 1.5;"
                 data-i18n="connectWorkspaceDesc">
                 Enter your organization's Workspace Code (e.g. ABCD-1234) or scan your team invite QR to pair this
                 device.
             </p>
-            <div style="margin-bottom: 14px;">
+            <div style="margin-bottom: 14px; width: 100%;">
                 <input type="text" id="workspace-code-input" placeholder="e.g. ABCD-1234"
                     aria-label="Enter Workspace Code" maxlength="9" autocomplete="off"
-                    style="width: 100%; text-align: center; text-transform: uppercase; font-weight: 700; font-size: 1.25rem; letter-spacing: 2px; padding: 12px 14px; border: 2px solid var(--border); border-radius: 8px; background: var(--surface-2); color: var(--text); outline: none; box-sizing: border-box;" />
+                    style="width: 100%; text-align: center; text-transform: uppercase; font-weight: 700; font-size: clamp(1.1rem, 4vw, 1.25rem); letter-spacing: 2px; padding: 12px 14px; border: 2px solid var(--border); border-radius: 8px; background: var(--surface-2); color: var(--text); outline: none; box-sizing: border-box;" />
             </div>
             <div id="workspace-connect-error"
                 style="display:none; color: #ef4444; font-size: 0.82rem; margin-bottom: 12px; font-weight: 500;"></div>
             <button type="button" id="connect-workspace-btn" data-i18n="connectWorkspaceBtn"
-                style="width: 100%; padding: 12px; background: var(--primary); color: #0F1B2D; border: none; border-radius: 8px; font-size: 0.95rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                style="width: 100%; padding: 12px; background: var(--primary); color: #0F1B2D; border: none; border-radius: 8px; font-size: 0.95rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-sizing: border-box;">
                 <i data-lucide="arrow-right" size="16"></i> Pair Device
             </button>
 
@@ -1036,7 +1036,7 @@
             </div>
 
             <button type="button" id="scan-workspace-qr-btn" class="admin-btn secondary" data-i18n="scanQrBtn"
-                style="width: 100%; padding: 11px; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 600; font-size: 0.9rem;">
+                style="width: 100%; padding: 11px; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 600; font-size: 0.9rem; box-sizing: border-box;">
                 <i data-lucide="qr-code" size="18"></i> Scan Invite QR Code
             </button>
 
@@ -1088,9 +1088,8 @@
     </div>
 
     <!-- Biometric Enrollment Modal -->
-    <div id="biometric-enroll-modal" class="faq-overlay" role="dialog" aria-modal="true"
-        style="display:none; z-index: 9999; backdrop-filter: blur(8px); background: rgba(0,0,0,0.7);">
-        <div class="faq-modal-content" style="max-width: 420px; text-align: center; padding: 26px 20px;">
+    <div id="biometric-enroll-modal" class="faq-overlay" role="dialog" aria-modal="true" style="display:none;">
+        <div class="faq-modal-content" style="max-width: 420px; text-align: center;">
             <div style="margin-bottom: 12px; color: #10b981; display: flex; justify-content: center;"><i
                     data-lucide="shield-check" size="48"></i></div>
             <h2 id="biometric-modal-title"
@@ -1101,13 +1100,13 @@
                 To securely link this device to your profile, please verify your device's native <strong>Face ID,
                     Fingerprint, or Device PIN</strong>.
             </p>
-            <div style="display: flex; flex-direction: column; gap: 10px;">
+            <div style="display: flex; flex-direction: column; gap: 10px; width: 100%;">
                 <button type="button" id="enable-bio-confirm-btn"
-                    style="width: 100%; padding: 12px; background: #10b981; color: #ffffff; border: none; border-radius: 8px; font-size: 0.95rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                    style="width: 100%; padding: 12px; background: #10b981; color: #ffffff; border: none; border-radius: 8px; font-size: 0.95rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-sizing: border-box;">
                     <i data-lucide="fingerprint" size="18"></i> Verify Biometrics / Device PIN
                 </button>
                 <button type="button" id="skip-bio-btn"
-                    style="width: 100%; padding: 10px; background: transparent; color: var(--text-muted); border: 1px solid var(--border); border-radius: 8px; font-size: 0.85rem; cursor: pointer;">
+                    style="width: 100%; padding: 10px; background: transparent; color: var(--text-muted); border: 1px solid var(--border); border-radius: 8px; font-size: 0.85rem; cursor: pointer; box-sizing: border-box;">
                     Cancel Setup
                 </button>
             </div>
@@ -1115,9 +1114,8 @@
     </div>
 
     <!-- Device Transfer / Unlink Modal -->
-    <div id="device-transfer-modal" class="faq-overlay" role="dialog" aria-modal="true"
-        style="display:none; z-index: 9999; backdrop-filter: blur(8px); background: rgba(0,0,0,0.7);">
-        <div class="faq-modal-content" style="max-width: 440px; text-align: left; padding: 24px 20px;">
+    <div id="device-transfer-modal" class="faq-overlay" role="dialog" aria-modal="true" style="display:none;">
+        <div class="faq-modal-content" style="max-width: 440px; text-align: left;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <div style="color: var(--primary);"><i data-lucide="arrow-left-right" size="22"></i></div>
@@ -1133,10 +1131,10 @@
                 below:
             </p>
 
-            <div style="display: flex; flex-direction: column; gap: 14px;">
+            <div style="display: flex; flex-direction: column; gap: 14px; width: 100%;">
                 <!-- Option 1: Instant Admin PIN / Password Unlock -->
                 <div
-                    style="background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px;">
+                    style="background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; box-sizing: border-box;">
                     <div
                         style="font-size: 0.88rem; font-weight: 600; color: var(--text); margin-bottom: 4px; display:flex; align-items:center; gap:6px;">
                         <i data-lucide="key" size="14" style="color:var(--primary);"></i> Admin Instant Unlock
@@ -1144,19 +1142,19 @@
                     <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 8px;">
                         An administrator can enter their workspace password or PIN to immediately unbind this phone.
                     </p>
-                    <div style="display: flex; gap: 6px;">
+                    <div style="display: flex; gap: 6px; flex-wrap: wrap;">
                         <input type="password" id="transfer-admin-pwd" placeholder="Enter Workspace Admin Password"
                             aria-label="Admin password"
-                            style="flex: 1; padding: 8px 10px; font-size: 0.82rem; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--text);" />
+                            style="flex: 1 1 180px; min-width: 0; padding: 8px 10px; font-size: 0.82rem; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--text); box-sizing: border-box;" />
                         <button type="button" id="confirm-admin-unlink-btn" class="btn-primary small"
-                            style="white-space: nowrap; padding: 8px 14px; font-size: 0.82rem;">Unlock</button>
+                            style="flex: 0 0 auto; white-space: nowrap; padding: 8px 14px; font-size: 0.82rem;">Unlock</button>
                     </div>
                     <div id="transfer-admin-pwd-msg" style="display:none; font-size: 0.75rem; margin-top: 6px;"></div>
                 </div>
 
                 <!-- Option 2: 1-Tap Request Transfer -->
                 <div
-                    style="background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px;">
+                    style="background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; box-sizing: border-box;">
                     <div
                         style="font-size: 0.88rem; font-weight: 600; color: var(--text); margin-bottom: 4px; display:flex; align-items:center; gap:6px;">
                         <i data-lucide="smartphone" size="14" style="color:#10b981;"></i> Request Device Transfer
@@ -1165,7 +1163,7 @@
                         If your previous phone was inactive for 7+ days, this phone will link automatically. Otherwise, an authorization PIN is generated for your Team Lead or Workspace Admin.
                     </p>
                     <button type="button" id="request-transfer-btn"
-                        style="width: 100%; padding: 9px; background: transparent; border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 0.82rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                        style="width: 100%; padding: 9px; background: transparent; border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 0.82rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; box-sizing: border-box;">
                         <i data-lucide="send" size="14"></i> Request Device Transfer
                     </button>
                     <div id="transfer-request-msg" style="display:none; font-size: 0.75rem; margin-top: 8px;"></div>
@@ -1175,9 +1173,8 @@
     </div>
 
     <!-- Team Lead In-App Approvals Modal -->
-    <div id="lead-approvals-modal" class="faq-overlay" role="dialog" aria-modal="true"
-        style="display:none; z-index: 9999; backdrop-filter: blur(8px); background: rgba(0,0,0,0.75);">
-        <div class="faq-modal-content" style="max-width: 460px; text-align: left; padding: 24px 20px;">
+    <div id="lead-approvals-modal" class="faq-overlay" role="dialog" aria-modal="true" style="display:none;">
+        <div class="faq-modal-content" style="max-width: 460px; text-align: left;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <div style="color: var(--primary);"><i data-lucide="shield-check" size="22"></i></div>

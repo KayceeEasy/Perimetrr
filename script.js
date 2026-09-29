@@ -2423,6 +2423,7 @@ window.launchPublicSandbox = async function() {
     saveActiveTenant(demoTenant);
     const homepageView = document.getElementById('homepage-view');
     const mainCard = document.getElementById('main-content');
+    if (document.body) document.body.classList.remove('homepage-active');
     if (homepageView) homepageView.style.display = 'none';
     if (mainCard) mainCard.style.display = 'block';
     await initTenantBranding();
@@ -2431,6 +2432,7 @@ window.launchPublicSandbox = async function() {
 window.showHomepageView = function() {
     const homepageView = document.getElementById('homepage-view');
     const mainCard = document.getElementById('main-content');
+    if (document.body) document.body.classList.add('homepage-active');
     if (homepageView) homepageView.style.display = 'flex';
     if (mainCard) mainCard.style.display = 'none';
     const tenant = (typeof getActiveTenantDirect === 'function' ? getActiveTenantDirect() : null);
@@ -2445,6 +2447,7 @@ window.showHomepageView = function() {
 window.showTerminalView = function() {
     const homepageView = document.getElementById('homepage-view');
     const mainCard = document.getElementById('main-content');
+    if (document.body) document.body.classList.remove('homepage-active');
     if (homepageView) homepageView.style.display = 'none';
     if (mainCard) mainCard.style.display = 'block';
 };
