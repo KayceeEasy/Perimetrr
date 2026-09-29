@@ -80,6 +80,43 @@ function checkMasterAuth() {
     }
 }
 
+const AUTH_RATE_LIMIT = {
+    FAIL_KEY: 'wt_auth_failed_attempts',
+    LOCK_KEY: 'wt_auth_lockout_until',
+
+    getLockRemaining() {
+        const lockoutUntil = parseInt(localStorage.getItem(this.LOCK_KEY) || '0', 10);
+        const remaining = Math.ceil((lockoutUntil - Date.now()) / 1000);
+        return remaining > 0 ? remaining : 0;
+    },
+
+    recordFailure() {
+        const attempts = parseInt(localStorage.getItem(this.FAIL_KEY) || '0', 10) + 1;
+        localStorage.setItem(this.FAIL_KEY, attempts.toString());
+
+        let lockoutSeconds = 0;
+        if (attempts >= 10) {
+            lockoutSeconds = 300; // 5 minutes
+        } else if (attempts >= 5) {
+            lockoutSeconds = 60;  // 1 minute
+        } else if (attempts >= 3) {
+            lockoutSeconds = 15;  // 15 seconds
+        }
+
+        if (lockoutSeconds > 0) {
+            const lockUntil = Date.now() + (lockoutSeconds * 1000);
+            localStorage.setItem(this.LOCK_KEY, lockUntil.toString());
+            return lockoutSeconds;
+        }
+        return 0;
+    },
+
+    recordSuccess() {
+        localStorage.removeItem(this.FAIL_KEY);
+        localStorage.removeItem(this.LOCK_KEY);
+    }
+};
+
 async function handleMasterLogin(e) {
     e.preventDefault();
     const emailEl = document.getElementById('operator-email');
@@ -88,6 +125,15 @@ async function handleMasterLogin(e) {
     const submitBtn = document.getElementById('auth-submit-btn');
     const email = (emailEl ? emailEl.value : '').trim();
     const password = (input.value || '').trim();
+
+    const lockRemaining = AUTH_RATE_LIMIT.getLockRemaining();
+    if (lockRemaining > 0) {
+        if (errorEl) {
+            errorEl.textContent = `Security lockout active. Please wait ${lockRemaining}s before retrying.`;
+            errorEl.style.display = 'block';
+        }
+        return;
+    }
 
     if (!password) return;
     if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Verifying...'; }
@@ -126,11 +172,17 @@ async function handleMasterLogin(e) {
     if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Unlock Watch Tower'; }
 
     if (authenticated) {
+        AUTH_RATE_LIMIT.recordSuccess();
         sessionStorage.setItem(SESSION_KEY, 'true');
         sessionStorage.setItem('operator_session_start', Date.now().toString());
         checkMasterAuth();
     } else {
-        errorEl.textContent = 'Invalid credentials or Master Key. Access Denied.';
+        const lockSec = AUTH_RATE_LIMIT.recordFailure();
+        if (lockSec > 0) {
+            errorEl.textContent = `Too many failed attempts. Console locked for ${lockSec}s.`;
+        } else {
+            errorEl.textContent = 'Invalid credentials or Master Key. Access Denied.';
+        }
         errorEl.style.display = 'block';
         input.value = '';
         input.focus();

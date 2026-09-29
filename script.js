@@ -2032,10 +2032,9 @@ async function openWorkspaceConnectModal() {
     const input = document.getElementById('workspace-code-input');
     const err = document.getElementById('workspace-connect-error');
     const closeBtn = document.getElementById('workspace-connect-close');
-    const tenant = await getActiveTenant();
 
     if (closeBtn) {
-        closeBtn.style.display = tenant ? 'inline-flex' : 'none';
+        closeBtn.style.display = 'inline-flex';
     }
 
     if (overlay) {
@@ -2051,15 +2050,25 @@ async function openWorkspaceConnectModal() {
 }
 
 async function closeWorkspaceConnectModal() {
-    const tenant = await getActiveTenant();
-    if (!tenant) return; // Disallow closing if no organization workspace is currently paired
-
     const overlay = document.getElementById('workspace-connect-overlay');
     if (overlay) {
         overlay.style.display = 'none';
         overlay.classList.remove('active');
     }
     if (typeof stopWorkspaceQrScanner === 'function') stopWorkspaceQrScanner();
+
+    // If there is no active tenant, ensure the homepage is displayed rather than an empty card
+    const tenant = (typeof getActiveTenantDirect === 'function' ? getActiveTenantDirect() : await getActiveTenant());
+    const mainCard = document.getElementById('main-content');
+    const homepageView = document.getElementById('homepage-view');
+    if (!tenant && mainCard && mainCard.style.display !== 'none') {
+        if (typeof showHomepageView === 'function') {
+            showHomepageView();
+        } else {
+            if (homepageView) homepageView.style.display = 'flex';
+            mainCard.style.display = 'none';
+        }
+    }
 }
 
 window.openWorkspaceConnectModal = openWorkspaceConnectModal;
@@ -2324,12 +2333,22 @@ function initWorkspaceConnect() {
     const overlay = document.getElementById('workspace-connect-overlay');
     if (overlay && !overlay.dataset.bound) {
         overlay.dataset.bound = 'true';
-        overlay.addEventListener('click', async (e) => {
+        overlay.addEventListener('click', (e) => {
             if (e.target === overlay) {
-                const tenant = await getActiveTenant();
-                if (tenant) {
-                    closeWorkspaceConnectModal();
-                }
+                closeWorkspaceConnectModal();
+            }
+        });
+    }
+
+    if (!document.body.dataset.modalEscapeBound) {
+        document.body.dataset.modalEscapeBound = 'true';
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' || e.key === 'Esc') {
+                closeWorkspaceConnectModal();
+                if (typeof closeFaqModal === 'function') closeFaqModal();
+                if (typeof closePrivacyModal === 'function') closePrivacyModal();
+                if (typeof closeDeviceTransferModal === 'function') closeDeviceTransferModal();
+                if (typeof closeLeadApprovalsModal === 'function') closeLeadApprovalsModal();
             }
         });
     }

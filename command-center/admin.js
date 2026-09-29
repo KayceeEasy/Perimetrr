@@ -4024,6 +4024,43 @@ function setLoginLoading(isLoading) {
     if (messageEl && isLoading) { messageEl.textContent = 'Checking admin credentials...'; messageEl.className = 'admin-message'; }
 }
 
+const ADMIN_AUTH_RATE_LIMIT = {
+    FAIL_KEY: 'admin_auth_failed_attempts',
+    LOCK_KEY: 'admin_auth_lockout_until',
+
+    getLockRemaining() {
+        const lockoutUntil = parseInt(localStorage.getItem(this.LOCK_KEY) || '0', 10);
+        const remaining = Math.ceil((lockoutUntil - Date.now()) / 1000);
+        return remaining > 0 ? remaining : 0;
+    },
+
+    recordFailure() {
+        const attempts = parseInt(localStorage.getItem(this.FAIL_KEY) || '0', 10) + 1;
+        localStorage.setItem(this.FAIL_KEY, attempts.toString());
+
+        let lockoutSeconds = 0;
+        if (attempts >= 10) {
+            lockoutSeconds = 300; // 5 minutes
+        } else if (attempts >= 5) {
+            lockoutSeconds = 60;  // 1 minute
+        } else if (attempts >= 3) {
+            lockoutSeconds = 15;  // 15 seconds
+        }
+
+        if (lockoutSeconds > 0) {
+            const lockUntil = Date.now() + (lockoutSeconds * 1000);
+            localStorage.setItem(this.LOCK_KEY, lockUntil.toString());
+            return lockoutSeconds;
+        }
+        return 0;
+    },
+
+    recordSuccess() {
+        localStorage.removeItem(this.FAIL_KEY);
+        localStorage.removeItem(this.LOCK_KEY);
+    }
+};
+
 async function handleAdminLogin(event) {
     if (event) {
         event.preventDefault();
@@ -4033,6 +4070,15 @@ async function handleAdminLogin(event) {
     const password = document.getElementById('admin-password').value;
     const messageEl = document.getElementById('admin-message');
 
+    const lockRemaining = ADMIN_AUTH_RATE_LIMIT.getLockRemaining();
+    if (lockRemaining > 0) {
+        if (messageEl) {
+            messageEl.textContent = `Security lockout active. Please wait ${lockRemaining}s before retrying.`;
+            messageEl.className = 'admin-message error';
+        }
+        return;
+    }
+
     if (!username || !password) { messageEl.textContent = 'Username and password are required.'; messageEl.className = 'admin-message error'; return; }
 
     setLoginLoading(true);
@@ -4040,6 +4086,7 @@ async function handleAdminLogin(event) {
         const response = await authenticateAdmin(username, password);
         setLoginLoading(false);
         if (response.ok) {
+            ADMIN_AUTH_RATE_LIMIT.recordSuccess();
             isAdminLoggedIn = true;
             currentAdminUsername = username;
             safeSession.setItem('admin_session', JSON.stringify({ 
@@ -4083,7 +4130,12 @@ async function handleAdminLogin(event) {
             document.addEventListener('keydown', resetInactivityTimer);
             document.addEventListener('touchstart', resetInactivityTimer);
         } else {
-            messageEl.textContent = response.message || 'Invalid admin credentials.';
+            const lockSec = ADMIN_AUTH_RATE_LIMIT.recordFailure();
+            if (lockSec > 0) {
+                messageEl.textContent = `Too many failed attempts. Console locked for ${lockSec}s.`;
+            } else {
+                messageEl.textContent = response.message || 'Invalid admin credentials.';
+            }
             messageEl.className = 'admin-message error';
         }
     } catch (error) {
