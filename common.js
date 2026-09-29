@@ -699,23 +699,6 @@ function getActiveTenantDirect() {
             if (parsed && typeof parsed === 'object') return parsed;
         }
     } catch (e) {}
-    const activeSlug = safeStorage.getItem('active_tenant_slug');
-    if (activeSlug) {
-        if (activeSlug.toLowerCase() === 'demo') {
-            return {
-                id: "demo-workspace-uuid",
-                slug: "demo",
-                name: "Acme Global Demo",
-                short_name: "Acme",
-                workspace_code: "DEMO-2026",
-                brand_color: "#27FB8A",
-                plan_tier: "Enterprise",
-                office_name: "Headquarters (Sandbox)",
-                radius: 500
-            };
-        }
-        return { slug: activeSlug, id: activeSlug, name: activeSlug };
-    }
     return null;
 }
 
@@ -753,6 +736,7 @@ async function getActiveTenant(optionalSlug = null) {
                 if (matched) {
                     slug = matched.slug;
                     try {
+                        safeStorage.setItem('active_tenant', JSON.stringify(matched));
                         safeStorage.setItem('active_tenant_slug', matched.slug);
                         // Clean the URL immediately to '/' so zero code or slug remains in address bar/history
                         if (window.history && window.history.replaceState) {
@@ -765,7 +749,7 @@ async function getActiveTenant(optionalSlug = null) {
             // 2. Direct clean path fallback: /:slug (first path segment if not a known route)
             if (!slug) {
                 const pathParts = window.location.pathname.split('/').filter(Boolean);
-                const knownRoutes = ['command-center', 'admin', 'watch-tower', 'onboard', 'hybrid', 'image', 'sw.js'];
+                const knownRoutes = ['command-center', 'admin', 'watch-tower', 'onboard', 'hybrid', 'image', 'sw.js', 'index.html'];
                 if (pathParts.length > 0 && !knownRoutes.includes(pathParts[0].toLowerCase())) {
                     slug = pathParts[0];
                 }
@@ -787,26 +771,9 @@ async function getActiveTenant(optionalSlug = null) {
             }
         }
 
-        if (slug && String(slug).trim().toLowerCase() === 'demo') {
-            return {
-                id: "demo-workspace-uuid",
-                slug: "demo",
-                name: "Acme Global Demo",
-                short_name: "Acme",
-                workspace_code: "DEMO-2026",
-                brand_color: "#27FB8A",
-                plan_tier: "Enterprise",
-                office_name: "Headquarters (Sandbox)",
-                radius: 500
-            };
-        }
-
         const registry = await getTenantRegistry();
         let storedTenant = null;
         try { storedTenant = JSON.parse(safeStorage.getItem('active_tenant') || 'null'); } catch (e) {}
-        if (storedTenant && (storedTenant.slug === 'demo' || storedTenant.id === 'demo-workspace-uuid')) {
-            return storedTenant;
-        }
 
         if (slug) {
             const cleanSlug = String(slug).trim().toLowerCase();
