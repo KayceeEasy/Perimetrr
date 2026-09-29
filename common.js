@@ -2043,20 +2043,6 @@ async function handleScheduleBackend(mode, payload) {
  */
 async function handleDeviceBackend(mode, payload) {
     switch (mode) {
-            case 'claim-account': {
-                const { data, error } = await supabaseClient.rpc('claim_account', {
-                    p_name: payload.name,
-                    p_device_id: payload.deviceId || ''
-                });
-                if (error) throw error;
-                return {
-                    ok: data.ok,
-                    allowed: data.ok,
-                    email: data.email,
-                    password: data.password,
-                    message: data.message
-                };
-            }
             case 'verify-owner':
             case 'verify-user': {
                 if (payload.staffId) {
@@ -2551,7 +2537,6 @@ function handleDemoBackend(mode, payload) {
         case 'verify-user':
             return { ok: true, allowed: true, owner: payload && payload.name ? payload.name : 'Alex Rivera', message: 'Device authorized (Sandbox Demo)' };
         case 'register-owner':
-        case 'claim-account':
             return { ok: true, allowed: true, message: 'Device registered (Sandbox Demo)' };
         case 'attendance':
         case 'log-attendance':
