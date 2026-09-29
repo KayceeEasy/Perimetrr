@@ -79,10 +79,10 @@
             </a>
 
             <nav class="hp-nav-links">
-                <a href="#features" class="hp-nav-link">Security & Features</a>
-                <a href="#sandbox" class="hp-nav-link">Live Sandbox</a>
-                <a href="#compare" class="hp-nav-link">Hardware vs Cloud</a>
-                <a href="./onboard/" class="hp-nav-link">Pricing & Setup</a>
+                <a href="#features" class="hp-nav-link">Features</a>
+                <a href="#demo" class="hp-nav-link">See How It Works</a>
+                <a href="#compare" class="hp-nav-link">Hardware vs Perimetrr</a>
+                <a href="./onboard/" class="hp-nav-link">Pricing</a>
             </nav>
 
             <div class="hp-nav-actions">
@@ -95,7 +95,7 @@
                     <span>Command Center</span>
                 </a>
                 <a href="./onboard/" class="btn-hp-primary">
-                    <span>Create Workspace</span>
+                    <span>Get Started Free</span>
                     <i data-lucide="arrow-right" size="14"></i>
                 </a>
             </div>
@@ -121,7 +121,7 @@
         <section class="hp-hero">
             <div class="hp-hero-pill">
                 <i data-lucide="shield-check" size="14"></i>
-                <span>Hardware-Free Presence Verification</span>
+                <span>No Hardware • Verified On Arrival</span>
             </div>
 
             <h1 class="hp-hero-title">
@@ -129,19 +129,19 @@
             </h1>
 
             <p class="hp-hero-sub">
-                Eliminate proxy attendance, ghost clock-ins, and mock location spoofing with server-side geofencing. High-precision attendance verification for modern teams — zero biometric hardware required.
+                Know who's actually at work. Your team clocks in from their phones when they arrive at the office — no expensive fingerprint machines, no fake locations, no checking in for absent coworkers.
             </p>
 
             <div class="hp-hero-ctas">
-                <a href="./onboard/" class="btn-hp-primary" style="padding: 12px 24px; font-size: 1rem;">
-                    <span>Create Your Workspace</span>
+                <a href="./onboard/" class="btn-hp-primary" style="padding: 13px 26px; font-size: 1rem;">
+                    <span>Get Started • Free for up to 5 employees</span>
                     <i data-lucide="arrow-right" size="16"></i>
                 </a>
-                <button type="button" onclick="launchPublicSandbox()" class="btn-hp-secondary" style="padding: 12px 20px; font-size: 0.95rem; border-color: rgba(39,251,138,0.4); color:#27FB8A;">
+                <button type="button" onclick="launchPublicSandbox()" class="btn-hp-secondary" style="padding: 13px 22px; font-size: 0.95rem; border-color: rgba(39,251,138,0.4); color:#27FB8A;">
                     <i data-lucide="play-circle" size="18"></i>
-                    <span>Try Interactive Sandbox</span>
+                    <span>See How It Works</span>
                 </button>
-                <button type="button" onclick="openWorkspaceConnectModal()" class="btn-hp-secondary" style="padding: 12px 20px; font-size: 0.95rem;">
+                <button type="button" onclick="openWorkspaceConnectModal()" class="btn-hp-secondary" style="padding: 13px 20px; font-size: 0.95rem;">
                     <i data-lucide="key" size="16"></i>
                     <span>Enter Pairing Code</span>
                 </button>
@@ -156,8 +156,8 @@
                 <div class="hp-radar-core">
                     <img src="./image/perimetrr-mark.svg" alt="Perimeter Mark" width="48" height="48" />
                     <div style="font-size:0.75rem; font-weight:700; color:#27FB8A; letter-spacing:1px; text-transform:uppercase;">The Perimeter</div>
-                    <div style="font-size:0.8rem; color:#F8FAFC; font-weight:600;">GPS Geofence: Active (150m)</div>
-                    <span style="background:rgba(39,251,138,0.15); color:#27FB8A; padding:2px 8px; border-radius:99px; font-size:0.72rem; font-weight:700;">Verified • 0ms Latency</span>
+                    <div style="font-size:0.8rem; color:#F8FAFC; font-weight:600;">Office Location: Verified (150m)</div>
+                    <span style="background:rgba(39,251,138,0.15); color:#27FB8A; padding:2px 8px; border-radius:99px; font-size:0.72rem; font-weight:700;">Verified • Ready to Sign In</span>
                 </div>
             </div>
         </section>
@@ -165,45 +165,45 @@
         <!-- Features Grid -->
         <section id="features" class="hp-features-section">
             <div class="hp-section-header">
-                <h2>Why Modern Teams Switch to Perimetrr</h2>
-                <p>Engineered to protect payroll integrity and replace fragile biometric timeclocks.</p>
+                <h2>Why Teams Switch to Perimetrr</h2>
+                <p>Stop paying for hours people didn't work. Simple for employees, airtight for managers.</p>
             </div>
 
             <div class="hp-grid-3">
                 <div class="hp-card">
-                    <div class="hp-card-icon"><i data-lucide="shield-alert" size="22"></i></div>
-                    <h3>Server-Side PostGIS Geofencing</h3>
-                    <p>Client-side GPS checks can be easily hacked with mock location apps. Perimetrr calculates geographic distance on the database server using PostGIS, rendering GPS spoofing impossible.</p>
+                    <div class="hp-card-icon"><i data-lucide="shield-check" size="22"></i></div>
+                    <h3>Tamper-Proof Location Defense</h3>
+                    <p>Fake GPS and mock location apps don't work here. The system verifies physical distance directly on the secure server before any check-in is approved.</p>
                 </div>
 
                 <div class="hp-card">
                     <div class="hp-card-icon"><i data-lucide="smartphone" size="22"></i></div>
-                    <h3>1 Phone = 1 Verified Identity</h3>
-                    <p>Cryptographic device binding pairs one employee identity to their physical smartphone. Stop proxy attendance and ghost clock-ins cold without buying fingerprint scanners.</p>
+                    <h3>1 Phone = 1 Verified Employee</h3>
+                    <p>Each phone is securely linked to one staff member. Nobody can clock in on behalf of a friend or coworker who is running late.</p>
                 </div>
 
                 <div class="hp-card">
                     <div class="hp-card-icon"><i data-lucide="wifi-off" size="22"></i></div>
-                    <h3>Offline-First Resilience</h3>
-                    <p>Employees in basements or areas with patchy cell service can still record attendance. Logs are queued locally with cryptographic timestamps and auto-synced the moment connection restores.</p>
+                    <h3>Works Even Without Internet</h3>
+                    <p>Staff in basements or spotty cellular dead zones can still clock in. Records are securely saved on the phone and automatically sync the moment connection returns.</p>
                 </div>
 
                 <div class="hp-card">
                     <div class="hp-card-icon"><i data-lucide="calendar" size="22"></i></div>
                     <h3>Hybrid Work & Shift Quotas</h3>
-                    <p>Manage office vs. remote work allocations with an intuitive drag-and-drop scheduler. Maintain daily in-office capacity quotas with real-time compliance tracking.</p>
+                    <p>Manage office vs. remote work days with an easy drag-and-drop schedule. Set daily office capacity limits with live attendance tracking.</p>
                 </div>
 
                 <div class="hp-card">
                     <div class="hp-card-icon"><i data-lucide="file-spreadsheet" size="22"></i></div>
-                    <h3>1-Click Dispute-Proof Payroll</h3>
-                    <p>Generate clean, second-precision CSV audit exports formatted for QuickBooks, Gusto, and ADP. Defend against overtime claims with immutable presence logs.</p>
+                    <h3>1-Click Clean Payroll Export</h3>
+                    <p>Export second-accurate timesheets formatted cleanly for Excel, QuickBooks, and payroll with one click. Never argue over manual timecards again.</p>
                 </div>
 
                 <div class="hp-card">
                     <div class="hp-card-icon"><i data-lucide="tower-control" size="22"></i></div>
-                    <h3>Reseller & Fleet Watch Tower</h3>
-                    <p>IT consultancies and MSPs can manage dozens of isolated client workspaces from one master platform console with white-label branding and scoped operator controls.</p>
+                    <h3>Multi-Branch & Agency Fleet</h3>
+                    <p>Manage multiple offices, retail branches, or client companies from one master screen with custom company branding.</p>
                 </div>
             </div>
         </section>
@@ -211,8 +211,8 @@
         <!-- Hardware vs Perimetrr Comparison -->
         <section id="compare" class="hp-features-section">
             <div class="hp-section-header">
-                <h2>Biometric Hardware vs. Perimetrr</h2>
-                <p>Traditional punch clocks cost thousands in maintenance and fail when staff need them most.</p>
+                <h2>Fingerprint Machines vs. Perimetrr</h2>
+                <p>Traditional punch clocks cost thousands in maintenance and break when staff need them most.</p>
             </div>
 
             <table class="hp-comparison-table">
@@ -220,14 +220,14 @@
                     <tr>
                         <th>Capability</th>
                         <th style="color:#ef4444;">Hardware Fingerprint Machines</th>
-                        <th style="color:#27FB8A;">Perimetrr Presence Cloud</th>
+                        <th style="color:#27FB8A;">Perimetrr</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
-                        <td><strong>Upfront Cost</strong></td>
-                        <td>$800 – $1,500 per device + wiring</td>
-                        <td><strong>$0 (Zero Hardware)</strong></td>
+                        <td><strong>Upfront Hardware Cost</strong></td>
+                        <td>$800 – $1,500 per device + technician wiring</td>
+                        <td><strong>$0 (Zero Hardware Needed)</strong></td>
                     </tr>
                     <tr>
                         <td><strong>Setup Time</strong></td>
@@ -235,34 +235,34 @@
                         <td><strong>Under 2 minutes</strong></td>
                     </tr>
                     <tr>
-                        <td><strong>Proxy Attendance Defense</strong></td>
-                        <td>Dirty optical sensors frequently fail</td>
-                        <td><strong>1 Phone = 1 Bound Device</strong></td>
+                        <td><strong>Clocking In for Others</strong></td>
+                        <td>Dirty optical sensors frequently fail or get bypassed</td>
+                        <td><strong>1 Phone = 1 Verified Employee</strong></td>
                     </tr>
                     <tr>
-                        <td><strong>Multi-Branch & Field Sites</strong></td>
-                        <td>Requires buying hardware for every site</td>
-                        <td><strong>Unlimited GPS Perimeters</strong></td>
+                        <td><strong>Multiple Offices / Field Sites</strong></td>
+                        <td>Requires purchasing hardware for every location</td>
+                        <td><strong>Unlimited Locations from 1 Account</strong></td>
                     </tr>
                     <tr>
                         <td><strong>Maintenance & Downtime</strong></td>
-                        <td>Frequent breakdowns, replacement parts</td>
-                        <td><strong>99.99% Cloud PWA Availability</strong></td>
+                        <td>Frequent breakdowns and costly repair calls</td>
+                        <td><strong>Always updated, zero maintenance</strong></td>
                     </tr>
                 </tbody>
             </table>
         </section>
 
-        <!-- Interactive Sandbox Callout -->
-        <section id="sandbox" class="hp-features-section" style="text-align:center;">
+        <!-- Interactive Demo Callout -->
+        <section id="demo" class="hp-features-section" style="text-align:center;">
             <div class="hp-card" style="background: linear-gradient(135deg, rgba(21, 34, 56, 0.9), rgba(15, 27, 45, 0.95)); border: 1px solid rgba(39, 251, 138, 0.3); padding: 40px 24px;">
-                <h2 style="font-size:1.8rem; color:#F8FAFC; margin-bottom:12px;">Test-Drive Perimetrr Right Now</h2>
+                <h2 style="font-size:1.8rem; color:#F8FAFC; margin-bottom:12px;">See How It Works in Real Time</h2>
                 <p style="color:var(--text-muted); max-width:540px; margin:0 auto 24px auto;">
-                    Experience how fast presence verification feels on mobile. Launch our live sandbox workspace in 1 click with zero registration.
+                    Experience how fast presence verification feels on your phone or computer. Test-drive the demo terminal in 1 click with zero signup.
                 </p>
                 <button type="button" onclick="launchPublicSandbox()" class="btn-hp-primary" style="padding:12px 28px; font-size:1rem;">
                     <i data-lucide="play" size="18"></i>
-                    <span>Launch Live Interactive Sandbox</span>
+                    <span>Launch Live Demo Terminal</span>
                 </button>
             </div>
         </section>

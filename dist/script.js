@@ -2749,7 +2749,7 @@ function initLeadApprovalsModal() {
     }
 }
 
-function initKioskModules() {
+function initTerminalModules() {
     initFaqModal();
     initPrivacyModal();
     initWorkspaceConnect();
@@ -2761,9 +2761,9 @@ function initKioskModules() {
 
 
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initKioskModules);
+    document.addEventListener('DOMContentLoaded', initTerminalModules);
 } else {
-    initKioskModules();
+    initTerminalModules();
 }
 
 async function refreshRecentLogsFromDb() {
