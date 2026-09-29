@@ -144,11 +144,22 @@ html, body, .card, .admin-card, .topbar, .eyebrow, input, select, button,
 /* ─── LUCIDE ICONS: CLEAN SIZING & BREATHING ROOM ─── */
 .lucide,
 svg.lucide {
-    width: 14px;
-    height: 14px;
     stroke-width: 1.75px;
     vertical-align: middle;
     flex-shrink: 0;
+    display: inline-block;
+}
+
+/* Fallback for un-sized lucide SVGs */
+svg.lucide:not([width]) {
+    width: 16px;
+    height: 16px;
+}
+
+.hp-card-icon .lucide,
+.hp-card-icon svg.lucide {
+    width: 22px;
+    height: 22px;
 }
 
 .admin-badge .lucide,
@@ -160,8 +171,8 @@ svg.lucide {
 .hero-btn-icon.lucide,
 .hero-btn-icon svg.lucide,
 svg.hero-btn-icon {
-    width: 34px;
-    height: 34px;
+    width: 36px;
+    height: 36px;
 }
 
 .config-icon .lucide,
@@ -174,8 +185,8 @@ svg.hero-btn-icon {
 
 .topbar-icon-btn .lucide,
 .topbar-icon-btn svg.lucide {
-    width: 14px;
-    height: 14px;
+    width: 16px;
+    height: 16px;
 }
 
 .tab-icon .lucide,
@@ -198,6 +209,22 @@ svg.hero-btn-icon {
     width: 13px;
     height: 13px;
     stroke-width: 1.75px;
+}
+
+.btn-hp-primary .lucide,
+.btn-hp-primary svg.lucide,
+.btn-hp-secondary .lucide,
+.btn-hp-secondary svg.lucide {
+    width: 15px;
+    height: 15px;
+}
+
+.hp-hero-ctas .btn-hp-primary .lucide,
+.hp-hero-ctas .btn-hp-primary svg.lucide,
+.hp-hero-ctas .btn-hp-secondary .lucide,
+.hp-hero-ctas .btn-hp-secondary svg.lucide {
+    width: 18px;
+    height: 18px;
 }
 
 body {
@@ -828,6 +855,21 @@ button {
 button:hover:not(:disabled) { transform: translateY(-2px); }
 button:active:not(:disabled) { transform: translateY(0); }
 button:disabled { opacity: 0.38; cursor: not-allowed; box-shadow: none; transform: none !important; }
+
+/* Keep icon toggles and embedded control buttons stable on hover */
+.faq-close-btn,
+.staff-search-toggle,
+.staff-search-clear,
+.password-toggle,
+.lang-btn,
+.switch-badge-btn {
+    transform: none !important;
+}
+
+.topbar-icon-btn:hover,
+.theme-toggle:hover {
+    transform: translateY(-1px) !important;
+}
 
 .btn-in {
     width: 100%;

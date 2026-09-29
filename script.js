@@ -2486,6 +2486,9 @@ window.launchPublicSandbox = async function() {
 
         requestLocation();
         updateSignInButtonsState();
+        if (window.lucide && typeof window.lucide.createIcons === 'function') {
+            window.lucide.createIcons();
+        }
         showToast("Welcome to the Acme Demo Terminal! 1-click test drive active.", "success");
     } catch (err) {
         console.error('launchPublicSandbox error:', err);
@@ -2507,6 +2510,9 @@ window.showHomepageView = function() {
     } else if (pairedBanner) {
         pairedBanner.style.display = 'none';
     }
+    if (window.lucide && typeof window.lucide.createIcons === 'function') {
+        window.lucide.createIcons();
+    }
 };
 
 window.showTerminalView = function() {
@@ -2515,6 +2521,9 @@ window.showTerminalView = function() {
     if (document.body) document.body.classList.remove('homepage-active');
     if (homepageView) homepageView.style.display = 'none';
     if (mainCard) mainCard.style.display = 'block';
+    if (window.lucide && typeof window.lucide.createIcons === 'function') {
+        window.lucide.createIcons();
+    }
 };
 
 function openDeviceTransferModal() {
@@ -2825,6 +2834,9 @@ function initTerminalModules() {
     initLeadApprovalsModal();
     initTenantBranding();
     checkLeadPendingApprovals();
+    if (window.lucide && typeof window.lucide.createIcons === 'function') {
+        window.lucide.createIcons();
+    }
 }
 
 
