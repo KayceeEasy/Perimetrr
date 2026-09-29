@@ -712,8 +712,20 @@ function saveActiveTenant(tenant) {
     }
 }
 
+function getActiveTenantSlug() {
+    try {
+        const direct = getActiveTenantDirect();
+        if (direct && direct.slug) return direct.slug;
+        const storedSlug = safeStorage.getItem('active_tenant_slug');
+        if (storedSlug) return storedSlug;
+        if (typeof activeTenantSlug !== 'undefined' && activeTenantSlug) return activeTenantSlug;
+    } catch (e) {}
+    return 'default';
+}
+
 if (typeof window !== 'undefined') {
     window.getActiveTenantDirect = getActiveTenantDirect;
+    window.getActiveTenantSlug = getActiveTenantSlug;
     window.saveActiveTenant = saveActiveTenant;
 }
 
@@ -973,6 +985,10 @@ async function getTenantStaffList(tenantSlug) {
             { id: "demo-staff-4", name: "Morgan Chen", dept: "Growth & Sales", schedule_policy: "office_only", is_team_lead: false, device_id: null },
             { id: "demo-staff-5", name: "Elena Rostova", dept: "DevOps & Cloud", schedule_policy: "weekly_hybrid", is_team_lead: false, device_id: null }
         ];
+    }
+    if (!supabaseClient || typeof supabaseClient.rpc !== 'function') {
+        const cached = readStoredJson(`staff_cache_${slug}`, []);
+        return Array.isArray(cached) ? cached : [];
     }
     try {
         const { data, error } = await supabaseClient.rpc('manage_tenant_staff', {
@@ -2490,10 +2506,69 @@ async function handleFleetBackend(mode, payload) {
    ========================================================================== */
 
 /**
-/**
  * Interactive Demo Sandbox Mock Backend Handler
  * Enables 1-click test drive of the Perimetrr terminal with zero database dependencies.
  */
+let demoAttendanceLogs = [
+    {
+        name: "Jordan Lee",
+        dept: "Operations",
+        action: "IN",
+        time: "08:55 AM",
+        date: new Date().toISOString().split('T')[0],
+        distance: 22,
+        status: "ON_TIME",
+        verified: true,
+        notes: "GPS Verified (22m from HQ)",
+        created_at: new Date(Date.now() - 3600000).toISOString()
+    },
+    {
+        name: "Sam Taylor",
+        dept: "Product & Design",
+        action: "IN",
+        time: "09:02 AM",
+        date: new Date().toISOString().split('T')[0],
+        distance: 18,
+        status: "ON_TIME",
+        verified: true,
+        notes: "GPS Verified (18m from HQ)",
+        created_at: new Date(Date.now() - 3300000).toISOString()
+    }
+];
+
+function resetDemoAttendanceLogs() {
+    demoAttendanceLogs = [
+        {
+            name: "Jordan Lee",
+            dept: "Operations",
+            action: "IN",
+            time: "08:55 AM",
+            date: new Date().toISOString().split('T')[0],
+            distance: 22,
+            status: "ON_TIME",
+            verified: true,
+            notes: "GPS Verified (22m from HQ)",
+            created_at: new Date(Date.now() - 3600000).toISOString()
+        },
+        {
+            name: "Sam Taylor",
+            dept: "Product & Design",
+            action: "IN",
+            time: "09:02 AM",
+            date: new Date().toISOString().split('T')[0],
+            distance: 18,
+            status: "ON_TIME",
+            verified: true,
+            notes: "GPS Verified (18m from HQ)",
+            created_at: new Date(Date.now() - 3300000).toISOString()
+        }
+    ];
+}
+
+if (typeof window !== 'undefined') {
+    window.resetDemoAttendanceLogs = resetDemoAttendanceLogs;
+}
+
 function handleDemoBackend(mode, payload) {
     const demoStaffList = [
         { name: "Alex Rivera", dept: "Engineering", schedule_policy: "weekly_hybrid", is_team_lead: true, device_id: null },
@@ -2544,6 +2619,26 @@ function handleDemoBackend(mode, payload) {
         case 'signout': {
             const isSignOut = mode === 'signout' || (payload && payload.action && payload.action.toUpperCase() === 'OUT');
             const actionText = isSignOut ? 'Sign Out' : 'Sign In';
+            const action = isSignOut ? 'OUT' : 'IN';
+            const staffName = payload && payload.name ? payload.name : 'Alex Rivera';
+            const staffDept = payload && payload.dept ? payload.dept : 'Engineering';
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const dateStr = now.toISOString().split('T')[0];
+
+            demoAttendanceLogs.unshift({
+                name: staffName,
+                dept: staffDept,
+                action: action,
+                time: timeStr,
+                date: dateStr,
+                distance: 14,
+                status: "ON_TIME",
+                verified: true,
+                notes: "GPS Verified (14m from HQ)",
+                created_at: now.toISOString()
+            });
+
             const rawObj = {
                 status: 'WELCOME',
                 message: `${actionText} verified successfully! (Sandbox Demo)`,
@@ -2557,38 +2652,20 @@ function handleDemoBackend(mode, payload) {
                 message: `${actionText} verified successfully! (Sandbox Demo)`,
                 distance: 14,
                 status: 'WELCOME',
-                timestamp: new Date().toISOString(),
+                timestamp: now.toISOString(),
                 raw: rawObj
             };
         }
-        case 'list-logs':
+        case 'list-logs': {
+            const requestedName = payload && payload.name ? payload.name.toLowerCase() : '';
+            const filtered = requestedName
+                ? demoAttendanceLogs.filter(l => (l.name || '').toLowerCase() === requestedName)
+                : demoAttendanceLogs;
             return {
                 ok: true,
-                logs: [
-                    {
-                        name: "Alex Rivera",
-                        dept: "Engineering",
-                        action: "IN",
-                        time: "08:42 AM",
-                        date: new Date().toISOString().split('T')[0],
-                        distance: 14,
-                        status: "ON_TIME",
-                        verified: true,
-                        notes: "GPS Verified (14m from HQ)"
-                    },
-                    {
-                        name: "Jordan Lee",
-                        dept: "Operations",
-                        action: "IN",
-                        time: "08:55 AM",
-                        date: new Date().toISOString().split('T')[0],
-                        distance: 22,
-                        status: "ON_TIME",
-                        verified: true,
-                        notes: "GPS Verified (22m from HQ)"
-                    }
-                ]
+                logs: filtered
             };
+        }
         case 'get-hybrid-schedule':
             return {
                 ok: true,

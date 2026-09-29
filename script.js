@@ -1,19 +1,7 @@
 /**
  * Staff Attendance - main page logic.
- * Depends on common.js being loaded first.
+ * Depends on common.js being loaded first (which declares STORAGE_KEYS, supabaseClient, etc.).
  */
-
-const STORAGE_KEYS = (typeof window !== 'undefined' && window.STORAGE_KEYS) || {
-    pendingQueue: 'attendance_pending_queue',
-    recentLog: 'attendance_recent_log',
-    lastSynced: 'attendance_last_synced',
-    lastAction: 'attendance_last_action',
-    pendingAction: 'attendance_pending_action',
-    theme: 'attendance_theme',
-    deviceLock: 'attendance_device_lock',
-    analytics: 'attendance_analytics',
-    language: 'attendance_language'
-};
 
 const MAX_HISTORY_ITEMS = 3;
 const OWNERSHIP_MODES = {
@@ -1128,8 +1116,9 @@ async function submit(action) {
 
     const isWfh = isCurrentStaffWfhToday();
     const isRemoteSignout = (action === 'OUT' && isPostClosingRemoteSignoutActive(name));
+    const isDemo = (typeof getActiveTenantDirect === 'function' ? getActiveTenantDirect()?.slug : '') === 'demo';
 
-    if (navigator.geolocation) {
+    if (navigator.geolocation && !isDemo) {
         setMessage('Checking your current location...', 'msg-welcome');
         await getFreshCoordsForSubmit();
     }
@@ -2383,7 +2372,6 @@ async function initTenantBranding() {
             if (document.body) document.body.classList.add('homepage-active');
             if (homepageView) homepageView.style.display = 'flex';
             if (mainCard) mainCard.style.display = 'none';
-            closeWorkspaceConnectModal();
             if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons();
             return;
         }
@@ -2404,7 +2392,6 @@ async function initTenantBranding() {
         if (document.body) document.body.classList.remove('homepage-active');
         if (homepageView) homepageView.style.display = 'none';
         if (mainCard) mainCard.style.display = 'block';
-        closeWorkspaceConnectModal();
 
         if (brandNameEl && (tenant.short_name || tenant.name)) {
             brandNameEl.textContent = tenant.short_name || tenant.name;
@@ -2476,9 +2463,17 @@ window.launchPublicSandbox = async function() {
         safeStorage.setItem('saved_dept', 'Engineering');
         setLocalDeviceLockHint('Alex Rivera');
 
-        if (!coords) {
-            coords = { lat: 6.4357, lon: 3.4738 };
-        }
+        // Reset demo action state so hero button starts ready for SIGN IN
+        if (typeof resetDemoAttendanceLogs === 'function') resetDemoAttendanceLogs();
+        safeStorage.removeItem(STORAGE_KEYS.lastAction);
+        safeStorage.removeItem(STORAGE_KEYS.pendingAction);
+        safeStorage.removeItem(STORAGE_KEYS.pendingQueue);
+        const existingLogs = readStoredJson(STORAGE_KEYS.recentLog, []);
+        const nonAlexLogs = existingLogs.filter(e => e && e.name !== 'Alex Rivera');
+        writeStoredJson(STORAGE_KEYS.recentLog, nonAlexLogs);
+
+        coords = { lat: 6.4357, lon: 3.4738 };
+        coordsTimestamp = Date.now();
 
         activePerimeter = {
             name: 'Headquarters (Sandbox)',
@@ -2492,8 +2487,19 @@ window.launchPublicSandbox = async function() {
         initLiveClock();
         initStaffIdentityView();
 
-        requestLocation();
+        updatePerimeterFeedback(coords);
+        const locStatus = document.getElementById('loc-status');
+        if (locStatus) {
+            locStatus.innerText = '✅ Inside Headquarters (Sandbox) • Ready to Verify';
+            locStatus.className = 'status ready';
+        }
+        const distLabel = document.getElementById('distance-label');
+        if (distLabel) {
+            distLabel.textContent = '0 m from Perimeter • Inside';
+        }
+
         updateSignInButtonsState();
+        renderRecentLog();
         if (window.lucide && typeof window.lucide.createIcons === 'function') {
             window.lucide.createIcons();
         }
@@ -2697,6 +2703,8 @@ async function checkLeadPendingApprovals() {
 
         const leadBadge = document.getElementById('linked-lead-badge');
         if (leadBadge) leadBadge.style.display = 'inline-flex';
+
+        if (!supabaseClient || typeof supabaseClient.rpc !== 'function') return;
 
         const deviceId = getDeviceId();
         const { data, error } = await supabaseClient.rpc('get_pending_transfers_for_lead', {
