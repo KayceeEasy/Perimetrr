@@ -1120,6 +1120,7 @@ button:disabled { opacity: 0.38; cursor: not-allowed; box-shadow: none; transfor
 
 .faq-modal-content {
     background: var(--surface);
+    color: var(--text);
     backdrop-filter: blur(32px);
     border: 1px solid var(--border-strong);
     border-radius: var(--radius-xl);
@@ -2582,6 +2583,16 @@ body.homepage-active,
 body:has(#homepage-view:not([style*="display: none"])) {
     padding: 0 !important;
     align-items: stretch;
+    background-color: #0F1B2D !important;
+    background-image: radial-gradient(circle at 50% 10%, rgba(39, 251, 138, 0.08) 0%, transparent 60%),
+                      radial-gradient(circle at 85% 30%, rgba(26, 86, 219, 0.12) 0%, transparent 50%),
+                      radial-gradient(circle at 50% 50%, #152238 0%, #0F1B2D 100%) !important;
+    color: #F8FAFC !important;
+}
+
+body.homepage-active::before,
+body:has(#homepage-view:not([style*="display: none"]))::before {
+    display: none !important;
 }
 
 .homepage-wrapper {
@@ -2590,8 +2601,8 @@ body:has(#homepage-view:not([style*="display: none"])) {
     min-height: 100dvh;
     background: radial-gradient(circle at 50% 10%, rgba(39, 251, 138, 0.08) 0%, transparent 60%),
                 radial-gradient(circle at 85% 30%, rgba(26, 86, 219, 0.12) 0%, transparent 50%),
-                var(--bg);
-    color: var(--text);
+                #0F1B2D;
+    color: #F8FAFC;
     overflow-x: hidden;
     display: flex;
     flex-direction: column;
@@ -2605,8 +2616,8 @@ body:has(#homepage-view:not([style*="display: none"])) {
     z-index: 100;
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    background: rgba(15, 27, 45, 0.92);
-    border-bottom: 1px solid var(--border);
+    background: rgba(15, 27, 45, 0.95);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     padding: 12px 24px;
     display: flex;
     justify-content: space-between;
@@ -2644,7 +2655,7 @@ body:has(#homepage-view:not([style*="display: none"])) {
 }
 
 .hp-nav-link {
-    color: var(--text-muted);
+    color: #94A3B8;
     text-decoration: none;
     font-size: 0.88rem;
     font-weight: 500;
@@ -2782,7 +2793,7 @@ body:has(#homepage-view:not([style*="display: none"])) {
 
 .hp-hero-sub {
     font-size: clamp(0.92rem, 2.2vw, 1.2rem);
-    color: var(--text-muted);
+    color: #94A3B8;
     max-width: 640px;
     line-height: 1.6;
     margin: 0 0 28px 0;
@@ -2874,7 +2885,7 @@ body:has(#homepage-view:not([style*="display: none"])) {
 }
 
 .hp-section-header p {
-    color: var(--text-muted);
+    color: #94A3B8;
     font-size: clamp(0.9rem, 2vw, 1rem);
     margin: 0;
 }
@@ -2888,8 +2899,8 @@ body:has(#homepage-view:not([style*="display: none"])) {
 }
 
 .hp-card {
-    background: rgba(21, 34, 56, 0.7);
-    border: 1px solid var(--border);
+    background: rgba(21, 34, 56, 0.75);
+    border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 12px;
     padding: 24px;
     backdrop-filter: blur(10px);
@@ -2925,7 +2936,7 @@ body:has(#homepage-view:not([style*="display: none"])) {
 
 .hp-card p {
     font-size: 0.88rem;
-    color: var(--text-muted);
+    color: #94A3B8;
     line-height: 1.6;
     margin: 0;
 }
@@ -2936,9 +2947,9 @@ body:has(#homepage-view:not([style*="display: none"])) {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     border-radius: 12px;
-    border: 1px solid var(--border);
+    border: 1px solid rgba(255, 255, 255, 0.08);
     margin-top: 24px;
-    background: rgba(21, 34, 56, 0.5);
+    background: rgba(21, 34, 56, 0.6);
     box-sizing: border-box;
 }
 
@@ -2954,20 +2965,24 @@ body:has(#homepage-view:not([style*="display: none"])) {
     padding: 14px 18px;
     text-align: left;
     font-size: 0.88rem;
-    border-bottom: 1px solid var(--border);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .hp-comparison-table th {
-    background: rgba(15, 27, 45, 0.9);
+    background: rgba(15, 27, 45, 0.95);
     font-weight: 700;
     color: #F8FAFC;
+}
+
+.hp-comparison-table td {
+    color: #E2E8F0;
 }
 
 /* Footer */
 .hp-footer {
     width: 100%;
-    border-top: 1px solid var(--border);
-    background: rgba(10, 18, 30, 0.95);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(10, 18, 30, 0.98);
     padding: 40px 24px 20px 24px;
     margin-top: auto;
     box-sizing: border-box;
@@ -2989,7 +3004,7 @@ body:has(#homepage-view:not([style*="display: none"])) {
 }
 
 .hp-footer-links a {
-    color: var(--text-muted);
+    color: #94A3B8;
     text-decoration: none;
     font-size: 0.84rem;
 }
