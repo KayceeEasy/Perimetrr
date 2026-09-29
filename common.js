@@ -14,6 +14,9 @@ const STORAGE_KEYS = {
     analytics: 'attendance_analytics',
     language: 'attendance_language'
 };
+if (typeof window !== 'undefined') {
+    window.STORAGE_KEYS = STORAGE_KEYS;
+}
 
 // Supabase Initialization
 const supabaseUrl = 'https://opstrnvrraimoqoqpawg.supabase.co';
@@ -688,6 +691,49 @@ async function saveTenantRegistry(tenants) {
     }
 }
 
+function getActiveTenantDirect() {
+    try {
+        const stored = safeStorage.getItem('active_tenant');
+        if (stored) {
+            const parsed = JSON.parse(stored);
+            if (parsed && typeof parsed === 'object') return parsed;
+        }
+    } catch (e) {}
+    const activeSlug = safeStorage.getItem('active_tenant_slug');
+    if (activeSlug) {
+        if (activeSlug.toLowerCase() === 'demo') {
+            return {
+                id: "demo-workspace-uuid",
+                slug: "demo",
+                name: "Acme Global Demo",
+                short_name: "Acme",
+                workspace_code: "DEMO-2026",
+                brand_color: "#27FB8A",
+                plan_tier: "Enterprise",
+                office_name: "Headquarters (Sandbox)",
+                radius: 500
+            };
+        }
+        return { slug: activeSlug, id: activeSlug, name: activeSlug };
+    }
+    return null;
+}
+
+function saveActiveTenant(tenant) {
+    if (!tenant) return;
+    try {
+        safeStorage.setItem('active_tenant', JSON.stringify(tenant));
+        safeStorage.setItem('active_tenant_slug', tenant.slug || tenant.workspace_code || tenant.id);
+    } catch (e) {
+        console.warn('saveActiveTenant error:', e);
+    }
+}
+
+if (typeof window !== 'undefined') {
+    window.getActiveTenantDirect = getActiveTenantDirect;
+    window.saveActiveTenant = saveActiveTenant;
+}
+
 async function getActiveTenant(optionalSlug = null) {
     try {
         let slug = optionalSlug;
@@ -741,9 +787,27 @@ async function getActiveTenant(optionalSlug = null) {
             }
         }
 
+        if (slug && String(slug).trim().toLowerCase() === 'demo') {
+            return {
+                id: "demo-workspace-uuid",
+                slug: "demo",
+                name: "Acme Global Demo",
+                short_name: "Acme",
+                workspace_code: "DEMO-2026",
+                brand_color: "#27FB8A",
+                plan_tier: "Enterprise",
+                office_name: "Headquarters (Sandbox)",
+                radius: 500
+            };
+        }
+
         const registry = await getTenantRegistry();
         let storedTenant = null;
         try { storedTenant = JSON.parse(safeStorage.getItem('active_tenant') || 'null'); } catch (e) {}
+        if (storedTenant && (storedTenant.slug === 'demo' || storedTenant.id === 'demo-workspace-uuid')) {
+            return storedTenant;
+        }
+
         if (slug) {
             const cleanSlug = String(slug).trim().toLowerCase();
             const match = registry.find(t => 
@@ -2607,7 +2671,7 @@ async function callBackend(payload, timeoutMs = 20000) {
     if (!mode) return { ok: false, message: 'Missing request mode.' };
 
     const activeTenant = (typeof getActiveTenantDirect === 'function' ? getActiveTenantDirect() : null);
-    const tenantSlug = (payload.tenantSlug || (activeTenant ? activeTenant.slug : '')).toLowerCase();
+    const tenantSlug = String(payload.tenantSlug || (activeTenant ? (activeTenant.slug || activeTenant.workspace_code || '') : '') || safeStorage.getItem('active_tenant_slug') || '').toLowerCase();
 
     // 1. Intercept demo / sandbox simulation instantly
     if (tenantSlug === 'demo') {

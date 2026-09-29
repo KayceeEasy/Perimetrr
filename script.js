@@ -3,6 +3,18 @@
  * Depends on common.js being loaded first.
  */
 
+const STORAGE_KEYS = (typeof window !== 'undefined' && window.STORAGE_KEYS) || {
+    pendingQueue: 'attendance_pending_queue',
+    recentLog: 'attendance_recent_log',
+    lastSynced: 'attendance_last_synced',
+    lastAction: 'attendance_last_action',
+    pendingAction: 'attendance_pending_action',
+    theme: 'attendance_theme',
+    deviceLock: 'attendance_device_lock',
+    analytics: 'attendance_analytics',
+    language: 'attendance_language'
+};
+
 const MAX_HISTORY_ITEMS = 3;
 const OWNERSHIP_MODES = {
     verify: 'verify-owner',
@@ -2428,43 +2440,53 @@ async function initTenantBranding() {
 }
 
 window.launchPublicSandbox = async function() {
-    const demoTenant = {
-        id: "demo-workspace-uuid",
-        slug: "demo",
-        name: "Acme Global Demo",
-        short_name: "Acme",
-        workspace_code: "DEMO-2026",
-        brand_color: "#27FB8A",
-        plan_tier: "Enterprise",
-        office_name: "Headquarters (Sandbox)",
-        radius: 500
-    };
-    saveActiveTenant(demoTenant);
+    try {
+        const demoTenant = {
+            id: "demo-workspace-uuid",
+            slug: "demo",
+            name: "Acme Global Demo",
+            short_name: "Acme",
+            workspace_code: "DEMO-2026",
+            brand_color: "#27FB8A",
+            plan_tier: "Enterprise",
+            office_name: "Headquarters (Sandbox)",
+            radius: 500
+        };
+        if (typeof saveActiveTenant === 'function') {
+            saveActiveTenant(demoTenant);
+        } else {
+            safeStorage.setItem('active_tenant', JSON.stringify(demoTenant));
+            safeStorage.setItem('active_tenant_slug', 'demo');
+        }
 
-    // Pre-populate demo employee identity as Alex Rivera (Lead Engineer)
-    safeStorage.setItem('saved_name', 'Alex Rivera');
-    safeStorage.setItem('saved_dept', 'Engineering');
-    setLocalDeviceLockHint('Alex Rivera');
+        // Pre-populate demo employee identity as Alex Rivera (Lead Engineer)
+        safeStorage.setItem('saved_name', 'Alex Rivera');
+        safeStorage.setItem('saved_dept', 'Engineering');
+        setLocalDeviceLockHint('Alex Rivera');
 
-    // Provide initial coordinates if real GPS is warming up
-    if (!coords) {
-        coords = { lat: 6.4357, lon: 3.4738 };
+        // Provide initial coordinates if real GPS is warming up
+        if (!coords) {
+            coords = { lat: 6.4357, lon: 3.4738 };
+        }
+
+        const homepageView = document.getElementById('homepage-view');
+        const mainCard = document.getElementById('main-content');
+        if (document.body) document.body.classList.remove('homepage-active');
+        if (homepageView) homepageView.style.display = 'none';
+        if (mainCard) mainCard.style.display = 'block';
+
+        await initTenantBranding();
+        await loadStaffDropdown();
+        initLiveClock();
+        initStaffIdentityView();
+
+        requestLocation();
+        updateSignInButtonsState();
+        showToast("Welcome to the Acme Demo Terminal! 1-click test drive active.", "success");
+    } catch (err) {
+        console.error('launchPublicSandbox error:', err);
+        showToast('Demo terminal active.', 'success');
     }
-
-    const homepageView = document.getElementById('homepage-view');
-    const mainCard = document.getElementById('main-content');
-    if (document.body) document.body.classList.remove('homepage-active');
-    if (homepageView) homepageView.style.display = 'none';
-    if (mainCard) mainCard.style.display = 'block';
-
-    await initTenantBranding();
-    await loadStaffDropdown();
-    initLiveClock();
-    initStaffIdentityView();
-
-    requestLocation();
-    updateSignInButtonsState();
-    showToast("Welcome to the Acme Demo Terminal! 1-click test drive active.", "success");
 };
 
 window.showHomepageView = function() {
