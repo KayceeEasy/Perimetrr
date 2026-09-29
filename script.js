@@ -2437,15 +2437,34 @@ window.launchPublicSandbox = async function() {
         brand_color: "#27FB8A",
         plan_tier: "Enterprise",
         office_name: "Headquarters (Sandbox)",
-        radius: 150
+        radius: 500
     };
     saveActiveTenant(demoTenant);
+
+    // Pre-populate demo employee identity as Alex Rivera (Lead Engineer)
+    safeStorage.setItem('saved_name', 'Alex Rivera');
+    safeStorage.setItem('saved_dept', 'Engineering');
+    setLocalDeviceLockHint('Alex Rivera');
+
+    // Provide initial coordinates if real GPS is warming up
+    if (!coords) {
+        coords = { lat: 6.4357, lon: 3.4738 };
+    }
+
     const homepageView = document.getElementById('homepage-view');
     const mainCard = document.getElementById('main-content');
     if (document.body) document.body.classList.remove('homepage-active');
     if (homepageView) homepageView.style.display = 'none';
     if (mainCard) mainCard.style.display = 'block';
+
     await initTenantBranding();
+    await loadStaffDropdown();
+    initLiveClock();
+    initStaffIdentityView();
+
+    requestLocation();
+    updateSignInButtonsState();
+    showToast("Welcome to the Acme Demo Terminal! 1-click test drive active.", "success");
 };
 
 window.showHomepageView = function() {

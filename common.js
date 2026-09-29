@@ -934,6 +934,15 @@ function clearBiometrics(staffName) {
 
 async function getTenantStaffList(tenantSlug) {
     const slug = String(tenantSlug || (typeof activeTenantSlug !== 'undefined' ? activeTenantSlug : (typeof getActiveTenantSlug === 'function' ? getActiveTenantSlug() : 'default'))).trim().toLowerCase();
+    if (slug === 'demo') {
+        return [
+            { id: "demo-staff-1", name: "Alex Rivera", dept: "Engineering", schedule_policy: "weekly_hybrid", is_team_lead: true, device_id: null },
+            { id: "demo-staff-2", name: "Jordan Lee", dept: "Operations", schedule_policy: "weekly_hybrid", is_team_lead: false, device_id: null },
+            { id: "demo-staff-3", name: "Sam Taylor", dept: "Product & Design", schedule_policy: "field_flexible", is_team_lead: false, device_id: null },
+            { id: "demo-staff-4", name: "Morgan Chen", dept: "Growth & Sales", schedule_policy: "office_only", is_team_lead: false, device_id: null },
+            { id: "demo-staff-5", name: "Elena Rostova", dept: "DevOps & Cloud", schedule_policy: "weekly_hybrid", is_team_lead: false, device_id: null }
+        ];
+    }
     try {
         const { data, error } = await supabaseClient.rpc('manage_tenant_staff', {
             p_action: 'list',
@@ -1006,6 +1015,33 @@ async function saveTenantAdminList(tenantSlug, adminArray) {
 
 async function getTenantConfig(tenantSlug) {
     const slug = String(tenantSlug || (typeof activeTenantSlug !== 'undefined' ? activeTenantSlug : (typeof getActiveTenantSlug === 'function' ? getActiveTenantSlug() : 'default'))).trim().toLowerCase();
+    if (slug === 'demo') {
+        const demoLat = (typeof coords !== 'undefined' && coords && coords.lat) ? coords.lat : 6.4357;
+        const demoLon = (typeof coords !== 'undefined' && coords && coords.lon) ? coords.lon : 3.4738;
+        return {
+            slug: 'demo',
+            name: 'Acme Global Demo',
+            office_name: 'Acme HQ (Sandbox)',
+            latitude: demoLat,
+            longitude: demoLon,
+            radius: 500,
+            grace_period_minutes: 15,
+            default_policy: 'weekly_hybrid',
+            hybrid_office_days: 2,
+            brand_color: '#27FB8A',
+            logo_url: '',
+            workday_start_time: '08:30',
+            late_cutoff_minutes: 570,
+            workday_end_time: '17:00',
+            workday_end_minutes: 1020,
+            allow_remote_signout_post_closing: true,
+            count_wfh_in_attendance_quota: true,
+            wfh_quota_enabled: true,
+            workdays: '1_5',
+            team_lead_priority_sort: true,
+            timezone: (typeof Intl !== 'undefined' && Intl.DateTimeFormat) ? (Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC') : 'UTC'
+        };
+    }
     const configKey = `TENANT_CONFIG_${slug}`;
     try {
         const { data, error } = await supabaseClient.rpc('get_workspace_config', { p_slug: slug });
@@ -2437,6 +2473,128 @@ async function handleFleetBackend(mode, payload) {
    ========================================================================== */
 
 /**
+/**
+ * Interactive Demo Sandbox Mock Backend Handler
+ * Enables 1-click test drive of the Perimetrr terminal with zero database dependencies.
+ */
+function handleDemoBackend(mode, payload) {
+    const demoStaffList = [
+        { name: "Alex Rivera", dept: "Engineering", schedule_policy: "weekly_hybrid", is_team_lead: true, device_id: null },
+        { name: "Jordan Lee", dept: "Operations", schedule_policy: "weekly_hybrid", is_team_lead: false, device_id: null },
+        { name: "Sam Taylor", dept: "Product & Design", schedule_policy: "field_flexible", is_team_lead: false, device_id: null },
+        { name: "Morgan Chen", dept: "Growth & Sales", schedule_policy: "office_only", is_team_lead: false, device_id: null },
+        { name: "Elena Rostova", dept: "DevOps & Cloud", schedule_policy: "weekly_hybrid", is_team_lead: false, device_id: null }
+    ];
+
+    switch (mode) {
+        case 'list-staff':
+            return { ok: true, staff: demoStaffList };
+        case 'get-config':
+            return {
+                ok: true,
+                config: {
+                    office_name: "Acme HQ (Sandbox)",
+                    radius: 500,
+                    latitude: payload && payload.latitude ? payload.latitude : 0,
+                    longitude: payload && payload.longitude ? payload.longitude : 0,
+                    late_cutoff_minutes: 570,
+                    workday_end_minutes: 1020,
+                    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+                    wfh_quota_enabled: true,
+                    default_policy: "weekly_hybrid"
+                }
+            };
+        case 'verify-staff-member': {
+            const member = demoStaffList.find(s => s.name === (payload ? payload.name : '')) || demoStaffList[0];
+            return {
+                ok: true,
+                name: member.name,
+                dept: member.dept,
+                schedule_policy: member.schedule_policy,
+                is_team_lead: member.is_team_lead,
+                is_linked: false,
+                was_unlinked_by_admin: false
+            };
+        }
+        case 'verify-owner':
+        case 'verify-user':
+            return { ok: true, allowed: true, owner: payload && payload.name ? payload.name : 'Alex Rivera', message: 'Device authorized (Sandbox Demo)' };
+        case 'register-owner':
+        case 'claim-account':
+            return { ok: true, allowed: true, message: 'Device registered (Sandbox Demo)' };
+        case 'attendance':
+        case 'log-attendance':
+        case 'signin':
+        case 'signout': {
+            const isSignOut = mode === 'signout' || (payload && payload.action && payload.action.toUpperCase() === 'OUT');
+            const actionText = isSignOut ? 'Sign Out' : 'Sign In';
+            const rawObj = {
+                status: 'WELCOME',
+                message: `${actionText} verified successfully! (Sandbox Demo)`,
+                distance: '14',
+                distance_meters: 14,
+                ok: true
+            };
+            return {
+                ok: true,
+                allowed: true,
+                message: `${actionText} verified successfully! (Sandbox Demo)`,
+                distance: 14,
+                status: 'WELCOME',
+                timestamp: new Date().toISOString(),
+                raw: rawObj
+            };
+        }
+        case 'list-logs':
+            return {
+                ok: true,
+                logs: [
+                    {
+                        name: "Alex Rivera",
+                        dept: "Engineering",
+                        action: "IN",
+                        time: "08:42 AM",
+                        date: new Date().toISOString().split('T')[0],
+                        distance: 14,
+                        status: "ON_TIME",
+                        verified: true,
+                        notes: "GPS Verified (14m from HQ)"
+                    },
+                    {
+                        name: "Jordan Lee",
+                        dept: "Operations",
+                        action: "IN",
+                        time: "08:55 AM",
+                        date: new Date().toISOString().split('T')[0],
+                        distance: 22,
+                        status: "ON_TIME",
+                        verified: true,
+                        notes: "GPS Verified (22m from HQ)"
+                    }
+                ]
+            };
+        case 'get-hybrid-schedule':
+            return {
+                ok: true,
+                schedule: {
+                    "Alex Rivera": { "mon": "office", "tue": "office", "wed": "remote", "thu": "office", "fri": "remote" },
+                    "Jordan Lee": { "mon": "remote", "tue": "office", "wed": "office", "thu": "remote", "fri": "office" },
+                    "Sam Taylor": { "mon": "office", "tue": "office", "wed": "office", "thu": "remote", "fri": "remote" },
+                    "Morgan Chen": { "mon": "office", "tue": "office", "wed": "office", "thu": "office", "fri": "office" },
+                    "Elena Rostova": { "mon": "remote", "tue": "remote", "wed": "office", "thu": "office", "fri": "office" }
+                }
+            };
+        case 'record-device-lock':
+        case 'reset-staff-lock':
+        case 'unlink-staff-device':
+        case 'request-device-transfer':
+            return { ok: true, message: 'Device operation completed in demo sandbox.' };
+        default:
+            return { ok: true, message: 'Demo sandbox operation succeeded.' };
+    }
+}
+
+/**
  * Universal backend entry point for Supabase queries and RPCs.
  * Routes requests to domain-specific handlers for maintainability and security.
  *
@@ -2445,9 +2603,18 @@ async function handleFleetBackend(mode, payload) {
  * @returns {Promise<Object>} Response object conforming to { ok: boolean, ... }
  */
 async function callBackend(payload, timeoutMs = 20000) {
-    if (!supabaseClient) return { ok: false, message: 'Supabase client not loaded.' };
     const mode = payload ? payload.mode : null;
     if (!mode) return { ok: false, message: 'Missing request mode.' };
+
+    const activeTenant = (typeof getActiveTenantDirect === 'function' ? getActiveTenantDirect() : null);
+    const tenantSlug = (payload.tenantSlug || (activeTenant ? activeTenant.slug : '')).toLowerCase();
+
+    // 1. Intercept demo / sandbox simulation instantly
+    if (tenantSlug === 'demo') {
+        return handleDemoBackend(mode, payload);
+    }
+
+    if (!supabaseClient) return { ok: false, message: 'Supabase client not loaded.' };
 
     try {
         let res;
