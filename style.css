@@ -62,7 +62,9 @@
     --radius-pill:    999px;
 }
 
-:root[data-theme="dark"] {
+:root[data-theme="dark"],
+[data-theme="dark"],
+.homepage-wrapper {
     --primary:        #27FB8A;
     --primary-dark:   #1eb865;
     --primary-glow:   rgba(39, 251, 138, 0.22);
@@ -100,7 +102,9 @@
 }
 
 :root { color-scheme: light; }
-:root[data-theme="dark"] { color-scheme: dark; }
+:root[data-theme="dark"],
+[data-theme="dark"],
+.homepage-wrapper { color-scheme: dark; }
 * { box-sizing: border-box; }
 
 /* ─── BASE & SMOOTH THEME TRANSITIONS ─── */
@@ -2582,6 +2586,11 @@ body.homepage-active,
 body:has(#homepage-view:not([style*="display: none"])) {
     padding: 0 !important;
     align-items: stretch;
+}
+
+body.homepage-active::before,
+body:has(#homepage-view:not([style*="display: none"]))::before {
+    display: none !important;
 }
 
 .homepage-wrapper {
