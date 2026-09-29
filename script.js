@@ -2369,69 +2369,63 @@ function initWorkspaceConnect() {
 async function initTenantBranding() {
     try {
         const tenant = await getActiveTenant();
-        const mainCard = document.getElementById('main-content');
-        const homepageView = document.getElementById('homepage-view');
-        const urlParams = new URLSearchParams(window.location.search);
-        
-        // Determine if visiting a direct company workspace URL (e.g., /acme/) or explicit terminal request
-        const pathParts = window.location.pathname.split('/').filter(Boolean);
-        const knownRoutes = ['command-center', 'admin', 'watch-tower', 'onboard', 'hybrid', 'image', 'sw.js', 'index.html'];
-        const isDirectCompanyRoute = pathParts.length > 0 && !knownRoutes.includes(pathParts[0].toLowerCase());
-        const forceTerminal = urlParams.get('terminal') === 'true' || isDirectCompanyRoute;
-
-        // On the root homepage: ALWAYS display homepageView by default
-        if (!forceTerminal) {
-            if (document.body) document.body.classList.add('homepage-active');
-            if (homepageView) homepageView.style.display = 'flex';
-            if (mainCard) mainCard.style.display = 'none';
-
-            const pairedBanner = document.getElementById('hp-paired-banner');
-            const pairedNameEl = document.getElementById('hp-paired-tenant-name');
-            if (pairedBanner && tenant && tenant.slug !== 'demo') {
-                pairedBanner.style.display = 'flex';
-                if (pairedNameEl) pairedNameEl.textContent = `${tenant.short_name || tenant.name} (${tenant.workspace_code || tenant.slug})`;
-            } else if (pairedBanner) {
-                pairedBanner.style.display = 'none';
-            }
-            closeWorkspaceConnectModal();
-            return;
-        }
-
-        // Active direct company terminal view (/company-slug/ or ?terminal=true)
-        if (!tenant) {
-            if (document.body) document.body.classList.add('homepage-active');
-            if (homepageView) homepageView.style.display = 'flex';
-            if (mainCard) mainCard.style.display = 'none';
-            closeWorkspaceConnectModal();
-            return;
-        }
-
-        if (document.body) document.body.classList.remove('homepage-active');
-        if (homepageView) homepageView.style.display = 'none';
-        if (mainCard) mainCard.style.display = 'block';
-        closeWorkspaceConnectModal();
-
         const brandNameEl = document.getElementById('tenant-brand-name');
         const logoWrap = document.getElementById('tenant-logo-wrap');
         const logoImg = document.getElementById('tenant-logo-img');
         const adminBtn = document.getElementById('admin-access-btn');
+        const mainCard = document.getElementById('main-content');
+        const homepageView = document.getElementById('homepage-view');
+        const urlParams = new URLSearchParams(window.location.search);
+        const forceLanding = urlParams.get('landing') === 'true' || urlParams.get('home') === 'true';
+
+        if (!tenant) {
+            // Unpaired visitor: display public homepage
+            if (document.body) document.body.classList.add('homepage-active');
+            if (homepageView) homepageView.style.display = 'flex';
+            if (mainCard) mainCard.style.display = 'none';
+            closeWorkspaceConnectModal();
+            if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons();
+            return;
+        }
+
+        if (forceLanding) {
+            if (document.body) document.body.classList.add('homepage-active');
+            if (homepageView) homepageView.style.display = 'flex';
+            if (mainCard) mainCard.style.display = 'none';
+            const pairedBanner = document.getElementById('hp-paired-banner');
+            const pairedNameEl = document.getElementById('hp-paired-tenant-name');
+            if (pairedBanner) pairedBanner.style.display = 'flex';
+            if (pairedNameEl) pairedNameEl.textContent = `${tenant.short_name || tenant.name} (${tenant.workspace_code || tenant.slug})`;
+            if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons();
+            return;
+        }
+
+        // Active paired terminal view
+        if (document.body) document.body.classList.remove('homepage-active');
+        if (homepageView) homepageView.style.display = 'none';
+        if (mainCard) mainCard.style.display = 'block';
+        closeWorkspaceConnectModal();
 
         if (brandNameEl && (tenant.short_name || tenant.name)) {
             brandNameEl.textContent = tenant.short_name || tenant.name;
             document.title = `${tenant.short_name || tenant.name} • Access Terminal`;
         }
 
-        if (tenant.logo_url && logoWrap && logoImg) {
+        if (logoWrap && logoImg && tenant.logo_url) {
             logoImg.src = tenant.logo_url;
             logoWrap.style.display = 'flex';
+        } else if (logoWrap) {
+            logoWrap.style.display = 'none';
         }
 
         if (tenant.brand_color) {
             document.documentElement.style.setProperty('--primary', tenant.brand_color);
         }
 
+        // Provide an immediate, pre-click Perimeter signal as soon as GPS resolves.
         activePerimeter = await getTenantConfig(tenant.slug);
 
+        // Carry tenant workspace code or slug to command-center button
         if (adminBtn) {
             const tenantIdentifier = tenant.workspace_code || tenant.slug;
             if (tenantIdentifier) {
@@ -2446,6 +2440,7 @@ async function initTenantBranding() {
                 openWorkspaceConnectModal();
             });
         }
+        if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons();
     } catch (e) {
         console.warn('initTenantBranding error:', e);
     }
@@ -2453,6 +2448,19 @@ async function initTenantBranding() {
 
 window.launchPublicSandbox = async function() {
     try {
+        const demoTenant = {
+            id: "demo-workspace-uuid",
+            slug: "demo",
+            name: "Acme Global Demo",
+            short_name: "Acme",
+            workspace_code: "DEMO-2026",
+            brand_color: "#27FB8A",
+            plan_tier: "Enterprise",
+            office_name: "Headquarters (Sandbox)",
+            radius: 500
+        };
+        saveActiveTenant(demoTenant);
+
         const homepageView = document.getElementById('homepage-view');
         const mainCard = document.getElementById('main-content');
         if (document.body) document.body.classList.remove('homepage-active');
@@ -2463,7 +2471,7 @@ window.launchPublicSandbox = async function() {
         if (brandNameEl) brandNameEl.textContent = 'Acme Global Demo';
         document.title = 'Acme Global Demo • Access Terminal';
 
-        // Pre-populate demo employee identity in memory / storage
+        // Pre-populate demo employee identity in storage
         safeStorage.setItem('saved_name', 'Alex Rivera');
         safeStorage.setItem('saved_dept', 'Engineering');
         setLocalDeviceLockHint('Alex Rivera');
