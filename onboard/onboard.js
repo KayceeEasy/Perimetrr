@@ -284,24 +284,24 @@ function goToStep(step) {
         if (currentStep === 1) {
             const name = document.getElementById('company-name').value.trim();
             const shortName = document.getElementById('company-short-name').value.trim();
-            if (!name) { showToast('Please enter the Company Legal Name.', 'warning'); return; }
+            if (name.length < 2 || name.length > 128) { showToast('Company name must be 2–128 characters.', 'warning'); return; }
             if (!shortName || shortName.length < 2) { showToast('Please enter a Company Short Name (at least 2 characters).', 'warning'); return; }
         } else if (currentStep === 2) {
             const office = document.getElementById('office-name').value.trim();
             const lat = document.getElementById('office-lat').value;
             const lon = document.getElementById('office-lon').value;
-            if (!office) { showToast('Please enter the Office / Branch Name.', 'warning'); return; }
-            if (!lat || isNaN(lat)) { showToast('Please provide a valid Latitude coordinate.', 'warning'); return; }
-            if (!lon || isNaN(lon)) { showToast('Please provide a valid Longitude coordinate.', 'warning'); return; }
+            if (office.length < 2 || office.length > 128) { showToast('Office name must be 2–128 characters.', 'warning'); return; }
+            if (lat === '' || !Number.isFinite(Number(lat)) || Number(lat) < -90 || Number(lat) > 90) { showToast('Please provide a valid Latitude coordinate.', 'warning'); return; }
+            if (lon === '' || !Number.isFinite(Number(lon)) || Number(lon) < -180 || Number(lon) > 180) { showToast('Please provide a valid Longitude coordinate.', 'warning'); return; }
         } else if (currentStep === 3) {
             const adminEmail = document.getElementById('admin-email').value.trim();
-            const adminPass = document.getElementById('admin-pass').value.trim();
+            const adminPass = document.getElementById('admin-pass').value;
             if (!EMAIL_REGEX.test(adminEmail)) {
                 showToast('Please enter a valid work email address before continuing.', 'warning');
                 return;
             }
-            if (!adminPass || adminPass.length < 6) {
-                showToast('Password must be at least 6 characters.', 'warning');
+            if (!validatePasswordStrength(adminPass).ok) {
+                showToast(validatePasswordStrength(adminPass).message, 'warning');
                 return;
             }
         }
@@ -338,7 +338,7 @@ async function submitTenantOnboarding() {
     const submitBtn = document.getElementById('submit-onboard-btn');
     const adminName = document.getElementById('admin-name').value.trim();
     const adminEmail = document.getElementById('admin-email').value.trim();
-    const adminPass = document.getElementById('admin-pass').value.trim();
+    const adminPass = document.getElementById('admin-pass').value;
     const companyName = document.getElementById('company-name').value.trim();
     const shortName = document.getElementById('company-short-name').value.trim();
 
@@ -346,7 +346,7 @@ async function submitTenantOnboarding() {
     if (!shortName) { showToast('Please provide a Company Short Name.', 'warning'); return; }
     if (!adminName) { showToast('Please provide your full name.', 'warning'); return; }
     if (!adminEmail || !EMAIL_REGEX.test(adminEmail)) { showToast('Please provide a valid work email address.', 'warning'); return; }
-    if (!adminPass || adminPass.length < 6) { showToast('Please enter a secure password (at least 6 characters).', 'warning'); return; }
+    if (!validatePasswordStrength(adminPass).ok) { showToast(validatePasswordStrength(adminPass).message, 'warning'); return; }
 
     submitBtn.disabled = true;
     submitBtn.innerHTML = 'Setting up your workspace...';
@@ -469,12 +469,20 @@ async function executeFinalOnboarding(tenantPayload) {
 
     try {
         if (!supabaseClient) throw new Error('Secure account service is unavailable. Please try again shortly.');
+        const {data:currentUser} = await supabaseClient.auth.getUser();
+        if (currentUser?.user) {
+            if (currentUser.user.email?.toLowerCase() !== tenantPayload.admin_email.toLowerCase()) throw new Error('Sign out of the current account before registering another administrator.');
+            delete tenantPayload.admin_password;
+            await finalizeWorkspaceCreation(tenantPayload);
+            return;
+        }
         const { data: authData, error: authError } = await supabaseClient.auth.signUp({
             email: tenantPayload.admin_email,
             password: tenantPayload.admin_password,
             options: { data: { full_name: tenantPayload.admin_name } }
         });
         if (authError) throw authError;
+        delete tenantPayload.admin_password;
 
         if (!authData?.session) {
             if (submitBtn) {
@@ -509,7 +517,7 @@ async function finalizeWorkspaceCreation(tenantPayload) {
     try {
         const { data: tenantRows, error: workspaceError } = await supabaseClient.rpc('create_workspace', {
             p_name: tenantPayload.name,
-            p_short_name: tenantPayload.short_name,
+            p_slug: tenantPayload.workspace_code.toLowerCase(),
             p_workspace_code: tenantPayload.workspace_code,
             p_brand_color: tenantPayload.brand_color,
             p_logo_url: tenantPayload.logo_url || '',
@@ -517,14 +525,23 @@ async function finalizeWorkspaceCreation(tenantPayload) {
             p_latitude: tenantPayload.latitude,
             p_longitude: tenantPayload.longitude,
             p_radius_meters: tenantPayload.radius,
+            p_plan_tier: 'free',
             p_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Africa/Lagos'
         });
         if (workspaceError) throw workspaceError;
 
         const row = Array.isArray(tenantRows) ? tenantRows[0] : tenantRows;
         if (row) {
+            if (tenantPayload.short_name) {
+                const {error} = await supabaseClient.rpc('update_workspace_short_name', {p_tenant_id:row.id,p_short_name:tenantPayload.short_name});
+                if (error) showToast('Workspace created. Your short name could not be saved; update it later in Command Center.', 'warning');
+                else row.short_name = tenantPayload.short_name;
+            }
             try { safeStorage.setItem('active_tenant', JSON.stringify(row)); } catch (e) {}
-            showSuccessScreen(tenantPayload);
+            delete tenantPayload.admin_password;
+            const actualTenant = {...tenantPayload, ...row};
+            pendingTenantPayload = null;
+            showSuccessScreen(actualTenant);
         } else {
             throw new Error('Failed to provision workspace.');
         }
@@ -559,16 +576,17 @@ function showSuccessScreen(tenant) {
     const origin = window.location.origin;
     const basePath = window.location.pathname.substring(0, window.location.pathname.indexOf('/onboard'));
 
-    const code = tenant.workspace_code || 'LIFE-2624';
+    const code = tenant.workspace_code;
+    if (!code) { showToast('Workspace pairing code is unavailable. Please contact support.', 'error'); return; }
     const staffJoinUrl = `${origin}${basePath}/?join=${encodeURIComponent(code)}`;
-    const adminUrl = `${origin}${basePath}/${encodeURIComponent(code)}/command-center/`;
-    const hybridUrl = `${origin}${basePath}/${encodeURIComponent(code)}/hybrid/`;
+    const adminUrl = `${origin}${basePath}/command-center/?tenant=${encodeURIComponent(tenant.slug || code.toLowerCase())}`;
+    const hybridUrl = `${origin}${basePath}/hybrid/?tenant=${encodeURIComponent(tenant.slug || code.toLowerCase())}`;
 
     currentStaffJoinUrl = staffJoinUrl;
     currentWorkspaceCode = code;
 
     document.getElementById('success-company-sub').textContent = 
-        `${tenant.name} (${tenant.short_name || code}) is ready on the ${tenant.plan_tier || 'Pro Trial'}. Perimeter bound to ${tenant.office_name} (${tenant.radius || 100}m radius).`;
+        `${tenant.name} (${tenant.short_name || code}) is ready on the ${tenant.plan_tier || 'free'} plan. Perimeter bound to ${tenant.office_name} (${tenant.radius || 100}m radius).`;
 
     const displayCodeEl = document.getElementById('display-workspace-code');
     if (displayCodeEl) displayCodeEl.textContent = code;
@@ -592,18 +610,22 @@ function showSuccessScreen(tenant) {
     }
 }
 
-function openQrModal() {
+async function openQrModal() {
     const modal = document.getElementById('qr-modal');
     const qrImg = document.getElementById('qr-image');
     const qrCodeDisplay = document.getElementById('qr-modal-code');
 
     if (!currentStaffJoinUrl) return;
 
-    const qrServiceUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(currentStaffJoinUrl)}`;
-    qrImg.src = qrServiceUrl;
+    qrImg.removeAttribute('src');
+    qrImg.hidden = true;
     if (qrCodeDisplay) qrCodeDisplay.textContent = currentWorkspaceCode;
 
     modal.style.display = 'flex';
+    try {
+        const image = await getWorkspaceQrDataUrl(currentStaffJoinUrl);
+        if (modal.style.display === 'flex') { qrImg.src = image; qrImg.hidden = false; }
+    } catch (error) { showToast(error.message, 'error'); }
 }
 
 function closeQrModal() {
@@ -656,4 +678,26 @@ function showToast(message, type = 'info') {
         toast.style.transition = 'opacity 0.3s ease';
         setTimeout(() => toast.remove(), 300);
     }, 4000);
+}
+
+
+async function saveOnboardQr() {
+    const image = document.getElementById('qr-image');
+    if (!image?.src?.startsWith('data:image/png')) { showToast('QR image is still loading. Try again shortly.', 'warning'); return; }
+    const link = document.createElement('a'); link.href = image.src; link.download = `perimetrr-workspace-${currentWorkspaceCode}.png`; link.click();
+}
+async function shareOnboardQr() {
+    try {
+        const image = document.getElementById('qr-image');
+        const data = {title:'Join our Perimetrr workspace',text:`Workspace code ${currentWorkspaceCode}`,url:currentStaffJoinUrl};
+        if (navigator.share) {
+            if (image?.src?.startsWith('data:image/png')) {
+                const file = new File([await (await fetch(image.src)).blob()], `perimetrr-workspace-${currentWorkspaceCode}.png`, {type:'image/png'});
+                if (navigator.canShare?.({files:[file]})) return await navigator.share({...data,files:[file]});
+            }
+            return await navigator.share(data);
+        }
+        await navigator.clipboard.writeText(`${data.text}\n${data.url}`);
+        showToast('Workspace invitation copied.', 'success');
+    } catch (error) { if (error.name !== 'AbortError') showToast('Could not share. Copy the workspace link from the setup page.', 'error'); }
 }

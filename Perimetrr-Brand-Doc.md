@@ -6,11 +6,13 @@
 
 ## 1. Brand Foundation
 
-**What it is:** A GPS-geofenced, biometric-verified attendance and presence platform, scaling from free sign-in for micro-teams (≤5 employees) up to a full enterprise white-label/reseller tier with a fleet-monitoring dashboard.
+**What it is:** A GPS-geofenced, browser-credential-linked attendance and presence platform. Administrators create workspaces and staff profiles; employees open the shared workspace link or code and link a browser. Watch Tower lets authorized organization personnel oversee only their attached branches.
 
 **Mission line:** Perimetrr makes presence provable — for a five-person team or a five-hundred-client reseller network.
 
-**Elevator pitch:** Most attendance apps trust a tap. Perimetrr verifies it — GPS, biometrics, and device-binding confirm someone is actually where they say they are, the instant they check in. Free for small teams, and built to scale into a white-labeled platform enterprises can resell under their own brand.
+**Elevator pitch:** Perimetrr checks attendance against a linked browser credential and an office Perimeter, then gives administrators a clear view of presence and exceptions. Enterprises can group their branch workspaces under one organization, with access enforced by server-side membership.
+
+**Security claims:** A stored UUID is a bearer credential, not hardware attestation or proof of a person. Browser-provided GPS can be spoofed. Do not claim that either eliminates attendance fraud. Biometrics are not part of the current attendance workflow. Provisional transfer attendance becomes verified only after authorized approval; the original status and resolution remain in the audit history.
 
 **Core metaphor:** The perimeter — a defined boundary you must be inside to be counted present. Every naming and visual decision downstream should reinforce "boundary, verified entry, presence" rather than generic "clock" or "punch" imagery, since that's what differentiates this from commodity attendance apps.
 
@@ -22,7 +24,7 @@ This matters for tone because you're bridging two very different buyers in one b
 
 - **Free tier (≤5 employees):** small business owner, likely non-technical, price-sensitive, wants something that "just works" without setup friction.
 - **SMB/paid tier:** ops manager or HR lead, cares about reliability, reporting, and reducing proxy check-in fraud.
-- **Enterprise/white-label tier:** IT/ops decision-maker or a reseller/agency buying Perimetrr to resell under their own brand to *their* clients — this buyer cares about dashboard depth, fleet oversight, and how well the white-label can hide "Perimetrr" entirely.
+- **Enterprise tier:** An IT/ops decision-maker managing multiple branches of one organization. Each branch retains its workspace; explicitly granted organization personnel can oversee those branches, never another enterprise’s workspaces. White-label/reseller access is a separate future capability and must not imply platform-wide access.
 
 The brand voice needs to feel trustworthy enough for the enterprise buyer without feeling cold or inaccessible to the 5-person free-tier owner. That's a common tightrope (Slack and Notion both walk it) — approachable but not lightweight.
 
@@ -51,7 +53,7 @@ Keep the perimeter metaphor consistent across the product so every touchpoint re
 |---|---|
 | Geofence radius | **The Perimeter** |
 | Admin dashboard | **Command Center** |
-| Enterprise fleet-monitoring view | **Watch Tower** (e.g. "monitor your fleet from Watch Tower") |
+| Organization branch oversight | **Watch Tower** (e.g. "oversee your branches in Watch Tower") |
 | Mobile companion app | **Perimetrr Go** |
 | White-label instance | **Perimetrr for [Client Brand]** (kept low-key — white-label buyers generally want *their* name foregrounded, not Perimetrr's internal naming system bleeding through) |
 
@@ -63,10 +65,12 @@ Note: don't over-apply this system in dense UI copy (e.g. a busy admin table) �
 
 - **Perimetrr Free** — ≤5 employees, core check-in/out, single location.
 - **Perimetrr Team** — SMB paid tier, multi-location, reporting/exports.
-- **Perimetrr Enterprise** — full fleet dashboard, admin controls, priority support.
+- **Perimetrr Enterprise** — organization-scoped branch oversight and authorized personnel management in Watch Tower.
 - **Perimetrr White Label** (or **Perimetrr Reseller**) — full white-labeling, client-fleet monitoring dashboard for resellers/agencies managing multiple downstream companies.
 
 [Inference] These tier names follow common SaaS convention (Free/Team/Enterprise) — worth sanity-checking against 2-3 competitor pricing pages before finalizing, since this is a fast-moving space and naming conventions shift.
+
+Implementation note: creating an organization does not activate a paid subscription. New workspaces provision on the Free plan. Paid billing, tier limits, and reseller entitlements must be implemented and verified before being advertised as active features.
 
 ---
 

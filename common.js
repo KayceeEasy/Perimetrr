@@ -21,7 +21,7 @@ if (typeof window !== 'undefined') {
 // Supabase Initialization
 const supabaseUrl = 'https://opstrnvrraimoqoqpawg.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9wc3RybnZycmFpbW9xb3FwYXdnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAyNzQ5NTMsImV4cCI6MjEwNTg1MDk1M30.0h6c6g289vNJ-IQWRzLChLjcMXKR7kXXLCklZWcMVfQ';
-const supabaseClient = (typeof window !== 'undefined' && window.supabase) ? window.supabase.createClient(supabaseUrl, supabaseKey) : null;
+const supabaseClient = (typeof window !== 'undefined' && window.supabase) ? window.supabase.createClient(supabaseUrl, supabaseKey, { db: { schema: 'api' } }) : null;
 if (typeof window !== 'undefined') {
     window.supabaseUrl = supabaseUrl;
     window.supabaseKey = supabaseKey;
@@ -55,15 +55,14 @@ const I18N_DICTIONARY = {
         typeSearchName: "Type to search your name...",
         switchWorkspace: "Switch",
         connectWorkspaceTitle: "Connect to Your Workspace",
-        connectWorkspaceDesc: "Enter your organization's 6-character Workspace Code or open your company's setup link to pair this phone.",
+        connectWorkspaceDesc: "Your administrator must first create your workspace and staff profile. Enter their Workspace Code (for example ABCD-1234), open the shared link, or scan their QR code.",
         connectWorkspaceBtn: "Connect Workspace",
         scanQrBtn: "Scan a QR Code",
         cancelScan: "Cancel Scan",
-        cameraBlockedNotice: "Camera access blocked: Tap the 🔒 icon in your browser address bar to allow camera, or enter your 6-character code below.",
+        cameraBlockedNotice: "Camera access blocked: Tap the 🔒 icon in your browser address bar to allow camera, or enter your workspace code below.",
         tryCameraAgain: "Try Camera Again",
         switchAccount: "Change",
         deviceBound: "Linked",
-        biometricsBadge: "Biometrics",
         adminLogin: "Admin Login",
         quickGuide: "Quick Guide",
         toggleTheme: "Toggle Theme",
@@ -112,7 +111,6 @@ const I18N_DICTIONARY = {
         tryCameraAgain: "Reintentar Cámara",
         switchAccount: "Cambiar",
         deviceBound: "Vinculado",
-        biometricsBadge: "Biometría",
         adminLogin: "Acceso Admin",
         quickGuide: "Guía Rápida",
         toggleTheme: "Cambiar Tema",
@@ -161,7 +159,6 @@ const I18N_DICTIONARY = {
         tryCameraAgain: "Réessayer la Caméra",
         switchAccount: "Changer",
         deviceBound: "Lié",
-        biometricsBadge: "Biométrie",
         adminLogin: "Accès Admin",
         quickGuide: "Guide Rapide",
         toggleTheme: "Changer de Thème",
@@ -210,7 +207,6 @@ const I18N_DICTIONARY = {
         tryCameraAgain: "Tentar Câmera Novamente",
         switchAccount: "Trocar",
         deviceBound: "Vinculado",
-        biometricsBadge: "Biometria",
         adminLogin: "Acesso Admin",
         quickGuide: "Guia Rápido",
         toggleTheme: "Mudar Tema",
@@ -259,7 +255,6 @@ const I18N_DICTIONARY = {
         tryCameraAgain: "إعادة محاولة الكاميرا",
         switchAccount: "تغيير",
         deviceBound: "مرتبط",
-        biometricsBadge: "البصمة",
         adminLogin: "دخول المسؤول",
         quickGuide: "دليل سريع",
         toggleTheme: "تبديل السمة",
@@ -518,76 +513,28 @@ function writeStoredJson(key, value) {
     }
 }
 
-/* ---------- Crypto: SHA-256 hashing ---------- */
-
-async function sha256Hex(text) {
-    const cryptoObj = (typeof window !== 'undefined' && window.crypto) ? window.crypto : (typeof crypto !== 'undefined' ? crypto : null);
-    if (!cryptoObj || !cryptoObj.subtle) {
-        throw new Error('Web Crypto API is unavailable in this browser context (requires HTTPS or localhost).');
-    }
-    const encoder = new TextEncoder();
-    const data = encoder.encode(text);
-    const hashBuffer = await cryptoObj.subtle.digest('SHA-256', data);
-    return Array.from(new Uint8Array(hashBuffer))
-        .map((b) => b.toString(16).padStart(2, '0'))
-        .join('');
-}
-
 /* ---------- Request deduplication ---------- */
 
 const pendingRequests = new Map();
 
 async function callBackendDeduplicated(payload, timeoutMs = 20000) {
     const requestKey = JSON.stringify(payload);
-    
+
     if (pendingRequests.has(requestKey)) {
         return pendingRequests.get(requestKey);
     }
-    
+
     const promise = callBackend(payload, timeoutMs)
         .finally(() => {
             pendingRequests.delete(requestKey);
         });
-    
+
     pendingRequests.set(requestKey, promise);
     return promise;
 }
 
 /* ---------- Backend communication ----------
    Routes requests to Supabase (PostgreSQL + Edge RPCs). */
-
-async function getStaffMetadataMap() {
-    let metadata = {};
-    try {
-        const stored = safeStorage.getItem('STAFF_METADATA');
-        if (stored) metadata = JSON.parse(stored);
-    } catch(e) {}
-
-    try {
-        const { data, error } = await supabaseClient.from('app_config').select('value').eq('key', 'STAFF_METADATA').single();
-        if (!error && data && data.value) {
-            const parsed = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
-            if (parsed && typeof parsed === 'object') {
-                metadata = { ...metadata, ...parsed };
-                try { safeStorage.setItem('STAFF_METADATA', JSON.stringify(metadata)); } catch(e) {}
-            }
-        }
-    } catch(e) {}
-
-    return metadata;
-}
-
-async function saveStaffMetadataMap(metadata) {
-    try { safeStorage.setItem('STAFF_METADATA', JSON.stringify(metadata)); } catch(e) {}
-    try {
-        await supabaseClient.from('app_config').upsert([{
-            key: 'STAFF_METADATA',
-            value: JSON.stringify(metadata)
-        }], { onConflict: 'key' });
-    } catch(e) {
-        console.warn('Could not sync STAFF_METADATA to app_config:', e);
-    }
-}
 
 /* ---------- Multi-Tenant Registry & Data Scoping (Commercial v3.0) ---------- */
 
@@ -605,59 +552,18 @@ function generateWorkspaceCode(slugOrName) {
 }
 
 async function getTenantRegistry() {
-    let tenants = [];
-    try {
-        const stored = safeStorage.getItem('TENANTS_REGISTRY');
-        if (stored) {
-            const parsed = JSON.parse(stored);
-            if (Array.isArray(parsed) && parsed.length) tenants = parsed;
-        }
-    } catch (e) {}
-
-    try {
-        const { data, error } = await supabaseClient.from('app_config').select('value').eq('key', 'TENANTS_REGISTRY').single();
-        if (!error && data && data.value) {
-            const parsed = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
-            if (Array.isArray(parsed) && parsed.length) {
-                tenants = parsed;
-                try { safeStorage.setItem('TENANTS_REGISTRY', JSON.stringify(tenants)); } catch (e) {}
-            }
-        }
-    } catch (e) {}
-
-    // Ensure all tenants have a valid standardized workspace_code (ABCD-1234 format)
-    let updated = false;
-    tenants.forEach((t) => {
-        if (!t.workspace_code || !/^[A-Z]{4}-\d{4}$/.test(t.workspace_code)) {
-            t.workspace_code = generateWorkspaceCode(t.slug || t.name);
-            updated = true;
-        }
-    });
-
-    // Strip any plaintext admin passwords from memory/storage
-    for (const t of tenants) {
-        if (t.admin_password) {
-            if (!t.admin_password_hash) {
-                try { t.admin_password_hash = await sha256Hex(t.admin_password); } catch(e) {}
-            }
-            delete t.admin_password;
-            updated = true;
-        }
-    }
-
-    if (updated) {
-        saveTenantRegistry(tenants).catch(() => {});
-    }
-
-    return tenants;
+ if (!supabaseClient?.auth?.getSession) return [];
+ const {data:sessionData}=await supabaseClient.auth.getSession();
+ if (!sessionData?.session) return [];
+ const {data,error}=await supabaseClient.rpc('get_admin_workspaces');
+ if(error)throw error;
+ return (data||[]).map(entry=>({...entry.tenants,status:entry.tenants.subscription_status}));
 }
 
 async function getTenantByWorkspaceCode(code) {
     if (!code) return null;
     const clean = String(code).trim().toUpperCase();
-    const registry = await getTenantRegistry();
-    const cached = registry.find(t => (t.workspace_code && t.workspace_code.toUpperCase() === clean)) || null;
-    if (cached) return cached;
+
     try {
         const { data, error } = await supabaseClient.rpc('get_workspace_for_pairing', { p_workspace_code: clean });
         const row = Array.isArray(data) ? data[0] : null;
@@ -667,28 +573,6 @@ async function getTenantByWorkspaceCode(code) {
         safeStorage.setItem('active_tenant_slug', tenant.slug || tenant.workspace_code);
         return tenant;
     } catch (e) { return null; }
-}
-
-async function saveTenantRegistry(tenants) {
-    if (Array.isArray(tenants)) {
-        for (const t of tenants) {
-            if (t.admin_password) {
-                if (!t.admin_password_hash) {
-                    try { t.admin_password_hash = await sha256Hex(t.admin_password); } catch(e) {}
-                }
-                delete t.admin_password;
-            }
-        }
-    }
-    try { safeStorage.setItem('TENANTS_REGISTRY', JSON.stringify(tenants)); } catch (e) {}
-    try {
-        await supabaseClient.from('app_config').upsert([{
-            key: 'TENANTS_REGISTRY',
-            value: JSON.stringify(tenants)
-        }], { onConflict: 'key' });
-    } catch (e) {
-        console.warn('Could not sync TENANTS_REGISTRY to app_config:', e);
-    }
 }
 
 function getActiveTenantDirect() {
@@ -730,253 +614,40 @@ if (typeof window !== 'undefined') {
 }
 
 async function getActiveTenant(optionalSlug = null) {
-    try {
-        let slug = optionalSlug;
-
-        if (typeof window !== 'undefined' && window.location) {
-            const urlParams = new URLSearchParams(window.location.search);
-
-            // 1. One-time Setup / Join link: ?join=CODE or ?code=CODE
-            const joinCode = urlParams.get('join') || urlParams.get('code');
-            if (joinCode) {
-                const cleanCode = joinCode.trim().toUpperCase();
-                const registry = await getTenantRegistry();
-                const matched = registry.find(t => 
-                    (t.workspace_code && t.workspace_code.toUpperCase() === cleanCode) ||
-                    (t.slug && t.slug.toLowerCase() === cleanCode.toLowerCase())
-                );
-                if (matched) {
-                    slug = matched.slug;
-                    try {
-                        safeStorage.setItem('active_tenant', JSON.stringify(matched));
-                        safeStorage.setItem('active_tenant_slug', matched.slug);
-                        // Clean the URL immediately to '/' so zero code or slug remains in address bar/history
-                        if (window.history && window.history.replaceState) {
-                            window.history.replaceState({}, document.title, '/');
-                        }
-                    } catch (e) {}
-                }
-            }
-
-            // 2. Direct clean path fallback: /:slug (first path segment if not a known route)
-            if (!slug) {
-                const pathParts = window.location.pathname.split('/').filter(Boolean);
-                const knownRoutes = ['command-center', 'admin', 'watch-tower', 'onboard', 'hybrid', 'image', 'sw.js', 'index.html'];
-                if (pathParts.length > 0 && !knownRoutes.includes(pathParts[0].toLowerCase())) {
-                    slug = pathParts[0];
-                }
-            }
-
-            // 3. Query param fallback: ?tenant= or ?company=
-            if (!slug) {
-                slug = urlParams.get('tenant') || urlParams.get('company');
-            }
-
-            // 4. Admin session memory fallback
-            if (!slug && typeof safeSession !== 'undefined') {
-                slug = safeSession.getItem('admin_tenant_slug') || safeSession.getItem('masquerade_tenant');
-            }
-
-            // 5. Device memory fallback (paired device)
-            if (!slug) {
-                slug = safeStorage.getItem('active_tenant_slug');
-            }
-        }
-
-        const registry = await getTenantRegistry();
-        let storedTenant = null;
-        try { storedTenant = JSON.parse(safeStorage.getItem('active_tenant') || 'null'); } catch (e) {}
-
-        if (slug) {
-            const cleanSlug = String(slug).trim().toLowerCase();
-            const match = registry.find(t => 
-                (t.slug && t.slug.toLowerCase() === cleanSlug) || 
-                (t.workspace_code && t.workspace_code.toLowerCase() === cleanSlug) ||
-                (t.short_name && t.short_name.toLowerCase() === cleanSlug) ||
-                (t.id && t.id.toLowerCase() === cleanSlug)
-            );
-            if (match) {
-                try { safeStorage.setItem('active_tenant_slug', match.workspace_code || match.slug); } catch(e) {}
-                return match;
-            }
-            if (storedTenant && (
-                (storedTenant.slug || '').toLowerCase() === cleanSlug || 
-                (storedTenant.workspace_code || '').toLowerCase() === cleanSlug ||
-                (storedTenant.id || '').toLowerCase() === cleanSlug
-            )) return storedTenant;
-        }
-
-        if (storedTenant) return storedTenant;
-
-        // Strict Zero-Exposure: If unpaired and no valid workspace code/slug provided, return null
-        return null;
-    } catch (e) {
-        return null;
-    }
-}
-
-/* ---------- WebAuthn Native Biometric Engine ---------- */
-
-function bufferToBase64(buffer) {
-    const bytes = new Uint8Array(buffer);
-    let binary = '';
-    for (let i = 0; i < bytes.byteLength; i++) {
-        binary += String.fromCharCode(bytes[i]);
-    }
-    return window.btoa ? window.btoa(binary) : '';
-}
-
-function base64ToBuffer(base64) {
-    if (!base64 || typeof window === 'undefined' || !window.atob) return new Uint8Array(0);
-    const binary = window.atob(base64);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) {
-        bytes[i] = binary.charCodeAt(i);
-    }
-    return bytes.buffer;
-}
-
-async function isBiometricsAvailable() {
-    try {
-        if (typeof window === 'undefined' || !window.PublicKeyCredential) return false;
-        if (typeof window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable === 'function') {
-            return await window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
-        }
-        return false;
-    } catch (e) {
-        return false;
-    }
-}
-
-function isBiometricsEnrolled(staffName) {
-    if (!staffName) return false;
-    const clean = String(staffName).trim().toLowerCase();
-    const stored = safeStorage.getItem(`biometric_cred_${clean}`);
-    return Boolean(stored);
-}
-
-function getStoredBiometricCredentialId(staffName) {
-    if (!staffName) return null;
-    const clean = String(staffName).trim().toLowerCase();
-    return safeStorage.getItem(`biometric_cred_${clean}`);
-}
-
-function getCredentialsApi() {
-    if (typeof window !== 'undefined' && window.navigator && window.navigator.credentials) {
-        return window.navigator.credentials;
-    }
-    if (typeof navigator !== 'undefined' && navigator.credentials) {
-        return navigator.credentials;
-    }
-    return null;
-}
-
-async function enrollBiometrics(staffId, staffName, tenantName = 'Attendance Cloud') {
-    if (!staffName) throw new Error('Staff name is required for biometric registration');
-    const creds = getCredentialsApi();
-    if (!window.PublicKeyCredential || !creds) {
-        throw new Error('WebAuthn biometric authentication is not supported on this browser/device.');
-    }
-
-    const challenge = new Uint8Array(32);
-    window.crypto.getRandomValues(challenge);
-
-    const safeIdStr = String(staffId || staffName);
-    const userIdBuffer = new Uint8Array(safeIdStr.length);
-    for (let i = 0; i < safeIdStr.length; i++) {
-        userIdBuffer[i] = safeIdStr.charCodeAt(i);
-    }
-
-    const creationOptions = {
-        publicKey: {
-            challenge: challenge,
-            rp: {
-                name: tenantName,
-                id: window.location.hostname
-            },
-            user: {
-                id: userIdBuffer,
-                name: staffName,
-                displayName: staffName
-            },
-            pubKeyCredParams: [
-                { alg: -7, type: 'public-key' },  // ES256 (P-256)
-                { alg: -257, type: 'public-key' } // RS256
-            ],
-            authenticatorSelection: {
-                authenticatorAttachment: 'platform', // Face ID / Touch ID / Windows Hello
-                userVerification: 'preferred',
-                requireResidentKey: false
-            },
-            timeout: 60000,
-            attestation: 'none'
-        }
-    };
-
-    const credential = await creds.create(creationOptions);
-    if (!credential) throw new Error('Biometric registration was cancelled or timed out.');
-
-    const credIdBase64 = bufferToBase64(credential.rawId);
-    const clean = String(staffName).trim().toLowerCase();
-    safeStorage.setItem(`biometric_cred_${clean}`, credIdBase64);
-    safeStorage.setItem(`biometric_enabled_${clean}`, 'true');
-
-    return {
-        success: true,
-        credentialId: credIdBase64
-    };
-}
-
-async function verifyBiometrics(staffName) {
-    if (!staffName) return { success: false, message: 'Staff name required' };
-    const credIdBase64 = getStoredBiometricCredentialId(staffName);
-    if (!credIdBase64) return { success: false, message: 'No biometric credentials enrolled on this device' };
-
-    const creds = getCredentialsApi();
-    if (!window.PublicKeyCredential || !creds) {
-        return { success: false, message: 'Biometrics unsupported' };
-    }
-
-    const challenge = new Uint8Array(32);
-    window.crypto.getRandomValues(challenge);
-
-    const rawIdBuffer = base64ToBuffer(credIdBase64);
-
-    const requestOptions = {
-        publicKey: {
-            challenge: challenge,
-            allowCredentials: [{
-                id: rawIdBuffer,
-                type: 'public-key',
-                transports: ['internal']
-            }],
-            userVerification: 'preferred',
-            timeout: 60000
-        }
-    };
-
-    try {
-        const assertion = await creds.get(requestOptions);
-        if (assertion) {
-            return { success: true, assertion };
-        }
-        return { success: false, message: 'Verification failed' };
-    } catch (err) {
-        return { success: false, error: err.name, message: err.message || 'Biometric check cancelled' };
-    }
-}
-
-function clearBiometrics(staffName) {
-    if (!staffName) return;
-    const clean = String(staffName).trim().toLowerCase();
-    safeStorage.removeItem(`biometric_cred_${clean}`);
-    safeStorage.removeItem(`biometric_enabled_${clean}`);
+ try {
+  const params=new URLSearchParams(window.location.search);
+  const joinCode=params.get('join')||params.get('code');
+  if(joinCode) {
+   const tenant=await getTenantByWorkspaceCode(joinCode);
+   if(tenant && window.history?.replaceState)window.history.replaceState({},document.title,window.location.pathname);
+   return tenant;
+  }
+  const stored=getActiveTenantDirect();
+  const pathParts=window.location.pathname.split('/').filter(Boolean);
+  const tenantIndex=pathParts.indexOf('tenant');
+  const slug=optionalSlug||params.get('tenant')||params.get('company')||(tenantIndex>=0?pathParts[tenantIndex+1]:null)||safeSession.getItem('admin_tenant_slug')||safeStorage.getItem('active_tenant_slug');
+  if(stored && (!slug || [stored.slug,stored.workspace_code,stored.id].some(value=>String(value||'').toLowerCase()===String(slug).toLowerCase())))return stored;
+  if(!slug)return null;
+  const registry=await getTenantRegistry();
+  const authorized=registry.find(t=>[t.slug,t.workspace_code,t.id].some(value=>String(value||'').toLowerCase()===String(slug).toLowerCase()));
+  if(authorized)return authorized;
+  const {data,error}=await supabaseClient.rpc('get_workspace_config',{p_slug:String(slug)});
+  return !error && data?.id ? {...data,latitude:data.lat,longitude:data.lon} : null;
+ }catch(_){return null;}
 }
 
 /* ---------- Per-Tenant Staff & Config Scoping ---------- */
 
+function sanitizeStaffDirectory(rows) {
+ return (Array.isArray(rows)?rows:[]).map(row=>{
+  if(typeof row!=='object'||!row)return row;
+  const clean={...row,device_linked:Boolean(row.device_linked||row.device_id||row.deviceId)};
+  delete clean.device_id;delete clean.deviceId;delete clean.device_token;
+  return clean;
+ });
+}
 async function getTenantStaffList(tenantSlug) {
-    const slug = String(tenantSlug || (typeof activeTenantSlug !== 'undefined' ? activeTenantSlug : (typeof getActiveTenantSlug === 'function' ? getActiveTenantSlug() : 'default'))).trim().toLowerCase();
+ const slug=String(tenantSlug||getActiveTenantSlug()).trim().toLowerCase();
     if (slug === 'demo') {
         return [
             { id: "demo-staff-1", name: "Alex Rivera", dept: "Engineering", schedule_policy: "weekly_hybrid", is_team_lead: true, device_id: null },
@@ -986,78 +657,21 @@ async function getTenantStaffList(tenantSlug) {
             { id: "demo-staff-5", name: "Elena Rostova", dept: "DevOps & Cloud", schedule_policy: "weekly_hybrid", is_team_lead: false, device_id: null }
         ];
     }
-    if (!supabaseClient || typeof supabaseClient.rpc !== 'function') {
-        const cached = readStoredJson(`staff_cache_${slug}`, []);
-        return Array.isArray(cached) ? cached : [];
-    }
-    try {
-        const { data, error } = await supabaseClient.rpc('manage_tenant_staff', {
-            p_action: 'list',
-            p_tenant_slug: slug
-        });
-        if (!error && data && data.ok && Array.isArray(data.staff)) {
-            try { safeStorage.setItem(`staff_cache_${slug}`, JSON.stringify(data.staff)); } catch(e) {}
-            return data.staff;
-        }
-    } catch (e) {
-        console.warn(`Error in getTenantStaffList for ${slug}:`, e);
-    }
 
-    // Fallback to local storage cache if offline or initializing
-    try {
-        const cached = safeStorage.getItem(`staff_cache_${slug}`);
-        if (cached) {
-            const parsed = JSON.parse(cached);
-            if (Array.isArray(parsed) && parsed.length) return parsed;
-        }
-    } catch (e) {}
-
-    return [];
-}
-
-async function saveTenantStaffList(tenantSlug, staffArray) {
-    const slug = String(tenantSlug || (typeof activeTenantSlug !== 'undefined' ? activeTenantSlug : (typeof getActiveTenantSlug === 'function' ? getActiveTenantSlug() : 'default'))).trim().toLowerCase();
-    try {
-        safeStorage.setItem(`staff_cache_${slug}`, JSON.stringify(staffArray));
-    } catch (e) {}
-}
-
-
-async function getTenantAdminList(tenantSlug) {
-    const slug = String(tenantSlug || (typeof activeTenantSlug !== 'undefined' ? activeTenantSlug : (typeof getActiveTenantSlug === 'function' ? getActiveTenantSlug() : 'default'))).trim().toLowerCase();
-    const configKey = `TENANT_ADMINS_${slug}`;
-    try {
-        const stored = safeStorage.getItem(configKey);
-        if (stored) {
-            const parsed = JSON.parse(stored);
-            if (Array.isArray(parsed) && parsed.length) return parsed;
-        }
-    } catch(e) {}
-    try {
-        const { data, error } = await supabaseClient.from('app_config').select('value').eq('key', configKey).single();
-        if (!error && data && data.value) {
-            const parsed = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
-            if (Array.isArray(parsed)) {
-                try { safeStorage.setItem(configKey, JSON.stringify(parsed)); } catch(e) {}
-                return parsed;
-            }
-        }
-    } catch (e) {}
-    return [];
-}
-
-async function saveTenantAdminList(tenantSlug, adminArray) {
-    const slug = String(tenantSlug || (typeof activeTenantSlug !== 'undefined' ? activeTenantSlug : (typeof getActiveTenantSlug === 'function' ? getActiveTenantSlug() : 'default'))).trim().toLowerCase();
-    const configKey = `TENANT_ADMINS_${slug}`;
-    try { safeStorage.setItem(configKey, JSON.stringify(adminArray)); } catch(e) {}
-    try {
-        await supabaseClient.from('app_config').upsert([{
-            key: configKey,
-            value: JSON.stringify(adminArray)
-        }], { onConflict: 'key' });
-    } catch (e) {
-        console.warn(`Error saving tenant admins for ${slug}:`, e);
-    }
+ if(!supabaseClient?.rpc)return sanitizeStaffDirectory(readStoredJson('staff_cache_'+slug,[]));
+ const tenant=await getActiveTenant(slug);
+ const {data:sessionData}=supabaseClient.auth?.getSession?await supabaseClient.auth.getSession():{data:null};
+ let rows;
+ if(sessionData?.session){
+  const {data,error}=await supabaseClient.rpc('manage_tenant_staff',{p_action:'list',p_tenant_slug:slug});
+  if(!error&&data?.ok)rows=data.staff;
+ }
+ if(!rows && tenant?.workspace_code){
+  const {data,error}=await supabaseClient.rpc('get_workspace_staff',{p_workspace_code:tenant.workspace_code});
+  if(error)throw error;rows=data;
+ }
+ if(!rows)return [];
+ const clean=sanitizeStaffDirectory(rows);writeStoredJson('staff_cache_'+slug,clean);return clean;
 }
 
 async function getTenantConfig(tenantSlug) {
@@ -1093,19 +707,20 @@ async function getTenantConfig(tenantSlug) {
     try {
         const { data, error } = await supabaseClient.rpc('get_workspace_config', { p_slug: slug });
         if (!error && data) {
-            return data;
+            return { ...data, latitude: data.latitude ?? data.lat, longitude: data.longitude ?? data.lon };
         }
     } catch (e) {}
 
     // Fallback to tenant registry defaults
     const registry = await getTenantRegistry();
-    const t = registry.find(item => item.slug.toLowerCase() === slug) || {};
+    const t = registry.find(item => item.slug.toLowerCase() === slug);
+    if (!t?.id) return null;
     return {
         slug: t.slug || slug,
         name: t.name || (slug.charAt(0).toUpperCase() + slug.slice(1)),
         office_name: t.office_name || 'Main Office',
-        latitude: Number(t.latitude) || 6.4357,
-        longitude: Number(t.longitude) || 3.4738,
+        latitude: t.latitude == null ? null : Number(t.latitude),
+        longitude: t.longitude == null ? null : Number(t.longitude),
         radius: Number(t.radius) || 100,
         grace_period_minutes: Number(t.grace_period_minutes) || 15,
         default_policy: t.default_policy || 'weekly_hybrid',
@@ -1125,37 +740,11 @@ async function getTenantConfig(tenantSlug) {
     };
 }
 
-async function saveTenantConfig(tenantSlug, configObj) {
-    const slug = String(tenantSlug || (typeof activeTenantSlug !== 'undefined' ? activeTenantSlug : (typeof getActiveTenantSlug === 'function' ? getActiveTenantSlug() : 'default'))).trim().toLowerCase();
-    try {
-        const { data: tenant } = await supabaseClient.from('tenants').select('id').eq('slug', slug).maybeSingle();
-        if (tenant && tenant.id) {
-            await supabaseClient.from('tenants').update({
-                name: configObj.name,
-                brand_color: configObj.brand_color,
-                logo_url: configObj.logo_url,
-                timezone: configObj.timezone
-            }).eq('id', tenant.id);
-
-            if (configObj.latitude && configObj.longitude) {
-                await supabaseClient.from('offices').update({
-                    name: configObj.office_name || 'Main Office',
-                    radius_meters: configObj.radius || 100,
-                    location: `POINT(${configObj.longitude} ${configObj.latitude})`
-                }).eq('tenant_id', tenant.id);
-            }
-        }
-    } catch (e) {
-        console.warn(`Error saving tenant config for ${slug}:`, e);
-    }
-}
-
-
 async function resolveRequestedTenantSlug(payload) {
     if (payload && payload.tenantSlug) return String(payload.tenantSlug).trim().toLowerCase();
     const activeTenant = await getActiveTenant();
     if (activeTenant && activeTenant.slug) return activeTenant.slug.toLowerCase();
-    const sessionSlug = (typeof safeSession !== 'undefined' && (safeSession.getItem('admin_tenant_slug') || safeSession.getItem('masquerade_tenant'))) || null;
+    const sessionSlug = (typeof safeSession !== 'undefined' && (safeSession.getItem('admin_tenant_slug'))) || null;
     if (sessionSlug) return sessionSlug.toLowerCase();
     const storageSlug = (typeof safeStorage !== 'undefined' && safeStorage.getItem('active_tenant_slug')) || null;
     if (storageSlug) return storageSlug.toLowerCase();
@@ -1189,130 +778,24 @@ function normalizeSchedulePolicy(policy) {
 async function handleAuthBackend(mode, payload) {
     switch (mode) {
             case 'admin-login': {
-                const emailClean = String(payload.email || '').trim().toLowerCase();
-                const password = String(payload.password || '').trim();
-                const passwordHash = await sha256Hex(password);
-                
-                let authUser = null;
-                let userRole = 'admin';
-                let isSuperuser = false;
-
-                // 1. Try Supabase Auth Login
-                try {
-                    const { data: authData, error: authError } = await supabaseClient.auth.signInWithPassword({
-                        email: payload.email,
-                        password: password
-                    });
-                    if (!authError && authData && authData.user) {
-                        authUser = authData.user;
-                        const { data: roleData } = await supabaseClient.from('admin_roles').select('role').eq('id', authUser.id).single();
-                        if (roleData && roleData.role) {
-                            userRole = roleData.role;
-                            if (userRole === 'developer') isSuperuser = true;
-                        }
-                    }
-                } catch(e) {}
-
-                // 2. Match tenant from registry
-                const registry = await getTenantRegistry();
-                let matchedTenant = registry.find(t => 
-                    (t.admin_email && t.admin_email.toLowerCase() === emailClean) ||
-                    (t.email && t.email.toLowerCase() === emailClean) ||
-                    (t.contact_email && t.contact_email.toLowerCase() === emailClean) ||
-                    (t.slug && emailClean.includes(`@${t.slug.toLowerCase()}.internal`))
-                );
-
-                // Check tenant primary admin password fallback if not authenticated via Supabase
-                // Check tenant primary admin password hash fallback if not authenticated via Supabase
-                if (matchedTenant && !authUser) {
-                    const storedHash = matchedTenant.admin_password_hash || matchedTenant.password_hash;
-                    if (storedHash && storedHash === passwordHash) {
-                        authUser = { id: 'primary_' + matchedTenant.slug, email: matchedTenant.admin_email };
-                    }
-                }
-
-                // 3. If not found in primary tenant registry, search delegated admins in TENANT_ADMINS_${slug}
-                if (!matchedTenant) {
-                    for (const t of registry) {
-                        const tenantAdmins = await getTenantAdminList(t.slug);
-                        const matchedAdmin = tenantAdmins.find(a => 
-                            (a.email && a.email.toLowerCase() === emailClean) ||
-                            (a.username && a.username.toLowerCase() === emailClean)
-                        );
-                        if (matchedAdmin) {
-                            if (authUser) {
-                                matchedTenant = t;
-                                userRole = matchedAdmin.role || userRole;
-                                break;
-                            } else if (matchedAdmin.password_hash && matchedAdmin.password_hash === passwordHash) {
-                                matchedTenant = t;
-                                userRole = matchedAdmin.role || 'admin';
-                                authUser = { id: matchedAdmin.id, email: matchedAdmin.email };
-                                break;
-                            }
-                        }
-                    }
-                }
-
-                if (!authUser) {
-                    return { ok: false, message: 'Invalid admin credentials.' };
-                }
-
-                const tenantSlug = matchedTenant ? matchedTenant.slug : (payload.tenantSlug || null);
-
-                return {
-                    ok: true,
-                    message: 'Admin access granted.',
-                    role: userRole,
-                    isSuperuser: isSuperuser,
-                    username: payload.email,
-                    tenantSlug: tenantSlug,
-                    tenant: matchedTenant || null
-                };
+                const { data, error } = await supabaseClient.auth.signInWithPassword({ email: String(payload.email || '').trim(), password: String(payload.password || '') });
+                if (error || !data?.user) return { ok: false, message: 'Sign-in failed. Check your email and password and try again.' };
+                const { data: memberships, error: memberError } = await supabaseClient.rpc('get_admin_workspaces');
+                if (memberError) throw memberError;
+                const requestedSlug = payload.tenantSlug || new URLSearchParams(window.location.search).get('tenant');
+                const membership = (memberships || []).find(m => !requestedSlug || m.tenants?.slug === requestedSlug || m.tenants?.workspace_code === requestedSlug);
+                if (!membership?.tenants) return { ok: false, message: 'This account is not an administrator of the selected workspace.' };
+                return { ok: true, role: membership.role === 'owner' ? 'admin' : membership.role, isSuperuser: false, username: data.user.email, tenantSlug: membership.tenants.slug, tenant: membership.tenants };
             }
             case 'admin-logout': {
                 await supabaseClient.auth.signOut();
                 return { ok: true, message: 'Logged out.' };
             }
             case 'admin-reset-user-password':
-            case 'reset-admin-password': {
-                const tenantSlug = await resolveRequestedTenantSlug(payload);
-                const targetUser = String(payload.targetUsername || '').trim().toLowerCase();
-                const newPass = payload.newPassword || payload.newPasswordHash;
-                if (!newPass) return { ok: false, message: 'No new password provided.' };
-
-                const passCheck = validatePasswordStrength(newPass);
-                if (!passCheck.ok) {
-                    return { ok: false, message: passCheck.message };
-                }
-
-                if (tenantSlug) {
-                    const delegatedAdmins = await getTenantAdminList(tenantSlug);
-                    const member = delegatedAdmins.find(a => 
-                        (a.username && a.username.toLowerCase() === targetUser) ||
-                        (a.email && a.email.toLowerCase() === targetUser)
-                    );
-                    if (member) {
-                        member.password_hash = await sha256Hex(newPass);
-                        await saveTenantAdminList(tenantSlug, delegatedAdmins);
-                    }
-                }
-
-                try {
-                    const { data: roleRow } = await supabaseClient
-                        .from('admin_roles')
-                        .select('id, email')
-                        .or(`username.eq."${targetUser}",email.eq."${targetUser}"`)
-                        .single();
-                    if (roleRow) {
-                        await supabaseClient.auth.updateUser({ password: newPass });
-                    }
-                } catch(e) {}
-
-                return { ok: true, message: 'Password reset successfully.' };
-            }
+            case 'reset-admin-password':
+                return { ok: false, message: 'Passwords belong to each account. The account holder must use the secure email recovery flow.' };
             case 'admin-change-password': {
-                const pass = payload.newPassword || payload.newPasswordHash;
+                const pass = payload.newPassword;
                 if (pass) {
                     const passCheck = validatePasswordStrength(pass);
                     if (!passCheck.ok) {
@@ -1345,42 +828,16 @@ async function handleAuthBackend(mode, payload) {
                 return { ok: true, message: 'Password updated successfully!' };
             }
             case 'admin-set-recovery-email': {
-                const email = payload.email;
-                if (email) {
-                    await supabaseClient.from('app_config').upsert([{ key: 'RECOVERY_EMAIL', value: email }], { onConflict: 'key' });
-                    const { data: userData } = await supabaseClient.auth.getUser();
-                    if (userData && userData.user) {
-                        await supabaseClient.from('admin_roles').update({ email: email }).eq('id', userData.user.id);
-                    }
-                }
-                return { ok: true, message: 'Recovery email saved successfully.' };
+                const email = String(payload.email || '').trim();
+                if (!isValidEmail(email)) return {ok:false,message:'Enter a valid email address.'};
+                const {error} = await supabaseClient.auth.updateUser({email});
+                if (error) throw error;
+                return {ok:true,message:'Confirm the email change using the links sent by the account service. Recovery uses your confirmed account email.'};
             }
             case 'get-recovery-email': {
-                let email = null;
-                try {
-                    const { data: userData } = await supabaseClient.auth.getUser();
-                    if (userData && userData.user) {
-                        const { data: rData } = await supabaseClient.from('admin_roles').select('email').eq('id', userData.user.id).single();
-                        if (rData && rData.email) email = rData.email;
-                    }
-                } catch(e) {}
-                if (!email) {
-                    const { data: cfg } = await supabaseClient.from('app_config').select('value').eq('key', 'RECOVERY_EMAIL').single();
-                    if (cfg && cfg.value) email = cfg.value;
-                }
-                return { ok: true, email: email };
-            }
-            case 'admin-forgot-password-request': {
-                if (payload.username && payload.username.includes('@')) {
-                    await supabaseClient.auth.resetPasswordForEmail(payload.username);
-                }
-                return { ok: true, message: 'Password reset request processed.' };
-            }
-            case 'admin-forgot-password-confirm': {
-                if (payload.newPasswordHash || payload.newPassword) {
-                    await supabaseClient.auth.updateUser({ password: payload.newPassword || payload.newPasswordHash });
-                }
-                return { ok: true, message: 'Password reset successful.' };
+                const {data,error} = await supabaseClient.auth.getUser();
+                if(error || !data?.user) return {ok:false,message:'Sign in to view your recovery email.'};
+                return {ok:true,email:data.user.email};
             }
         default:
             return null;
@@ -1390,106 +847,55 @@ async function handleAuthBackend(mode, payload) {
 /**
  * Presence & Attendance Verification Domain
  */
+function attendanceFilterDate(value, endOfDay = false) {
+    if (!value) return null;
+    let raw = String(value).trim();
+    const displayed = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (displayed) raw = `${displayed[3]}-${displayed[2]}-${displayed[1]}`;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+        const [year, month, day] = raw.split('-').map(Number);
+        const date = new Date(year, month - 1, day, endOfDay ? 23 : 0, endOfDay ? 59 : 0, endOfDay ? 59 : 0, endOfDay ? 999 : 0);
+        if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) throw new Error('Enter a valid attendance date.');
+        return date.toISOString();
+    }
+    if (!/^\d{4}-\d{2}-\d{2}T/.test(raw) || !Number.isFinite(Date.parse(raw))) throw new Error('Enter a valid attendance date.');
+    return new Date(raw).toISOString();
+}
 async function handleAttendanceBackend(mode, payload) {
     switch (mode) {
             case 'attendance': {
-                if (payload.staffId) {
-                    const { data, error } = await supabaseClient.rpc('record_attendance', {
-                        p_staff_id: payload.staffId,
-                        p_device_id: payload.deviceId,
-                        p_event_type: String(payload.action || '').toLowerCase(),
-                        p_latitude: payload.lat,
-                        p_longitude: payload.lon
-                    });
-                    if (error) throw error;
-                    const result = Array.isArray(data) ? data[0] : data;
-                    return { ok: Boolean(result?.ok), allowed: Boolean(result?.ok), message: result?.message, status: result?.status, distance: result?.distance_meters };
-                }
-                let lat = payload.lat;
-                let lon = payload.lon;
-                const isRemoteSignout = Boolean(payload.isRemoteSignOut);
-
-                // If remote sign-out post-closing is requested, resolve office coordinates if needed
-                if (payload.action === 'OUT' && isRemoteSignout) {
-                    try {
-                        const { data: configData } = await supabaseClient.from('app_config').select('*');
-                        const cfg = {};
-                        if (configData) configData.forEach(r => cfg[r.key] = r.value);
-                        const allowRemote = cfg.ALLOW_REMOTE_SIGNOUT_POST_CLOSING !== undefined ? cfg.ALLOW_REMOTE_SIGNOUT_POST_CLOSING : true;
-                        if (allowRemote === true || allowRemote === 'true') {
-                            if (!lat || !lon || (Number(lat) === 0 && Number(lon) === 0)) {
-                                lat = Number(cfg.OFFICE_LAT || 6.4518631);
-                                lon = Number(cfg.OFFICE_LON || 3.5277863);
-                            }
-                        }
-                    } catch (e) {
-                        console.warn('Error checking remote signout config:', e);
-                    }
-                }
-
-                let staffId = payload.staffId;
-                const tenantSlug = await resolveRequestedTenantSlug(payload);
-                if (!staffId && payload.name) {
-                    const staffList = await getTenantStaffList(tenantSlug);
-                    const foundStaff = staffList.find(s => s.name.toLowerCase() === payload.name.trim().toLowerCase());
-                    if (foundStaff) staffId = foundStaff.id;
-                }
-
-                const deviceId = payload.deviceId || (typeof getDeviceId === 'function' ? getDeviceId() : null);
-
-                const { data, error } = await supabaseClient.rpc('record_attendance', {
-                    p_staff_id: staffId,
-                    p_device_id: deviceId,
-                    p_event_type: (payload.action || 'in').toLowerCase(),
-                    p_latitude: lat,
-                    p_longitude: lon
+                const tenant=await getActiveTenant(payload.tenantSlug);
+                const staffId=payload.staffId||(await getTenantStaffList(tenant?.slug)).find(s=>s.name?.toLowerCase()===String(payload.name||'').trim().toLowerCase())?.id;
+                if(!staffId)return {ok:false,allowed:false,message:'Select a registered staff profile.'};
+                const {data,error}=await supabaseClient.rpc('record_attendance',{
+                    p_staff_id:staffId,p_device_id:payload.deviceId,p_event_type:String(payload.action||'').toLowerCase(),
+                    p_latitude:payload.lat,p_longitude:payload.lon
                 });
-                if (error) throw error;
-
-                const resRow = Array.isArray(data) ? data[0] : data;
-                const isOk = Boolean(resRow && (resRow.ok === true || resRow.status === 'on_site' || resRow.status === 'provisional_transfer'));
-                return {
-                    ok: isOk,
-                    allowed: isOk,
-                    status: (resRow && resRow.status) || 'recorded',
-                    message: (resRow && resRow.message) || 'Attendance recorded.',
-                    distance: resRow && resRow.distance_meters,
-                    distance_meters: resRow && resRow.distance_meters,
-                    raw: resRow
-                };
+                if(error)throw error;
+                const result=Array.isArray(data)?data[0]:data;
+                return {ok:Boolean(result?.ok),allowed:Boolean(result?.ok),message:result?.message,status:result?.status,
+                    distance:result?.distance_meters,raw:result?{...result,distance:result.distance_meters}:null};
             }
             case 'list-logs': {
+                if(payload.name && typeof getDeviceId==='function'){
+                    const tenant=await getActiveTenant(payload.tenantSlug);
+                    const member=(await getTenantStaffList(tenant?.slug)).find(row=>row.name?.toLowerCase()===String(payload.name).toLowerCase());
+                    if(!member)return {ok:false,message:'Staff profile unavailable.'};
+                    const {data,error}=await supabaseClient.rpc('get_staff_attendance',{p_staff_id:member.id,p_device_id:getDeviceId(),p_limit:Math.min(Number(payload.limit)||10,50)});
+                    if(error)throw error;
+                    if(!data?.ok)return {ok:false,message:data?.message||'Device authorization required.'};
+                    return {ok:true,logs:(data.logs||[]).map(row=>({...row,name:member.name,action:row.event_type.toUpperCase(),date:row.occurred_at.slice(0,10),time:new Date(row.occurred_at).toLocaleTimeString(),created_at:row.occurred_at,server_status:row.status}))};
+                }
                 const tenantSlug = await resolveRequestedTenantSlug(payload);
                 if (!tenantSlug) return { ok: true, logs: [] };
 
-                const { data: tenant } = await supabaseClient.from('tenants').select('id').eq('slug', tenantSlug).maybeSingle();
-                if (!tenant) return { ok: true, logs: [] };
-
-                let query = supabaseClient.from('attendance_logs').select(`
-                    id,
-                    occurred_at,
-                    event_type,
-                    status,
-                    distance_meters,
-                    verification_method,
-                    staff:staff_id(id, name, department),
-                    office:office_id(name)
-                `).eq('tenant_id', tenant.id);
-
-                if (payload.staffId) {
-                    query = query.eq('staff_id', payload.staffId);
-                }
-                if (payload.fromDate) {
-                    query = query.gte('occurred_at', payload.fromDate);
-                }
-                if (payload.toDate) {
-                    query = query.lte('occurred_at', payload.toDate);
-                }
-
-                const limitVal = parseInt(payload.limit, 10) || 200;
-                query = query.order('occurred_at', { ascending: false }).limit(limitVal);
-
-                const { data, error } = await query;
+                const { data, error } = await supabaseClient.rpc('get_admin_attendance', {
+                    p_tenant_slug: tenantSlug,
+                    p_staff_id: payload.staffId || null,
+                    p_from_date: attendanceFilterDate(payload.fromDate),
+                    p_to_date: attendanceFilterDate(payload.toDate, true),
+                    p_limit: parseInt(payload.limit, 10) || 200
+                });
                 if (error) throw error;
 
                 const logs = (data || []).map(row => ({
@@ -1501,6 +907,11 @@ async function handleAttendanceBackend(mode, payload) {
                     time: new Date(row.occurred_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                     date: row.occurred_at ? row.occurred_at.split('T')[0] : '',
                     occurred_at: row.occurred_at,
+                    created_at: row.occurred_at,
+                    server_status: row.status,
+                    original_status: row.original_status,
+                    transfer_request_id: row.transfer_request_id,
+                    transfer_resolved_at: row.transfer_resolved_at,
                     distance: row.distance_meters,
                     verification_method: row.verification_method,
                     office: row.office ? row.office.name : 'Office'
@@ -1520,15 +931,9 @@ async function handleAttendanceBackend(mode, payload) {
 async function handleStaffBackend(mode, payload) {
     switch (mode) {
             case 'list-staff': {
-                const activeTenant = await getActiveTenant(payload.tenantSlug);
-                if (activeTenant?.workspace_code) {
-                    const { data, error } = await supabaseClient.rpc('get_workspace_staff', { p_workspace_code: activeTenant.workspace_code });
-                    if (!error) return { ok: true, allowed: true, staff: data || [] };
-                }
-                const tenantSlug = await resolveRequestedTenantSlug(payload);
-                if (!tenantSlug) return { ok: true, allowed: true, staff: [] };
-                const staff = await getTenantStaffList(tenantSlug);
-                return { ok: true, allowed: true, staff };
+                const slug = await resolveRequestedTenantSlug(payload);
+                if (!slug) return {ok:false,message:'Select your workspace first.'};
+                return {ok:true,allowed:true,staff:await getTenantStaffList(slug)};
             }
             case 'add-staff': {
                 const tenantSlug = await resolveRequestedTenantSlug(payload);
@@ -1671,37 +1076,13 @@ async function handleStaffBackend(mode, payload) {
                     return { ok: false, message: `No registered staff found matching "${payload.name}" for ${activeTenant ? activeTenant.name : 'this company'}. Please verify your spelling or contact HR.` };
                 }
 
-                const wasUnlinked = Boolean(member.was_unlinked_by_admin);
-                if (wasUnlinked) {
-                    delete member.was_unlinked_by_admin;
-                    await saveTenantStaffList(tenantSlug, staff);
-                }
-
-                return {
-                    ok: true,
-                    name: member.name,
-                    dept: member.dept || 'General',
-                    schedule_policy: member.schedule_policy || 'weekly_hybrid',
-                    is_team_lead: Boolean(member.is_team_lead),
-                    is_linked: Boolean(member.device_id),
-                    was_unlinked_by_admin: wasUnlinked
-                };
+                const verification=await handleDeviceBackend('verify-owner',{staffId:member.id,deviceId:typeof getDeviceId==='function'?getDeviceId():payload.deviceId});
+                return {ok:true,name:member.name,dept:member.dept||member.department||'General',schedule_policy:member.schedule_policy||'weekly_hybrid',
+                    is_team_lead:Boolean(member.is_team_lead),allowed:verification.allowed,message:verification.message,
+                    provisional:verification.provisional};
             }
-            case 'unlink-staff-device': {
-                const activeTenant = await getActiveTenant(payload.tenantSlug);
-                const tenantSlug = (payload.tenantSlug || (activeTenant ? activeTenant.slug : 'default')).toLowerCase();
-                const staff = await getTenantStaffList(tenantSlug);
-                const targetName = String(payload.name || '').trim().toLowerCase();
-                const member = staff.find(s => String(s.name || '').trim().toLowerCase() === targetName);
-                if (member) {
-                    member.device_id = null;
-                    member.device_token = null;
-                    member.was_unlinked_by_admin = true;
-                    await saveTenantStaffList(tenantSlug, staff);
-                }
-                try { await supabaseClient.from('staff').update({ device_id: null }).eq('name', payload.name); } catch(e) {}
-                return { ok: true, message: `Device unlinked for ${payload.name}.` };
-            }
+            case 'unlink-staff-device':
+                return handleStaffBackend('reset-staff-lock',payload);
         default:
             return null;
     }
@@ -1711,184 +1092,14 @@ async function handleStaffBackend(mode, payload) {
  * Delegated Tenant Administrators Domain
  */
 async function handleTenantAdminBackend(mode, payload) {
-    switch (mode) {
-            case 'list-admin-users': {
-                const tenantSlug = await resolveRequestedTenantSlug(payload);
-                if (!tenantSlug) return { ok: false, message: 'No active workspace selected or authorized.' };
-
-                const registry = await getTenantRegistry();
-                const currentTenant = registry.find(t => t.slug && t.slug.toLowerCase() === tenantSlug.toLowerCase());
-
-                const delegatedAdmins = await getTenantAdminList(tenantSlug);
-                const combined = [];
-
-                if (currentTenant && currentTenant.admin_email) {
-                    combined.push({
-                        id: 'primary-admin-' + tenantSlug,
-                        username: currentTenant.admin_name || 'Primary Admin',
-                        email: currentTenant.admin_email,
-                        role: 'admin',
-                        is_primary: true
-                    });
-                }
-
-                delegatedAdmins.forEach(u => {
-                    if (!combined.some(c => c.email && u.email && c.email.toLowerCase() === u.email.toLowerCase())) {
-                        combined.push(u);
-                    }
-                });
-
-                return { ok: true, users: combined };
-            }
-            case 'add-admin-user': {
-                const tenantSlug = await resolveRequestedTenantSlug(payload);
-                if (!tenantSlug) return { ok: false, message: 'No active workspace selected or authorized.' };
-
-                const username = (payload.newUsername || payload.username || '').trim();
-                const rawEmail = (payload.email || '').trim();
-                if (!rawEmail || !isValidEmail(rawEmail)) {
-                    return { ok: false, message: 'A valid email address is required for administrator accounts to support recovery and auth.' };
-                }
-                const email = rawEmail.toLowerCase();
-
-                const password = (payload.password || payload.newPassword || '').trim();
-                const passCheck = validatePasswordStrength(password);
-                if (!passCheck.ok) {
-                    return { ok: false, message: passCheck.message };
-                }
-                const role = payload.role || payload.tier || 'admin';
-                const passwordHash = await sha256Hex(password);
-
-                const delegatedAdmins = await getTenantAdminList(tenantSlug);
-                const existing = delegatedAdmins.find(a => 
-                    (a.email && a.email.toLowerCase() === email.toLowerCase()) ||
-                    (a.username && a.username.toLowerCase() === username.toLowerCase())
-                );
-                if (existing) {
-                    return { ok: false, message: 'An admin user with this username or email already exists in this workspace.' };
-                }
-
-                // Register with Supabase Auth for full backend compatibility if available
-                let authUserId = null;
-                try {
-                    const { data: currentSessionData } = await supabaseClient.auth.getSession();
-                    const currentSession = currentSessionData?.session;
-
-                    const { data: authData } = await supabaseClient.auth.signUp({
-                        email: email,
-                        password: password
-                    });
-
-                    if (authData && authData.user) {
-                        authUserId = authData.user.id;
-                        await supabaseClient.from('admin_roles').upsert([{
-                            id: authUserId,
-                            role: role,
-                            email: email,
-                            username: username
-                        }], { onConflict: 'id' }).catch(() => {});
-                    }
-
-                    if (currentSession) {
-                        await supabaseClient.auth.setSession({
-                            access_token: currentSession.access_token,
-                            refresh_token: currentSession.refresh_token
-                        }).catch(() => {});
-                    }
-                } catch (e) {
-                    console.warn('Supabase Auth signUp skipped or fallback utilized:', e);
-                }
-
-                const newAdmin = {
-                    id: authUserId || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'adm_' + Math.random().toString(36).substring(2, 9)),
-                    username: username || email.split('@')[0],
-                    email: email,
-                    password_hash: passwordHash,
-                    role: role,
-                    created_at: new Date().toISOString()
-                };
-
-                delegatedAdmins.push(newAdmin);
-                await saveTenantAdminList(tenantSlug, delegatedAdmins);
-
-                return { ok: true, message: `Admin account "${newAdmin.username}" assigned successfully!` };
-            }
-            case 'remove-admin-user': {
-                const tenantSlug = await resolveRequestedTenantSlug(payload);
-                if (!tenantSlug) return { ok: false, message: 'No active workspace selected or authorized.' };
-                const target = String(payload.targetUsername || payload.userId || '').trim().toLowerCase();
-
-                let delegatedAdmins = await getTenantAdminList(tenantSlug);
-                delegatedAdmins = delegatedAdmins.filter(a => 
-                    (a.username && a.username.toLowerCase() !== target) &&
-                    (a.email && a.email.toLowerCase() !== target) &&
-                    (a.id && a.id !== target)
-                );
-                await saveTenantAdminList(tenantSlug, delegatedAdmins);
-
-                try {
-                    await supabaseClient.from('admin_roles').delete().or(`username.eq."${target}",email.eq."${target}"`);
-                } catch(e) {}
-
-                return { ok: true, message: 'Admin account removed.' };
-            }
-            case 'update-admin-role': {
-                const tenantSlug = await resolveRequestedTenantSlug(payload);
-                if (!tenantSlug) return { ok: false, message: 'No active workspace selected or authorized.' };
-                const target = String(payload.targetUsername || '').trim().toLowerCase();
-                const role = payload.newRole || payload.role;
-
-                const delegatedAdmins = await getTenantAdminList(tenantSlug);
-                const member = delegatedAdmins.find(a => 
-                    (a.username && a.username.toLowerCase() === target) ||
-                    (a.email && a.email.toLowerCase() === target)
-                );
-                if (member) {
-                    member.role = role;
-                    await saveTenantAdminList(tenantSlug, delegatedAdmins);
-                }
-
-                try {
-                    await supabaseClient.from('admin_roles').update({ role }).or(`username.eq."${target}",email.eq."${target}"`);
-                } catch(e) {}
-
-                return { ok: true, message: 'Admin role updated successfully.' };
-            }
-            case 'update-admin-user': {
-                const tenantSlug = await resolveRequestedTenantSlug(payload);
-                const target = payload.targetUsername;
-                const updates = {};
-                if (payload.newUsername && payload.newUsername.trim()) updates.username = payload.newUsername.trim();
-                if (payload.email && payload.email.trim()) updates.email = payload.email.trim();
-                if (payload.tier) updates.role = payload.tier;
-
-                if (tenantSlug) {
-                    const delegatedAdmins = await getTenantAdminList(tenantSlug);
-                    const member = delegatedAdmins.find(a => 
-                        (a.username && a.username.toLowerCase() === target.toLowerCase()) ||
-                        (a.email && a.email.toLowerCase() === target.toLowerCase())
-                    );
-                    if (member) {
-                        if (updates.username) member.username = updates.username;
-                        if (updates.email) member.email = updates.email;
-                        if (updates.role) member.role = updates.role;
-                        await saveTenantAdminList(tenantSlug, delegatedAdmins);
-                    }
-                }
-
-                try {
-                    if (Object.keys(updates).length > 0) {
-                        await supabaseClient
-                            .from('admin_roles')
-                            .update(updates)
-                            .or(`username.eq."${target}",email.eq."${target}"`);
-                    }
-                } catch(e) {}
-                return { ok: true, message: 'Admin user updated successfully.' };
-            }
-        default:
-            return null;
+    if (['add-admin-user','remove-admin-user','update-admin-role','update-admin-user'].includes(mode)) {
+        return { ok: false, message: 'Administrator invitations and role changes require a server-side account-management service. This action is not available in this release.' };
     }
+    if (mode !== 'list-admin-users') return null;
+    const slug = await resolveRequestedTenantSlug(payload);
+    const { data, error } = await supabaseClient.rpc('get_workspace_administrators', {p_tenant_slug:slug});
+    if (error) throw error;
+    return { ok: true, users: (data || []).map(m => ({ id: m.user_id, username: 'Workspace administrator', role: m.role, is_primary: m.role === 'owner' })) };
 }
 
 /**
@@ -1897,56 +1108,12 @@ async function handleTenantAdminBackend(mode, payload) {
 async function handleConfigBackend(mode, payload) {
     switch (mode) {
             case 'get-config': {
-                const { data, error } = await supabaseClient.from('app_config').select('*');
-                if (error) throw error;
-                const configObj = {
-                    WORKDAY_END_MINUTES: 1020,
-                    ALLOW_REMOTE_SIGNOUT_POST_CLOSING: 'true',
-                    COUNT_WFH_IN_ATTENDANCE_QUOTA: 'true',
-                    TIMEZONE: 'Africa/Lagos'
-                };
-                if (data) data.forEach(row => configObj[row.key] = row.value);
-                return { ok: true, config: configObj };
+                const slug = await resolveRequestedTenantSlug(payload);
+                const config = slug ? await getTenantConfig(slug) : null;
+                return { ok: true, config: { TIMEZONE: config?.timezone || 'Africa/Lagos', OFFICE_LAT: config?.latitude, OFFICE_LON: config?.longitude, RADIUS_METERS: config?.radius, WORKDAY_END_MINUTES: 1020, ALLOW_REMOTE_SIGNOUT_POST_CLOSING: 'false', COUNT_WFH_IN_ATTENDANCE_QUOTA: 'true' } };
             }
             case 'update-config': {
-                const tenantSlug = await resolveRequestedTenantSlug(payload);
-                if (tenantSlug) {
-                    try {
-                        const registry = await getTenantRegistry();
-                        const tIdx = registry.findIndex(t => t.slug && t.slug.toLowerCase() === tenantSlug.toLowerCase());
-                        if (tIdx !== -1) {
-                            if (payload.key === 'TIMEZONE') registry[tIdx].timezone = payload.value;
-                            if (payload.key === 'OFFICE_LAT') registry[tIdx].latitude = Number(payload.value);
-                            if (payload.key === 'OFFICE_LON') registry[tIdx].longitude = Number(payload.value);
-                            if (payload.key === 'RADIUS_METERS') registry[tIdx].radius = Number(payload.value);
-                            if (payload.key === 'LATE_CUTOFF_MINUTES') registry[tIdx].late_cutoff_minutes = Number(payload.value);
-                            if (payload.key === 'WORKDAY_END_MINUTES') registry[tIdx].workday_end_minutes = Number(payload.value);
-                            if (payload.key === 'WORK_DAYS') registry[tIdx].workdays = payload.value;
-                            if (payload.key === 'TEAM_LEAD_PRIORITY_SORT') registry[tIdx].team_lead_priority_sort = (payload.value === 'true' || payload.value === true);
-                            if (payload.key === 'HYBRID_OFFICE_DAYS') registry[tIdx].hybrid_office_days = Number(payload.value);
-                            if (payload.key === 'COUNT_WFH_IN_ATTENDANCE_QUOTA') registry[tIdx].wfh_quota_enabled = (payload.value === 'true' || payload.value === true);
-                            await saveTenantRegistry(registry);
-                        }
-                    } catch(e) {
-                        console.warn('Could not sync update-config to tenant registry:', e);
-                    }
-                }
-
-                const configKey = tenantSlug && tenantSlug !== 'lifecard' ? `${tenantSlug}::${payload.key}` : payload.key;
-                const { error } = await supabaseClient.from('app_config').upsert([{ key: configKey, value: payload.value }], { onConflict: 'key' });
-                if (error) throw error;
-                if (tenantSlug === 'lifecard') {
-                    try { await supabaseClient.from('app_config').upsert([{ key: payload.key, value: payload.value }], { onConflict: 'key' }); } catch(e) {}
-                }
-                return { ok: true, message: 'Configuration updated.' };
-            }
-            case 'update-tenant-config': {
-                const activeTenant = await getActiveTenant(payload.tenantSlug);
-                const slug = (payload.tenantSlug || (activeTenant ? activeTenant.slug : 'default')).toLowerCase();
-                const currentConfig = await getTenantConfig(slug);
-                const updated = { ...currentConfig, ...(payload.config || {}) };
-                await saveTenantConfig(slug, updated);
-                return { ok: true, message: 'Tenant configuration updated successfully.', config: updated };
+                return { ok: false, message: 'This workspace policy is not supported by the current database. No changes were saved.' };
             }
         default:
             return null;
@@ -1956,102 +1123,49 @@ async function handleConfigBackend(mode, payload) {
 /**
  * Weekly Hybrid Attendance Matrix Domain
  */
-async function handleScheduleBackend(mode, payload) {
-    switch (mode) {
-            case 'get-hybrid-schedule': {
-                const tenantSlug = await resolveRequestedTenantSlug(payload);
-                if (!tenantSlug) return { ok: true, allowed: true, schedule: {} };
-
-                const rawKey = payload.weekStart;
-                const formattedKey = formatWeekKeyFromDmy(rawKey);
-                // Build candidate formats
-                const rawCandidates = [formattedKey, rawKey];
-                if (formattedKey !== rawKey) {
-                    const parts2 = formattedKey.split(' - ');
-                    if (parts2.length === 2) {
-                        const shortEnd = parts2[1].replace(/^\w+ /, '');
-                        rawCandidates.push(`${parts2[0]} - ${shortEnd}`);
-                    }
-                }
-
-                // Check tenant-scoped keys first: `${tenantSlug}::${k}`
-                const candidates = rawCandidates.map(k => `${tenantSlug}::${k}`);
-                // If lifecard, also allow fallback to unscoped legacy keys
-                if (tenantSlug === 'lifecard') {
-                    candidates.push(...rawCandidates);
-                }
-
-                let scheduleData = null;
-                // Try exact match on each candidate key
-                for (const key of candidates) {
-                    const { data, error } = await supabaseClient
-                        .from('hybrid_schedules')
-                        .select('schedule_data, week_key')
-                        .eq('week_key', key)
-                        .limit(1);
-                    if (!error && data && data.length) {
-                        scheduleData = data[0].schedule_data;
-                        break;
-                    }
-                }
-
-                // Fallback: fetch recent rows and fuzzy-match the week_key by year + month
-                if (!scheduleData) {
-                    const year = formattedKey.match(/(\d{4})/)?.[1];
-                    const monName = formattedKey.split(' ')[0];
-                    if (year && monName) {
-                        const { data: allRows } = await supabaseClient
-                            .from('hybrid_schedules')
-                            .select('schedule_data, week_key')
-                            .order('week_key', { ascending: false })
-                            .limit(50);
-                        const match = (allRows || []).find(r => {
-                            if (!r.week_key) return false;
-                            const isMatchTenant = r.week_key.startsWith(`${tenantSlug}::`) || (tenantSlug === 'lifecard' && !r.week_key.includes('::'));
-                            return isMatchTenant && r.week_key.includes(year) && r.week_key.includes(monName);
-                        });
-                        if (match) scheduleData = match.schedule_data;
-                    }
-                }
-
-                if (!scheduleData) {
-                    return { ok: true, allowed: true, schedule: {} };
-                }
-
-                let parsedSchedule = scheduleData;
-                if (typeof parsedSchedule === 'string') {
-                    try { parsedSchedule = JSON.parse(parsedSchedule); } catch(e) {}
-                }
-                return { ok: true, allowed: true, schedule: parsedSchedule };
-            }
-            case 'save-hybrid-schedule':
-            case 'update-hybrid-schedule': {
-                const tenantSlug = await resolveRequestedTenantSlug(payload);
-                if (!tenantSlug) return { ok: false, message: 'No active workspace selected or authorized.' };
-                const scopedKey = `${tenantSlug}::${payload.weekStart}`;
-                const { error } = await supabaseClient
-                    .from('hybrid_schedules')
-                    .upsert({
-                        week_key: scopedKey,
-                        schedule_data: payload.scheduleData || payload.schedule,
-                        timestamp: new Date().toISOString()
-                    }, { onConflict: 'week_key' });
-                if (error) throw error;
-                // If lifecard, also keep legacy unscoped key synced for backwards compatibility
-                if (tenantSlug === 'lifecard') {
-                    try {
-                        await supabaseClient.from('hybrid_schedules').upsert({
-                            week_key: payload.weekStart,
-                            schedule_data: payload.scheduleData || payload.schedule,
-                            timestamp: new Date().toISOString()
-                        }, { onConflict: 'week_key' });
-                    } catch(e) {}
-                }
-                return { ok: true, message: 'Hybrid schedule saved.' };
-            }
-        default:
-            return null;
+function scheduleWeekStart(value) {
+    const raw = String(value || '').replace(/^[^:]+::/, '').trim();
+    let date;
+    if (/^\d{4}-\d{2}-\d{2}/.test(raw)) date = new Date(raw.slice(0,10)+'T12:00:00');
+    else if (/^\d{2}\/\d{2}\/\d{4}$/.test(raw)) { const [d,m,y]=raw.split('/'); date=new Date(Number(y),Number(m)-1,Number(d),12); }
+    else {
+        if (!/^[A-Za-z]{3,9}\s+\d{1,2}(?:,?\s+\d{4})?(?:\s+-\s+[A-Za-z]{3,9}\s+\d{1,2},?\s+\d{4})?$/.test(raw)) throw new Error('Invalid schedule week.');
+        const start = raw.split(' - ')[0];
+        const year = raw.match(/\b\d{4}\b/)?.[0];
+        date = new Date(/\b\d{4}\b/.test(start) ? start : `${start}, ${year || new Date().getFullYear()}`);
+        const end = raw.split(' - ')[1];
+        if (end && !/\b\d{4}\b/.test(start) && Number.isFinite(date.getTime())) {
+            const endDate = new Date(end);
+            if (Number.isFinite(endDate.getTime()) && endDate.getMonth() < date.getMonth()) date.setFullYear(date.getFullYear() - 1);
+        }
     }
+    if (!Number.isFinite(date.getTime())) throw new Error('Invalid schedule week.');
+    const day=date.getDay();date.setDate(date.getDate()-(day===0?6:day-1));
+    return [date.getFullYear(),String(date.getMonth()+1).padStart(2,'0'),String(date.getDate()).padStart(2,'0')].join('-');
+}
+
+async function handleScheduleBackend(mode, payload) {
+    if (!['get-hybrid-schedule','save-hybrid-schedule','update-hybrid-schedule','get-hybrid-history'].includes(mode)) return null;
+    const slug = await resolveRequestedTenantSlug(payload);
+    if (!slug) return { ok: false, message: 'Select your workspace first.' };
+    const tenant = await getTenantConfig(slug);
+    if (!tenant?.id) return { ok: false, message: 'Workspace is unavailable. Reconnect with your pairing code.' };
+    if (mode === 'get-hybrid-history') {
+        const { data, error } = await supabaseClient.rpc('get_workspace_schedule_history', {p_workspace_code:tenant.workspace_code});
+        if (error) throw error;
+        return { ok:true, history:data || [] };
+    }
+    const weekStart = scheduleWeekStart(payload.weekStart);
+    if (mode === 'get-hybrid-schedule') {
+        const { data,error } = await supabaseClient.rpc('get_workspace_schedule', {p_workspace_code:tenant.workspace_code,p_week_start:weekStart});
+        if (error) throw error;
+        return { ok:true, allowed:true, schedule:data || {} };
+    }
+    const { data:userData,error:userError }=await supabaseClient.auth.getUser();
+    if(userError || !userData?.user) return {ok:false,message:'Sign in as a workspace administrator to save schedules.'};
+    const { error } = await supabaseClient.rpc('save_workspace_schedule', {p_tenant_slug:slug,p_week_start:weekStart,p_schedule_data:payload.scheduleData || payload.schedule || {}});
+    if(error)throw error;
+    return {ok:true,message:'Hybrid schedule saved.'};
 }
 
 /**
@@ -2060,75 +1174,20 @@ async function handleScheduleBackend(mode, payload) {
 async function handleDeviceBackend(mode, payload) {
     switch (mode) {
             case 'verify-owner':
-            case 'verify-user': {
-                if (payload.staffId) {
-                    const { data, error } = await supabaseClient.rpc('verify_staff_device', { p_staff_id: payload.staffId, p_device_id: payload.deviceId });
-                    if (error) throw error;
-                    const result = Array.isArray(data) ? data[0] : data;
-                    return { ok: Boolean(result?.ok), allowed: Boolean(result?.ok), message: result?.message };
-                }
-                const activeTenant = await getActiveTenant(payload.tenantSlug);
-                const tenantSlug = (payload.tenantSlug || (activeTenant ? activeTenant.slug : 'default')).toLowerCase();
-                const staff = await getTenantStaffList(tenantSlug);
-                const queryName = String(payload.name || '').trim().toLowerCase();
-                const member = staff.find(s => String(s.name || '').trim().toLowerCase() === queryName);
-
-                if (!member) {
-                    const { data, error } = await supabaseClient.from('staff').select('device_id').eq('name', payload.name).single();
-                    if (error || !data) return { ok: false, allowed: false, message: 'Staff member not found.' };
-                    if (!data.device_id) return { ok: true, allowed: true, message: 'No device locked yet.' };
-                    if (data.device_id === payload.deviceId) return { ok: true, allowed: true, message: 'Device verified.' };
-                    const { data: conflictData } = await supabaseClient.from('staff').select('name').eq('device_id', payload.deviceId).single();
-                    const conflictOwner = conflictData ? conflictData.name : 'another user';
-                    return { ok: false, allowed: false, message: `This device is already registered to ${conflictOwner}. Device sharing is not allowed.` };
-                }
-
-                if (!member.device_id) return { ok: true, allowed: true, message: 'No device locked yet.' };
-                if (member.device_id === payload.deviceId) return { ok: true, allowed: true, message: 'Device verified.' };
-
-                const conflictMember = staff.find(s => s.device_id === payload.deviceId);
-                const conflictOwner = conflictMember ? conflictMember.name : 'another user';
-                return { ok: false, allowed: false, message: `This device is already registered to ${conflictOwner}. Device sharing is not allowed.` };
-            }
+            case 'verify-user':
             case 'register-owner': {
-                if (payload.staffId) {
-                    const { data, error } = await supabaseClient.rpc('bind_staff_device', { p_staff_id: payload.staffId, p_device_id: payload.deviceId });
-                    if (error) throw error;
-                    const result = Array.isArray(data) ? data[0] : data;
-                    return { ok: Boolean(result?.ok), allowed: Boolean(result?.ok), message: result?.message };
+                let staffId=payload.staffId;
+                if(!staffId){
+                    const tenant=await getActiveTenant(payload.tenantSlug);
+                    staffId=(await getTenantStaffList(tenant?.slug)).find(row=>row.name?.toLowerCase()===String(payload.name||'').trim().toLowerCase())?.id;
                 }
-                const activeTenant = await getActiveTenant(payload.tenantSlug);
-                const tenantSlug = (payload.tenantSlug || (activeTenant ? activeTenant.slug : 'default')).toLowerCase();
-                const staff = await getTenantStaffList(tenantSlug);
-                const queryName = String(payload.name || '').trim().toLowerCase();
-                const member = staff.find(s => String(s.name || '').trim().toLowerCase() === queryName);
-
-                if (member) {
-                    if (member.device_id === payload.deviceId) return { ok: true, allowed: true };
-                    if (member.device_id) return { ok: false, allowed: false, message: 'Already registered to another device.' };
-
-                    const conflictMember = staff.find(s => s.device_id === payload.deviceId && String(s.name || '').trim().toLowerCase() !== queryName);
-                    if (conflictMember) {
-                        return { ok: false, allowed: false, message: `This device is already registered to ${conflictMember.name}. Device sharing is not allowed.` };
-                    }
-
-                    member.device_id = payload.deviceId;
-                    member.device_token = payload.deviceToken || null;
-                    delete member.was_unlinked_by_admin;
-                    await saveTenantStaffList(tenantSlug, staff);
-                }
-
-                try {
-                    const { data } = await supabaseClient.from('staff').select('device_id').eq('name', payload.name).single();
-                    if (data && !data.device_id) {
-                        await supabaseClient.from('staff').update({ device_id: payload.deviceId }).eq('name', payload.name);
-                    }
-                } catch(e) {}
-
-                return { ok: true, allowed: true, message: 'Device registered successfully.' };
-            }
-            case 'reassign-owner': {
-                return { ok: false, allowed: false, message: 'Please see the administrator to reset your device lock.' };
+                if(!staffId||!payload.deviceId)return {ok:false,allowed:false,message:'A registered staff profile and device identity are required.'};
+                const rpc=mode==='register-owner'?'bind_staff_device':'verify_staff_device';
+                const {data,error}=await supabaseClient.rpc(rpc,{p_staff_id:staffId,p_device_id:payload.deviceId});
+                if(error)throw error;
+                const result=Array.isArray(data)?data[0]:data;
+                return {ok:Boolean(result?.ok),allowed:Boolean(result?.ok),message:result?.message,
+                    provisional:result?.ok===true&&result?.message==='Transfer pending. Attendance will be provisional.'};
             }
             case 'request-device-transfer': {
                 const staffName = payload.staffName || 'Employee';
@@ -2161,14 +1220,8 @@ async function handleDeviceBackend(mode, payload) {
             case 'get-device-transfers': {
                 const tenantSlug = payload.tenantSlug || 'default';
                 try {
-                    const { data: tenant } = await supabaseClient.from('tenants').select('id').eq('slug', tenantSlug).maybeSingle();
-                    if (tenant && tenant.id) {
-                        const { data, error } = await supabaseClient
-                            .from('device_transfer_requests')
-                            .select('id, staff_id, requested_device_id, status, requested_at, transfer_code, staff:staff_id(name, department)')
-                            .eq('tenant_id', tenant.id)
-                            .eq('status', 'pending')
-                            .order('requested_at', { ascending: false });
+                    {
+                        const { data, error } = await supabaseClient.rpc('get_admin_transfers', {p_tenant_slug:tenantSlug});
 
                         if (!error && Array.isArray(data)) {
                             const mapped = data.map(r => ({
@@ -2176,25 +1229,22 @@ async function handleDeviceBackend(mode, payload) {
                                 staffName: r.staff ? r.staff.name : 'Employee',
                                 staff_name: r.staff ? r.staff.name : 'Employee',
                                 dept: r.staff ? (r.staff.department || 'General') : 'General',
-                                deviceId: r.requested_device_id,
                                 requestedAt: r.requested_at,
                                 requested_at: r.requested_at,
-                                transfer_code: r.transfer_code,
+                                expires_at: r.expires_at,
                                 status: r.status
                             }));
                             return { ok: true, transfers: mapped };
                         }
                     }
                 } catch(e) {}
-                const queueKey = `device_transfers_${tenantSlug}`;
-                const localTransfers = readStoredJson(queueKey, []);
-                return { ok: true, transfers: localTransfers };
+                return {ok:false,message:'Transfer requests could not be loaded. Check administrator access and retry.'};
             }
             case 'approve-device-transfer': {
                 const tenantSlug = payload.tenantSlug || 'default';
                 let reqId = payload.requestId;
                 if (!reqId && payload.staffName) {
-                    const transfersRes = await handleStaffBackend('get-device-transfers', { tenantSlug });
+                    const transfersRes = await handleDeviceBackend('get-device-transfers', { tenantSlug });
                     const item = (transfersRes.transfers || []).find(t => (t.staffName || t.staff_name || '').toLowerCase() === payload.staffName.toLowerCase());
                     if (item) reqId = item.id;
                 }
@@ -2204,10 +1254,8 @@ async function handleDeviceBackend(mode, payload) {
                             p_request_id: reqId,
                             p_action: 'approve'
                         });
-                        if (!error && data && data.ok) {
-                            try { safeStorage.removeItem(`staff_cache_${tenantSlug}`); safeStorage.removeItem('attendance_staff_cache_v2'); } catch(e) {}
-                            return data;
-                        }
+                        if(error)throw error;
+                        if(data)return data;
                     } catch(e) {}
                 }
                 return { ok: false, message: 'Could not approve device transfer.' };
@@ -2216,7 +1264,7 @@ async function handleDeviceBackend(mode, payload) {
                 const tenantSlug = payload.tenantSlug || 'default';
                 let reqId = payload.requestId;
                 if (!reqId && payload.staffName) {
-                    const transfersRes = await handleStaffBackend('get-device-transfers', { tenantSlug });
+                    const transfersRes = await handleDeviceBackend('get-device-transfers', { tenantSlug });
                     const item = (transfersRes.transfers || []).find(t => (t.staffName || t.staff_name || '').toLowerCase() === payload.staffName.toLowerCase());
                     if (item) reqId = item.id;
                 }
@@ -2226,275 +1274,11 @@ async function handleDeviceBackend(mode, payload) {
                             p_request_id: reqId,
                             p_action: 'reject'
                         });
-                        if (!error && data && data.ok) return data;
+                        if(error)throw error;
+                        if(data)return data;
                     } catch(e) {}
                 }
                 return { ok: false, message: 'Could not reject device transfer.' };
-            }
-            case 'save-push-subscription': {
-                const tenantSlug = payload.tenantSlug || 'default';
-                try {
-                    const { data: tenant } = await supabaseClient.from('tenants').select('id').eq('slug', tenantSlug).maybeSingle();
-                    await supabaseClient.from('push_subscriptions').upsert([{
-                        tenant_id: tenant ? tenant.id : null,
-                        subscription: payload.subscription,
-                        user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null
-                    }], { onConflict: 'tenant_id,subscription' });
-                    return { ok: true, message: 'Push subscription saved successfully.' };
-                } catch(e) {
-                    return { ok: false, message: e.message };
-                }
-            }
-        default:
-            return null;
-    }
-}
-
-/**
- * Platform Fleet Operations & Multi-Tenant Management Domain
- */
-async function handleFleetBackend(mode, payload) {
-    switch (mode) {
-            case 'list-tenants': {
-                const tenants = await getTenantRegistry();
-                return { ok: true, tenants };
-            }
-            case 'check-tenant-slug': {
-                const slug = String(payload.slug || '').trim().toLowerCase();
-                if (!slug) return { ok: false, available: false, message: 'Workspace identifier is empty.' };
-                const registry = await getTenantRegistry();
-                const exists = registry.some(t => t.slug && t.slug.toLowerCase() === slug);
-                return { ok: true, available: !exists, slug };
-            }
-            case 'onboard-tenant': {
-                const tenantData = payload.tenant;
-                if (!tenantData || !tenantData.name) {
-                    return { ok: false, message: 'Company name is required.' };
-                }
-                const slug = String(tenantData.slug || tenantData.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')).replace(/^-|-$/g, '');
-                const registry = await getTenantRegistry();
-                if (registry.find(t => t.slug.toLowerCase() === slug)) {
-                    return { ok: false, message: `Workspace identifier '${slug}' is already registered. Please choose another one.` };
-                }
-                const newTenant = {
-                    id: slug,
-                    slug: slug,
-                    name: String(tenantData.name).trim(),
-                    tagline: String(tenantData.tagline || 'Staff Attendance & Workplace Portal').trim(),
-                    logo_url: String(tenantData.logo_url || '').trim(),
-                    brand_color: String(tenantData.brand_color || '#1a56db').trim(),
-                    office_name: String(tenantData.office_name || 'Main Office').trim(),
-                    latitude: Number(tenantData.latitude) || 6.4357,
-                    longitude: Number(tenantData.longitude) || 3.4738,
-                    radius: Number(tenantData.radius) || 100,
-                    admin_name: String(tenantData.admin_name || '').trim(),
-                    admin_email: String(tenantData.admin_email || '').trim(),
-                    plan_tier: tenantData.plan_tier || 'Pro',
-                    subscription_status: 'trialing',
-                    trial_ends_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
-                    grace_period_ends_at: null,
-                    retention_discount_applied: false,
-                    status: 'active',
-                    created_at: new Date().toISOString()
-                };
-                registry.push(newTenant);
-                await saveTenantRegistry(registry);
-                return { ok: true, message: 'Tenant onboarded successfully!', tenant: newTenant };
-            }
-            case 'apply-retention-deal': {
-                const slug = String(payload.slug || '').trim().toLowerCase();
-                const discount = Number(payload.discount_percent) || 50;
-                const months = Number(payload.duration_months) || 3;
-                if (!slug) return { ok: false, message: 'Workspace identifier is required.' };
-                const registry = await getTenantRegistry();
-                const idx = registry.findIndex(t => t.slug && t.slug.toLowerCase() === slug);
-                if (idx >= 0) {
-                    registry[idx].retention_discount_applied = true;
-                    registry[idx].retention_discount_percent = discount;
-                    registry[idx].retention_deal_months = months;
-                    registry[idx].retention_applied_at = new Date().toISOString();
-                    await saveTenantRegistry(registry);
-                }
-                await logAuditEvent({
-                    type: 'BILLING_RETENTION_DEAL_ACCEPTED',
-                    details: `Retention discount applied (${discount}% off for ${months} months) for tenant: ${slug}`
-                });
-                return { ok: true, message: 'Retention deal applied successfully.' };
-            }
-            case 'apply-coupon': {
-                const slug = String(payload.tenantSlug || payload.slug || '').trim().toLowerCase();
-                const code = String(payload.couponCode || '').trim().toUpperCase();
-                if (!slug) return { ok: false, message: 'Workspace identifier is required.' };
-                if (!code) return { ok: false, message: 'Coupon code required.' };
-
-                let daysToAdd = 0;
-                let discountPercent = 0;
-                let message = '';
-
-                if (code === 'EXTEND14') {
-                    daysToAdd = 14;
-                    message = 'Promo code applied! 14 days added to your free trial.';
-                } else if (code === 'VIP30') {
-                    daysToAdd = 30;
-                    message = 'VIP coupon applied! 30 days added to your free trial.';
-                } else if (code === 'WELCOME50') {
-                    discountPercent = 50;
-                    message = 'Welcome coupon applied! 50% discount activated for 3 months.';
-                } else {
-                    return { ok: false, message: 'Invalid or unrecognized coupon code.' };
-                }
-
-                const registry = await getTenantRegistry();
-                const idx = registry.findIndex(t => t.slug && t.slug.toLowerCase() === slug);
-                let newTrialEnd = null;
-
-                if (idx >= 0) {
-                    if (daysToAdd > 0) {
-                        const curEnd = registry[idx].trial_ends_at ? new Date(registry[idx].trial_ends_at) : new Date();
-                        const baseDate = curEnd.getTime() > Date.now() ? curEnd : new Date();
-                        baseDate.setDate(baseDate.getDate() + daysToAdd);
-                        newTrialEnd = baseDate.toISOString();
-                        registry[idx].trial_ends_at = newTrialEnd;
-                    }
-                    if (discountPercent > 0) {
-                        registry[idx].retention_discount_applied = true;
-                        registry[idx].retention_discount_percent = discountPercent;
-                    }
-                    await saveTenantRegistry(registry);
-                }
-
-                try {
-                    const dbUpdates = {};
-                    if (newTrialEnd) dbUpdates.trial_ends_at = newTrialEnd;
-                    if (discountPercent > 0) {
-                        dbUpdates.retention_discount_applied = true;
-                        dbUpdates.retention_discount_percent = discountPercent;
-                    }
-                    if (Object.keys(dbUpdates).length > 0) {
-                        await supabaseClient.from('tenants').update(dbUpdates).eq('slug', slug);
-                    }
-                } catch(e) {}
-
-                await logAuditEvent({
-                    type: 'BILLING_COUPON_REDEEMED',
-                    details: `Coupon ${code} redeemed by tenant ${slug}: ${message}`
-                });
-
-                return { 
-                    ok: true, 
-                    message, 
-                    newTrialEnd, 
-                    discountApplied: discountPercent > 0 
-                };
-            }
-            case 'extend-tenant-trial': {
-                const slug = String(payload.tenantSlug || payload.slug || '').trim().toLowerCase();
-                const days = parseInt(payload.days, 10) || 14;
-                if (!slug) return { ok: false, message: 'Workspace identifier is required.' };
-
-                const registry = await getTenantRegistry();
-                const idx = registry.findIndex(t => t.slug && t.slug.toLowerCase() === slug);
-                let newTrialEnd = null;
-
-                if (idx >= 0) {
-                    const curEnd = registry[idx].trial_ends_at ? new Date(registry[idx].trial_ends_at) : new Date();
-                    const baseDate = curEnd.getTime() > Date.now() ? curEnd : new Date();
-                    baseDate.setDate(baseDate.getDate() + days);
-                    newTrialEnd = baseDate.toISOString();
-                    registry[idx].trial_ends_at = newTrialEnd;
-                    await saveTenantRegistry(registry);
-                }
-
-                try {
-                    if (newTrialEnd) {
-                        await supabaseClient.from('tenants').update({ trial_ends_at: newTrialEnd }).eq('slug', slug);
-                    }
-                } catch(e) {}
-
-                await logAuditEvent({
-                    type: 'SUPER_ADMIN_TRIAL_EXTENDED',
-                    details: `Trial extended by ${days} days for tenant ${slug}. New end: ${newTrialEnd}`
-                });
-
-                return { ok: true, message: `Trial successfully extended by ${days} days.`, newTrialEnd };
-            }
-            case 'update-tenant': {
-                const { slug, updates } = payload;
-                if (!slug) return { ok: false, message: 'Workspace identifier is required.' };
-                const registry = await getTenantRegistry();
-                const idx = registry.findIndex(t => (t.slug && t.slug.toLowerCase() === slug.toLowerCase()) || (t.id && t.id.toLowerCase() === slug.toLowerCase()));
-                if (idx === -1) return { ok: false, message: 'Tenant not found.' };
-                registry[idx] = { ...registry[idx], ...updates };
-                await saveTenantRegistry(registry);
-                return { ok: true, message: 'Tenant updated successfully.', tenant: registry[idx] };
-            }
-            case 'super-admin-update-tenant-full': {
-                const { slug, updates, config } = payload;
-                if (!slug) return { ok: false, message: 'Workspace identifier is required.' };
-                const registry = await getTenantRegistry();
-                const idx = registry.findIndex(t => (t.slug && t.slug.toLowerCase() === slug.toLowerCase()) || (t.id && t.id.toLowerCase() === slug.toLowerCase()));
-                if (idx === -1) return { ok: false, message: 'Tenant not found in registry.' };
-
-                // Handle slug rename if requested
-                const newSlug = updates && updates.slug ? String(updates.slug).trim().toLowerCase().replace(/[^a-z0-9-]+/g, '') : slug;
-                if (newSlug !== slug.toLowerCase() && registry.some(t => t.slug.toLowerCase() === newSlug)) {
-                    return { ok: false, message: `Workspace identifier '${newSlug}' is already registered.` };
-                }
-
-                // If slug changed, migrate staff and config keys
-                if (newSlug !== slug.toLowerCase()) {
-                    const existingStaff = await getTenantStaffList(slug);
-                    const existingConfig = await getTenantConfig(slug);
-                    await saveTenantStaffList(newSlug, existingStaff);
-                    await saveTenantConfig(newSlug, existingConfig);
-                    try {
-                        await supabaseClient.from('app_config').delete().in('key', [`TENANT_STAFF_${slug}`, `TENANT_CONFIG_${slug}`]);
-                    } catch(e) {}
-                }
-
-                registry[idx] = { ...registry[idx], ...updates, slug: newSlug, id: newSlug };
-                await saveTenantRegistry(registry);
-
-                if (config) {
-                    await saveTenantConfig(newSlug, config);
-                }
-
-                return { ok: true, message: 'Tenant master profile updated successfully.', tenant: registry[idx] };
-            }
-            case 'super-admin-delete-tenant': {
-                const { slug } = payload;
-                if (!slug) return { ok: false, message: 'Workspace identifier is required.' };
-                const cleanSlug = slug.trim().toLowerCase();
-                let registry = await getTenantRegistry();
-                registry = registry.filter(t => t.slug.toLowerCase() !== cleanSlug && t.id.toLowerCase() !== cleanSlug);
-                await saveTenantRegistry(registry);
-
-                // Clean up app_config keys
-                try {
-                    await supabaseClient.from('app_config').delete().in('key', [`TENANT_STAFF_${cleanSlug}`, `TENANT_CONFIG_${cleanSlug}`]);
-                } catch(e) {}
-
-                return { ok: true, message: `Tenant '${slug}' was successfully deleted.` };
-            }
-            case 'super-admin-reset-tenant-password': {
-                const { slug, newPassword } = payload;
-                if (!slug || !newPassword) return { ok: false, message: 'Workspace identifier and new password are required.' };
-                const registry = await getTenantRegistry();
-                const tenant = registry.find(t => t.slug.toLowerCase() === slug.toLowerCase() || t.id.toLowerCase() === slug.toLowerCase());
-                if (!tenant) return { ok: false, message: 'Tenant not found.' };
-
-                tenant.admin_password_hash = await sha256Hex(newPassword);
-                delete tenant.admin_password;
-                await saveTenantRegistry(registry);
-                return { ok: true, message: `Admin password for ${tenant.name} was successfully reset.` };
-            }
-            case 'super-admin-purge-tenant-logs': {
-                const { slug } = payload;
-                if (!slug) return { ok: false, message: 'Workspace identifier is required.' };
-                try {
-                    await supabaseClient.from('attendance').delete().eq('tenant_slug', slug.toLowerCase());
-                } catch(e) {}
-                return { ok: true, message: `Attendance history purged for ${slug}.` };
             }
         default:
             return null;
@@ -2509,60 +1293,82 @@ async function handleFleetBackend(mode, payload) {
  * Interactive Demo Sandbox Mock Backend Handler
  * Enables 1-click test drive of the Perimetrr terminal with zero database dependencies.
  */
-let demoAttendanceLogs = [
-    {
-        name: "Jordan Lee",
-        dept: "Operations",
-        action: "IN",
-        time: "08:55 AM",
-        date: new Date().toISOString().split('T')[0],
-        distance: 22,
-        status: "ON_TIME",
-        verified: true,
-        notes: "GPS Verified (22m from HQ)",
-        created_at: new Date(Date.now() - 3600000).toISOString()
-    },
-    {
-        name: "Sam Taylor",
-        dept: "Product & Design",
-        action: "IN",
-        time: "09:02 AM",
-        date: new Date().toISOString().split('T')[0],
-        distance: 18,
-        status: "ON_TIME",
-        verified: true,
-        notes: "GPS Verified (18m from HQ)",
-        created_at: new Date(Date.now() - 3300000).toISOString()
+function generateMockLogs() {
+    const logs = [];
+    const names = ["Jordan Lee", "Sam Taylor", "Alex Chen", "Morgan Smith", "Casey Johnson", "Riley Davis", "Jamie Wilson"];
+    const depts = ["Operations", "Product & Design", "Engineering", "Marketing", "Sales", "HR", "Finance"];
+
+    // Generate logs for the last 5 days
+    for (let i = 4; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const dateStr = d.toISOString().split('T')[0];
+
+        // Skip weekends
+        if (d.getDay() === 0 || d.getDay() === 6) continue;
+
+        names.forEach((name, idx) => {
+            // Some randomness to make it look real (~10% absent)
+            if (Math.random() > 0.9) return;
+
+            // Random check-in time around 8:00 - 9:30
+            const inHour = 8 + (Math.random() > 0.7 ? 1 : 0);
+            const inMin = Math.floor(Math.random() * 60);
+            const inTimeStr = `${String(inHour).padStart(2, '0')}:${String(inMin).padStart(2, '0')} AM`;
+
+            // Random check-out time around 4:30 - 6:30 PM
+            const outHour = 4 + Math.floor(Math.random() * 3);
+            const outMin = Math.floor(Math.random() * 60);
+            const outTimeStr = `${String(outHour).padStart(2, '0')}:${String(outMin).padStart(2, '0')} PM`;
+
+            const distIn = Math.floor(Math.random() * 40);
+            const distOut = Math.floor(Math.random() * 40);
+
+            const inDate = new Date(d);
+            inDate.setHours(inHour, inMin);
+
+            logs.push({
+                name: name,
+                dept: depts[idx],
+                action: "IN",
+                time: inTimeStr,
+                date: dateStr,
+                distance: distIn,
+                status: (inHour === 9 && inMin > 15) ? "LATE" : "ON_TIME",
+                verified: true,
+                notes: `GPS Verified (${distIn}m from HQ)`,
+                created_at: inDate.toISOString()
+            });
+
+            // Generate OUT logs for past days (or if it's today and past 4PM)
+            const isPastDay = i > 0;
+            const isTodayAndLate = i === 0 && new Date().getHours() >= 17;
+            if (isPastDay || isTodayAndLate) {
+                const outDate = new Date(d);
+                outDate.setHours(outHour + 12, outMin);
+                logs.push({
+                    name: name,
+                    dept: depts[idx],
+                    action: "OUT",
+                    time: outTimeStr,
+                    date: dateStr,
+                    distance: distOut,
+                    status: "OUT",
+                    verified: true,
+                    notes: `GPS Verified (${distOut}m from HQ)`,
+                    created_at: outDate.toISOString()
+                });
+            }
+        });
     }
-];
+    // Sort descending by created_at
+    return logs.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+}
+
+let demoAttendanceLogs = generateMockLogs();
 
 function resetDemoAttendanceLogs() {
-    demoAttendanceLogs = [
-        {
-            name: "Jordan Lee",
-            dept: "Operations",
-            action: "IN",
-            time: "08:55 AM",
-            date: new Date().toISOString().split('T')[0],
-            distance: 22,
-            status: "ON_TIME",
-            verified: true,
-            notes: "GPS Verified (22m from HQ)",
-            created_at: new Date(Date.now() - 3600000).toISOString()
-        },
-        {
-            name: "Sam Taylor",
-            dept: "Product & Design",
-            action: "IN",
-            time: "09:02 AM",
-            date: new Date().toISOString().split('T')[0],
-            distance: 18,
-            status: "ON_TIME",
-            verified: true,
-            notes: "GPS Verified (18m from HQ)",
-            created_at: new Date(Date.now() - 3300000).toISOString()
-        }
-    ];
+    demoAttendanceLogs = generateMockLogs();
 }
 
 if (typeof window !== 'undefined') {
@@ -2733,9 +1539,6 @@ async function callBackend(payload, timeoutMs = 20000) {
         res = await handleDeviceBackend(mode, payload);
         if (res !== null) return res;
 
-        res = await handleFleetBackend(mode, payload);
-        if (res !== null) return res;
-
         return { ok: false, allowed: false, message: `Endpoint '${mode}' is not implemented in Supabase yet.` };
     } catch (err) {
         console.error(`callBackend error on mode: ${mode}`, err);
@@ -2812,17 +1615,17 @@ function applyTheme(theme, animate = false) {
 function initTheme() {
     const toggle = document.getElementById('theme-toggle');
     if (!toggle) return;
-    
+
     let saved = null;
     try {
         saved = safeStorage.getItem(STORAGE_KEYS.theme);
     } catch (e) {
         console.warn('localStorage not available:', e);
     }
-    
+
     const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
     applyTheme(saved === 'dark' || (!saved && prefersDark) ? 'dark' : 'light', false);
-    
+
     toggle.addEventListener('click', () => {
         const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
         applyTheme(next, true);
@@ -3114,9 +1917,9 @@ function validatePasswordStrength(password) {
     const varietyCount = [hasLower, hasUpper, hasDigit, hasSpecial].filter(Boolean).length;
 
     if (varietyCount < 3) {
-        return { 
-            ok: false, 
-            message: 'Password must include at least 3 of: uppercase letters, lowercase letters, numbers, and special symbols.' 
+        return {
+            ok: false,
+            message: 'Password must include at least 3 of: uppercase letters, lowercase letters, numbers, and special symbols.'
         };
     }
 

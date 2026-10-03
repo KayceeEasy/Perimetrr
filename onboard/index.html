@@ -2,18 +2,30 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Create Your Workspace • Perimetrr</title>
-    <meta name="description" content="Provision your company's verified presence perimeter in under 2 minutes. No biometric hardware required." />
-    <meta property="og:title" content="Create Your Workspace • Perimetrr" />
-    <meta property="og:description" content="Provision your organization's verified presence perimeter in under 2 minutes." />
-    <meta property="og:url" content="https://perimetrr.com/onboard/" />
-    <meta property="og:type" content="website" />
     <link rel="icon" type="image/svg+xml" href="../image/perimetrr-mark.svg">
-    <link rel="apple-touch-icon" sizes="180x180" href="../image/perimetrr-mark.svg">
-    <link rel="stylesheet" href="style.css">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="apple-touch-icon" sizes="180x180" href="../image/apple-touch-icon.png">
+    <link rel="stylesheet" href="style.css?v=1.1.1">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2"></script>
     <script src="https://unpkg.com/lucide@0.344.0/dist/umd/lucide.min.js"></script>
+
+    <meta name="description" content="Set up your company workspace, office perimeter and administrator account with Perimetrr.">
+    <link rel="canonical" href="https://perimetrr.com/onboard/">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Perimetrr">
+    <meta property="og:title" content="Create Your Workspace • Perimetrr">
+    <meta property="og:description" content="Set up your company workspace, office perimeter and administrator account with Perimetrr.">
+    <meta property="og:url" content="https://perimetrr.com/onboard/">
+    <meta property="og:image" content="https://perimetrr.com/image/social-preview.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="Perimetrr — Presence you can prove">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Create Your Workspace • Perimetrr">
+    <meta name="twitter:description" content="Set up your company workspace, office perimeter and administrator account with Perimetrr.">
+    <meta name="twitter:image" content="https://perimetrr.com/image/social-preview.png">
+    <link rel="stylesheet" href="../polish.css?v=1.1.1">
 </head>
 <body>
 
@@ -29,7 +41,7 @@
     <header class="onboard-header">
         <div class="brand-pill">
             <span class="brand-badge"><i data-lucide="sparkles" size="14" style="vertical-align:middle;"></i></span>
-            <span class="brand-title">14-DAY FREE TRIAL • NO CREDIT CARD REQUIRED</span>
+            <span class="brand-title">CREATE A WORKSPACE • NO CREDIT CARD REQUIRED</span>
         </div>
         <h1>Create Your Company Workspace</h1>
         <p class="subtitle">Set up a modern, GPS-verified employee attendance and hybrid work portal for your organization in under 2 minutes.</p>
@@ -71,7 +83,7 @@
             <div class="form-grid">
                 <div class="form-group full-width">
                     <label for="company-name">Company Legal Name <span class="req">*</span></label>
-                    <input type="text" id="company-name" placeholder="e.g. Acme Technologies Ltd" required autofocus />
+                    <input type="text" id="company-name" placeholder="e.g. Acme Technologies Ltd" minlength="2" maxlength="128" required autofocus />
                 </div>
 
                 <div class="form-group">
@@ -125,7 +137,7 @@
             <div class="form-grid">
                 <div class="form-group full-width">
                     <label for="office-name">Office / Branch Name <span class="req">*</span></label>
-                    <input type="text" id="office-name" placeholder="e.g. Headquarters (Lekki Phase 1)" required />
+                    <input type="text" id="office-name" placeholder="e.g. Headquarters (Lekki Phase 1)" minlength="2" maxlength="128" required />
                 </div>
 
                 <div class="form-group">
@@ -189,7 +201,7 @@
                 <div class="form-group">
                     <label for="admin-pass">Create Password <span class="req">*</span></label>
                     <div style="position:relative; display:flex; align-items:center;">
-                        <input type="password" id="admin-pass" placeholder="Create a secure password (min 6 characters)" required style="width:100%; padding-right:42px;" />
+                        <input type="password" id="admin-pass" placeholder="Create a secure password (min 8 characters)" required style="width:100%; padding-right:42px;" />
                         <button type="button" id="toggle-pass-btn" onclick="togglePasswordVisibility()" style="position:absolute; right:10px; background:transparent; border:none; color:var(--text-muted); cursor:pointer; display:flex; align-items:center; padding:4px;" title="Toggle password visibility">
                             <i data-lucide="eye" size="16"></i>
                         </button>
@@ -204,14 +216,9 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="plan-tier">Select Your Plan</label>
-                    <select id="plan-tier">
-                        <option value="Pro Trial" selected>Pro Trial (14-Day Free Trial — All Features Included)</option>
-                        <option value="Starter">Starter Plan (For small teams up to 25 staff)</option>
-                        <option value="Pro">Pro Plan (For growing companies up to 100 staff)</option>
-                        <option value="Enterprise">Enterprise (Unlimited staff & dedicated support)</option>
-                    </select>
-                    <small class="helper-text">No payment required now. You can change or cancel anytime.</small>
+                    <label for="plan-tier">Workspace plan</label>
+                    <select id="plan-tier"><option value="free">Perimetrr Free</option></select>
+                    <small class="helper-text">Paid billing is not activated by setup. Multiple branches? <a href="../enterprise/">Set up your enterprise organization</a>.</small>
                 </div>
             </div>
 
@@ -238,7 +245,7 @@
                             <i data-lucide="key" size="15"></i> Employee Workspace Pairing Code
                         </span>
                         <div class="link-url" id="display-workspace-code" style="font-size:1.6rem; font-weight:800; letter-spacing:3px; color:#1a56db; margin:5px 0; font-family:monospace;">--</div>
-                        <small style="color:var(--text-muted); font-size:0.82rem; line-height:1.4; display:block;">Share this 6-character code with your employees, or share the QR code.</small>
+                        <small style="color:var(--text-muted); font-size:0.82rem; line-height:1.4; display:block;">Add staff in Command Center first, then share this workspace code, link, or QR code.</small>
                     </div>
                     <div class="link-buttons">
                         <button type="button" class="btn-copy" onclick="copyLink('display-workspace-code')"><i data-lucide="copy" size="13"></i> Copy Code</button>
@@ -299,13 +306,17 @@
             <button type="button" onclick="closeQrModal()" style="background:transparent; border:none; font-size:1.5rem; color:var(--text-muted); cursor:pointer; line-height:1;">&times;</button>
         </div>
         <p style="font-size:0.84rem; color:var(--text-muted); margin-bottom:18px;">
-            Have your employees scan this QR code with their phone camera to pair with your workspace.
+            After adding their staff profiles, employees can scan this QR code to open your workspace.
         </p>
         <div style="display:inline-block; padding:12px; background:#ffffff; border-radius:12px; margin-bottom:16px; border:1px solid var(--border);">
             <img id="qr-image" src="" alt="Setup QR Code" style="width:200px; height:200px; display:block;" />
         </div>
         <div style="font-size:1.3rem; font-weight:800; letter-spacing:3px; color:var(--primary); font-family:monospace; margin-bottom:18px;" id="qr-modal-code">
             --
+        </div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
+            <button type="button" class="btn-secondary" onclick="saveOnboardQr()">Save QR image</button>
+            <button type="button" class="btn-secondary" onclick="shareOnboardQr()">Share invitation</button>
         </div>
         <button type="button" class="btn-secondary" onclick="closeQrModal()" style="width:100%; justify-content:center;">Close</button>
     </div>
@@ -333,7 +344,8 @@
     </div>
 </div>
 
-<script src="../common.js?v=3.0.3"></script>
-<script src="onboard.js?v=3.0.3"></script>
+<script src="../common.js?v=1.1.1"></script>
+<script src="../qr.js?v=1.1.1"></script>
+<script src="onboard.js?v=1.1.1"></script>
 </body>
 </html>

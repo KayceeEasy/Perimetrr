@@ -1,19 +1,35 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Command Center • Perimetrr</title>
     <meta name="robots" content="noindex, nofollow" />
-    <meta name="description" content="Tenant management console: live attendance matrices, geofenced perimeter controls, and staff roster." />
     <link rel="icon" type="image/svg+xml" href="../image/perimetrr-mark.svg">
-    <link rel="apple-touch-icon" sizes="180x180" href="../image/perimetrr-mark.svg">
+    <link rel="apple-touch-icon" sizes="180x180" href="../image/apple-touch-icon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2"></script>
     <script src="https://unpkg.com/lucide@0.344.0/dist/umd/lucide.min.js"></script>
-    <link rel="stylesheet" href="../style.css?v=3.0.3" />
+    <link rel="stylesheet" href="../style.css?v=1.1.1" />
+
+    <meta name="description" content="Manage workspace attendance, staff, device transfer requests and hybrid schedules in the Command Center.">
+    <link rel="canonical" href="https://perimetrr.com/command-center/">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Perimetrr">
+    <meta property="og:title" content="Command Center • Perimetrr">
+    <meta property="og:description" content="Manage workspace attendance, staff, device transfer requests and hybrid schedules in the Command Center.">
+    <meta property="og:url" content="https://perimetrr.com/command-center/">
+    <meta property="og:image" content="https://perimetrr.com/image/social-preview.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="Perimetrr — Presence you can prove">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Command Center • Perimetrr">
+    <meta name="twitter:description" content="Manage workspace attendance, staff, device transfer requests and hybrid schedules in the Command Center.">
+    <meta name="twitter:image" content="https://perimetrr.com/image/social-preview.png">
+    <link rel="stylesheet" href="../polish.css?v=1.1.1">
 </head>
 <body>
 <div class="card admin-card">
@@ -41,7 +57,11 @@
                     <button type="button" class="lang-option-btn" data-lang="ar">🇸🇦 العربية</button>
                 </div>
             </div>
-            <button id="guided-tour-btn" class="topbar-icon-btn" type="button" aria-label="Quick Guide" title="Quick Guide" data-tooltip="Quick Guide: Interactive walkthrough" data-tooltip-pos="bottom">
+            <button id="notif-btn" class="topbar-icon-btn" type="button" aria-label="Notifications" title="Notifications" style="position:relative;">
+                  <i data-lucide="bell"></i>
+                  <span id="notif-badge" style="display:none; position:absolute; top:-2px; right:-2px; background:var(--danger); color:#fff; font-size:0.6rem; font-weight:700; width:16px; height:16px; border-radius:50%; align-items:center; justify-content:center;">0</span>
+              </button>
+              <button id="guided-tour-btn" class="topbar-icon-btn" type="button" aria-label="Quick Guide" title="Quick Guide" data-tooltip="Quick Guide: Interactive walkthrough" data-tooltip-pos="bottom">
                 <i data-lucide="help-circle"></i>
             </button>
             <button id="theme-toggle" class="topbar-icon-btn theme-toggle" type="button" aria-label="Switch theme" title="Toggle Theme" data-tooltip="Switch light / dark theme" data-tooltip-pos="bottom">
@@ -82,9 +102,9 @@
             </div>
             <button type="button" onclick="closeShareInviteModal()" aria-label="Close dialog" style="background:none; border:none; color:var(--text-muted); cursor:pointer; padding:4px;"><i data-lucide="x" size="18"></i></button>
         </div>
-        
+
         <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:16px; line-height:1.4;">
-            Share this 6-character code or QR code with your employees. Opening the link pairs their device automatically.
+            Add staff profiles in Command Center, then share this workspace code, link, or QR code. Each employee selects their profile to link a browser.
         </p>
 
         <div style="background:var(--surface-2); border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:16px;">
@@ -112,28 +132,6 @@
     </div>
 </div>
 
-<!-- Modal: Billing & Coupon Redemption -->
-<div id="billing-coupon-modal" class="modal-backdrop" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); backdrop-filter:blur(4px); z-index:9999; align-items:center; justify-content:center; padding:16px;">
-    <div class="modal-card" style="background:var(--surface); border:1px solid var(--border); border-radius:16px; width:100%; max-width:420px; padding:24px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.5);">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
-            <div style="font-weight:700; font-size:1.05rem; color:var(--text); display:flex; align-items:center; gap:8px;">
-                <i data-lucide="ticket" size="18" style="color:var(--primary);"></i>
-                <span>Redeem Coupon or Extension</span>
-            </div>
-            <button type="button" onclick="closeCouponModal()" aria-label="Close dialog" style="background:none; border:none; color:var(--text-muted); cursor:pointer; padding:4px;"><i data-lucide="x" size="18"></i></button>
-        </div>
-        <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:16px;">Enter your promotional coupon or trial extension code below.</p>
-        <div style="display:grid; gap:12px;">
-            <input id="coupon-code-input" type="text" placeholder="e.g. EXTEND14 or WELCOME50" aria-label="Promotional coupon or extension code" style="text-transform:uppercase; font-weight:700; letter-spacing:0.08em; padding:11px 14px; border-radius:8px; border:1px solid var(--border); background:var(--surface-2); color:var(--text);" />
-            <div id="coupon-status-msg" style="font-size:0.8rem; display:none;"></div>
-            <div style="display:flex; gap:8px; margin-top:4px;">
-                <button id="apply-coupon-btn" class="admin-btn primary" type="button" onclick="handleApplyCoupon()" style="flex:1;">Apply Code</button>
-                <button class="admin-btn secondary" type="button" onclick="closeCouponModal()">Cancel</button>
-            </div>
-        </div>
-    </div>
-</div>
-
 <!-- Modal: Step-by-Step Tenant Guided Tutorial -->
 <div id="tenant-guided-tour-modal" class="modal-backdrop" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); backdrop-filter:blur(5px); z-index:99999; align-items:center; justify-content:center; padding:16px;">
     <div class="modal-card" style="background:var(--surface); border:1px solid var(--border); border-radius:18px; width:100%; max-width:480px; padding:24px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.5); position:relative; overflow:hidden;">
@@ -155,7 +153,7 @@
                 </div>
                 <h3 style="font-size:1.15rem; font-weight:700; margin:0 0 6px; text-align:center; color:var(--text);">Workspace & Staff Pairing</h3>
                 <p style="font-size:0.84rem; line-height:1.5; color:var(--text-muted); text-align:center; margin:0 0 12px;">
-                    Employees don't need app stores. Simply share your unique <strong>6-character pairing code</strong> or <strong>QR code</strong>. When staff open the link on their phone or browser, their device instantly pairs to your workspace.
+                    Employees don't need app stores. Simply share your unique <strong>workspace code</strong> or <strong>QR code</strong>. The link opens the workspace. Staff then select a registered profile and link their browser; an already-linked profile requires an approved transfer.
                 </p>
                 <div style="background:var(--surface-2); border:1px solid var(--border); border-radius:10px; padding:10px 14px; font-size:0.78rem; color:var(--text-muted); display:flex; align-items:center; gap:8px;">
                     <i data-lucide="lightbulb" size="16" style="color:var(--primary); flex-shrink:0;"></i>
@@ -183,13 +181,13 @@
                 <div style="width:48px; height:48px; border-radius:12px; background:rgba(245,158,11,0.1); color:#f59e0b; display:flex; align-items:center; justify-content:center; margin:0 auto 12px;">
                     <i data-lucide="users" size="24"></i>
                 </div>
-                <h3 style="font-size:1.15rem; font-weight:700; margin:0 0 6px; text-align:center; color:var(--text);">Staff Roster & Biometric Locks</h3>
+                <h3 style="font-size:1.15rem; font-weight:700; margin:0 0 6px; text-align:center; color:var(--text);">Staff Roster & Device Pairing</h3>
                 <p style="font-size:0.84rem; line-height:1.5; color:var(--text-muted); text-align:center; margin:0 0 12px;">
                     Add employees individually or bulk-import via CSV in the <strong>Staff</strong> tab. The system locks each employee to their first authorized device, completely preventing staff from signing in for each other.
                 </p>
                 <div style="background:var(--surface-2); border:1px solid var(--border); border-radius:10px; padding:10px 14px; font-size:0.78rem; color:var(--text-muted); display:flex; align-items:center; gap:8px;">
                     <i data-lucide="smartphone" size="16" style="color:#f59e0b; flex-shrink:0;"></i>
-                    <span>Employees can also enable <strong>Face ID / Fingerprint</strong> biometrics on their device for 1-tap sign-ins.</span>
+                    <span>Attendance is checked against the linked browser credential and the office Perimeter. Device transfers require authorized approval.</span>
                 </div>
             </div>
 
@@ -241,7 +239,8 @@
         </div>
     </div>
 </div>
-<script src="../common.js"></script>
-<script src="admin.js"></script>
+<script src="../common.js?v=1.1.1"></script>
+<script src="../qr.js?v=1.1.1"></script>
+<script src="admin.js?v=1.1.1"></script>
 </body>
 </html>

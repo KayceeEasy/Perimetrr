@@ -39,26 +39,14 @@ async function changeAdminPassword(username, currentPassword, newPassword) {
 }
 
 async function setRecoveryEmail(username, currentPassword, email) {
-    const currentPasswordHash = await sha256Hex(currentPassword);
-    const adminToken = safeSession.getItem('admin_token') || currentPasswordHash;
-    const csrfToken = safeSession.getItem('admin_csrf_token') || '';
-    return callBackend({ mode: 'admin-set-recovery-email', username, currentPasswordHash, email, adminToken, csrfToken });
-}
-
-async function requestPasswordResetCode(username) {
-    return callBackend({ mode: 'admin-forgot-password-request', username });
-}
-
-async function confirmPasswordReset(username, code, newPassword) {
-    const newPasswordHash = await sha256Hex(newPassword);
-    return callBackend({ mode: 'admin-forgot-password-confirm', username, code, newPasswordHash });
+    return callBackend({mode:'admin-set-recovery-email',email});
 }
 
 function getActiveAdminTenantSlug() {
     if (typeof currentTenantConfig !== 'undefined' && currentTenantConfig && currentTenantConfig.slug) {
         return currentTenantConfig.slug;
     }
-    const sessionTenant = (typeof safeSession !== 'undefined' && (safeSession.getItem('admin_tenant_slug') || safeSession.getItem('masquerade_tenant'))) || null;
+    const sessionTenant = (typeof safeSession !== 'undefined' && safeSession.getItem('admin_tenant_slug')) || null;
     if (sessionTenant) return sessionTenant;
     const localTenant = (typeof safeStorage !== 'undefined' && safeStorage.getItem('active_tenant_slug')) || null;
     if (localTenant) return localTenant;
@@ -122,7 +110,7 @@ async function fetchHybridSchedule(weekStart, forceRefresh = false) {
         const slug = getActiveAdminTenantSlug();
         const response = await callBackend({ mode: 'get-hybrid-schedule', weekStart, tenantSlug: slug });
         let schedule = null;
-        
+
         if (response && response.ok && response.schedule && Object.keys(response.schedule).length) {
             schedule = response.schedule;
         } else {
@@ -145,13 +133,13 @@ async function fetchHybridSchedule(weekStart, forceRefresh = false) {
                 }
             }
         }
-        
+
         if (schedule && Object.keys(schedule).length) {
             hybridScheduleCache[weekStart] = schedule;
         } else if (hybridScheduleCache[weekStart]) {
             schedule = hybridScheduleCache[weekStart];
         }
-        
+
         return schedule || {};
     } catch (e) {
         console.warn('Could not fetch hybrid schedule:', e);
@@ -170,7 +158,7 @@ function startAutoRefresh() {
         if (!isAdminLoggedIn) { clearAutoRefresh(); return; }
         const timeoutOverlay = document.querySelector('.session-timeout-overlay');
         if (timeoutOverlay) return;
-        
+
         refreshCurrentTab();
     }, AUTO_REFRESH_MS);
 }
@@ -200,10 +188,10 @@ function refreshCurrentTab() {
 function resetInactivityTimer() {
     clearTimeout(inactivityTimer);
     clearInterval(sessionCountdownTimer);
-    
+
     const existingOverlay = document.querySelector('.session-timeout-overlay');
     if (existingOverlay) existingOverlay.remove();
-    
+
     inactivityTimer = setTimeout(showSessionTimeoutWarning, SESSION_TIMEOUT_MS);
 }
 
@@ -221,10 +209,10 @@ function showSessionTimeoutWarning() {
     `;
     document.body.appendChild(overlay);
     if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons();
-    
+
     const countdownEl = document.getElementById('session-countdown');
     let secondsLeft = 30;
-    
+
     sessionCountdownTimer = setInterval(() => {
         secondsLeft--;
         if (countdownEl) countdownEl.textContent = secondsLeft;
@@ -233,7 +221,7 @@ function showSessionTimeoutWarning() {
             handleLogout(true);
         }
     }, 1000);
-    
+
     document.getElementById('session-here-btn').addEventListener('click', () => {
         clearInterval(sessionCountdownTimer);
         overlay.remove();
@@ -260,6 +248,9 @@ function clearAdminLoginForm() {
 }
 
 function handleLogout(isTimeout = false) {
+    supabaseClient?.auth.signOut().catch(() => {});
+    safeSession.removeItem('is_superuser');
+    safeSession.removeItem('admin_role_tier');
     clearTimeout(inactivityTimer);
     clearInterval(sessionCountdownTimer);
     clearAutoRefresh();
@@ -275,16 +266,16 @@ function handleLogout(isTimeout = false) {
     cachedWeekData = {};
     hybridScheduleCache = {};
     clearAdminLoginForm();
-    
+
     const timeoutOverlay = document.querySelector('.session-timeout-overlay');
     if (timeoutOverlay) timeoutOverlay.remove();
-    
+
     document.getElementById('admin-panel-host').innerHTML = '';
     document.getElementById('admin-login-form').style.display = 'grid';
     document.getElementById('forgot-password-link').style.display = 'block';
     const hero = document.querySelector('.admin-hero');
     if (hero) hero.style.display = 'flex';
-    
+
     if (isTimeout) {
         showToast('Session timed out due to inactivity.', 'error');
     }
@@ -378,7 +369,7 @@ function openTimezoneModal() {
 
     function renderList(query = '') {
         const q = query.trim().toLowerCase();
-        const filtered = GLOBAL_TIMEZONES.filter(t => 
+        const filtered = GLOBAL_TIMEZONES.filter(t =>
             !q || t.label.toLowerCase().includes(q) || t.id.toLowerCase().includes(q) || t.offset.toLowerCase().includes(q)
         );
 
@@ -419,10 +410,10 @@ function openTimezoneModal() {
             <p style="margin:0 0 12px; font-size:0.84rem; color:var(--text-muted);">
                 Select your primary operating timezone. Attendance logs, workday closing, and late cutoffs will use this reference.
             </p>
-            <input 
-                type="text" 
-                id="tz-search-input" 
-                placeholder="Search city, country, or GMT offset..." 
+            <input
+                type="text"
+                id="tz-search-input"
+                placeholder="Search city, country, or GMT offset..."
                 style="width:100%; padding:9px 12px; border-radius:var(--radius); border:1px solid var(--border); background:var(--surface-2); color:var(--text); font-size:0.86rem; box-sizing:border-box;"
             />
             <div id="tz-list" class="tz-list-container">
@@ -762,14 +753,14 @@ function switchTab(tabId) {
     document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
     const activeContent = document.getElementById(`tab-${tabId}`);
     if (activeContent) activeContent.classList.add('active');
-    
+
     if (tabId === 'dashboard') { loadWeekData(); startAutoRefresh(); }
     else if (tabId === 'staff') loadStaffList();
     else if (tabId === 'logs') loadLogsViewer();
     else if (tabId === 'analytics') loadAnalytics();
     else if (tabId === 'config') loadConfigValues();
     else { clearAutoRefresh(); }
-    
+
     resetInactivityTimer();
 }
 
@@ -866,230 +857,9 @@ async function loadRecoveryEmailDisplay() {
     }
 }
 
-async function loadAdminUsersList() {
-    const section = document.getElementById('admin-user-management-section');
+function loadAdminUsersList() {
     const container = document.getElementById('admin-users-list');
-    if (!container) return;
-
-    const isSuper = safeSession.getItem('is_superuser') === 'true';
-    const roleTier = safeSession.getItem('admin_role_tier') || (isSuper ? 'developer' : 'admin');
-
-    // Sub-admins and Team Leads cannot manage other admins
-    if (roleTier === 'sub_admin' || roleTier === 'team_lead') {
-        if (section) section.style.display = 'none';
-        return;
-    }
-
-    try {
-        const slug = getActiveAdminTenantSlug();
-        const res = await callBackend({ mode: 'list-admin-users', tenantSlug: slug });
-        let users = (res && res.ok && Array.isArray(res.users)) ? res.users : [];
-
-        if (!users.length) {
-            users = [
-                { username: currentAdminUsername || 'admin', role: isSuper ? 'developer' : 'admin' }
-            ];
-        }
-
-        const roleLabels = {
-            developer: 'Developer',
-            admin: 'Administrator',
-            sub_admin: 'Sub-Admin',
-            team_lead: 'Team Lead'
-        };
-
-        const rowsHtml = users.map(u => {
-            // Hide developer superuser row from non-developer admins
-            if (u.role === 'developer' && !isSuper) return '';
-            
-            const rawUser = u.username || u.name || u.email || 'Admin';
-            const displayName = rawUser.includes('@') ? rawUser.split('@')[0] : rawUser;
-            const isSelf = rawUser === currentAdminUsername || displayName === currentAdminUsername;
-            const isDevAccount = u.role === 'developer';
-            const canManage = !isSelf && (isSuper || !isDevAccount);
-            const roleColors = {
-                developer: 'var(--primary)',
-                admin: '#6366f1',
-                sub_admin: '#f59e0b',
-                team_lead: '#10b981'
-            };
-            const roleColor = roleColors[u.role] || 'var(--text-muted)';
-
-            return `
-                <div class="admin-user-card" data-username="${escapeHtml(u.username)}">
-                    <div class="admin-user-card-info">
-                        <div class="admin-user-card-name">
-                            <span class="admin-user-avatar">${escapeHtml(displayName.charAt(0).toUpperCase())}</span>
-                            <div>
-                                <div style="font-weight:700; font-size:0.95rem; color:var(--text);">${escapeHtml(displayName)}${isSelf ? ' <span style="font-size:0.72rem; color:var(--primary); font-weight:600;">(You)</span>' : ''}</div>
-                                ${u.email ? `<div style="font-size:0.75rem; color:var(--text-muted); margin-top:1px;">${escapeHtml(u.email)}</div>` : ''}
-                            </div>
-                        </div>
-                        <span class="admin-role-badge" style="background:${roleColor}22; color:${roleColor}; border:1px solid ${roleColor}44;">${roleLabels[u.role] || u.role}</span>
-                    </div>
-                    ${canManage ? `
-                        <div class="admin-user-card-actions">
-                            <button class="admin-btn secondary small" type="button" data-edit-admin-role="${escapeHtml(u.username)}" data-current-role="${escapeHtml(u.role)}" title="Edit Admin"><i data-lucide="edit-2" size="12"></i> Edit</button>
-                            <button class="admin-btn secondary small" type="button" data-reset-admin-pw="${escapeHtml(u.username)}" title="Reset Password"><i data-lucide="key" size="12"></i> Reset PW</button>
-                            <button class="admin-btn secondary small danger" type="button" data-remove-admin="${escapeHtml(u.username)}" title="Remove Admin"><i data-lucide="trash-2" size="12"></i> Remove</button>
-                        </div>
-                    ` : ''}
-                </div>
-            `;
-        }).join('');
-
-        container.innerHTML = rowsHtml || '<div class="staff-list-state">No delegated admin users.</div>';
-        if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons();
-
-        // Bind remove buttons
-        container.querySelectorAll('[data-remove-admin]').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                const target = btn.getAttribute('data-remove-admin');
-                const confirmed = await confirmDialog(`Remove admin privileges for "${target}"? This cannot be undone.`, { danger: true, confirmLabel: 'Remove' });
-                if (confirmed) {
-                    const res = await callBackend({ mode: 'remove-admin-user', targetUsername: target, tenantSlug: getActiveAdminTenantSlug() });
-                    showToast(res.message || 'Admin user removed.', res.ok ? 'success' : 'error');
-                    if (res.ok) loadAdminUsersList();
-                }
-            });
-        });
-
-        // Bind edit role buttons
-        container.querySelectorAll('[data-edit-admin-role]').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                const target = btn.getAttribute('data-edit-admin-role');
-                const u = users.find(x => x.username === target || x.username === target) || {};
-                const roleOptions = [
-                    { value: 'admin', label: 'Administrator' },
-                    { value: 'sub_admin', label: 'Sub-Admin' },
-                    { value: 'team_lead', label: 'Team Lead' }
-                ];
-                if (isSuper) {
-                    roleOptions.unshift({ value: 'developer', label: 'Developer (Superuser)' });
-                }
-                const fields = [
-                    { label: 'Username', placeholder: 'Username', value: u.username || target },
-                    { label: 'Email', type: 'email', placeholder: 'Email address', value: u.email || '' },
-                    { label: 'New Password', type: 'password', placeholder: 'Leave blank to keep current', optional: true },
-                    { label: 'Role Tier', type: 'select', value: u.role, options: roleOptions }
-                ];
-                const result = await showInlineDialog({
-                    title: `Edit Admin: ${target}`,
-                    message: 'Update fields below. Leave password blank to keep existing.',
-                    fields,
-                    confirmLabel: 'Save Changes'
-                });
-                if (!result) return;
-                const [newUsername, email, password, newRole] = result;
-                const res = await callBackend({
-                    mode: 'update-admin-user',
-                    targetUsername: target,
-                    newUsername: newUsername || target,
-                    email,
-                    password: password || '',
-                    tier: newRole,
-                    tenantSlug: getActiveAdminTenantSlug()
-                });
-                showToast(res.message, res.ok ? 'success' : 'error');
-                if (res.ok) loadAdminUsersList();
-            });
-        });
-
-        // Bind reset password buttons
-        container.querySelectorAll('[data-reset-admin-pw]').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                const target = btn.getAttribute('data-reset-admin-pw');
-                const result = await showInlineDialog({
-                    title: `Reset Password: ${target}`,
-                    message: 'Enter a new password for this admin user.',
-                    fields: [
-                        { label: 'New Password', placeholder: 'New password', type: 'password', autocomplete: 'new-password' },
-                        { label: 'Confirm Password', placeholder: 'Confirm password', type: 'password', autocomplete: 'new-password' }
-                    ],
-                    confirmLabel: 'Reset Password'
-                });
-                if (!result) return;
-                if (result[0] !== result[1]) {
-                    showToast('Passwords do not match.', 'error');
-                    return;
-                }
-                if (typeof validatePasswordStrength === 'function') {
-                    const check = validatePasswordStrength(result[0]);
-                    if (!check.ok) {
-                        showToast(check.message, 'error');
-                        return;
-                    }
-                }
-                // Send plain-text password — Auth hashes it internally
-                const res = await callBackend({ mode: 'admin-reset-user-password', targetUsername: target, newPassword: result[0], tenantSlug: getActiveAdminTenantSlug() });
-                showToast(res.message || 'Password reset successfully.', res.ok ? 'success' : 'error');
-            });
-        });
-    } catch (e) {
-        container.innerHTML = '<div class="staff-list-state">Default Super Admin configured.</div>';
-    }
-}
-
-async function handleAddAdminUser() {
-    const isSuper = safeSession.getItem('is_superuser') === 'true';
-    const currentTier = safeSession.getItem('admin_role_tier') || 'admin';
-    
-    const options = [];
-    if (currentTier === 'developer' || currentTier === 'admin' || currentTier === 'sub_admin' || currentTier === 'team_lead') {
-        options.push({ value: 'team_lead', label: 'Team Lead' });
-    }
-    if (currentTier === 'developer' || currentTier === 'admin' || currentTier === 'sub_admin') {
-        options.unshift({ value: 'sub_admin', label: 'Sub-Admin' });
-    }
-    if (currentTier === 'developer' || currentTier === 'admin') {
-        options.unshift({ value: 'admin', label: 'Super Admin' });
-    }
-    if (currentTier === 'developer') {
-        options.unshift({ value: 'developer', label: 'Developer (Superuser)' });
-    }
-
-    const fields = [
-        { placeholder: 'Username' },
-        { placeholder: 'Email Address', type: 'email' },
-        { placeholder: 'Password', type: 'password', autocomplete: 'new-password' },
-        { placeholder: 'Role Tier', type: 'select', options: options }
-    ];
-
-    const result = await showInlineDialog({
-        title: 'Add Admin User',
-        fields,
-        confirmLabel: 'Create'
-    });
-
-    if (!result || !result[0] || !result[1] || !result[2]) return;
-    const newUsername = result[0].trim();
-    const email = result[1].trim();
-    const newPass = result[2];
-    const selectedRole = result[3] || (isSuper ? 'admin' : 'sub_admin');
-
-    if (typeof isValidEmail === 'function' && !isValidEmail(email)) {
-        showToast('A valid email address is required for administrator accounts.', 'error');
-        return;
-    }
-    if (typeof validatePasswordStrength === 'function') {
-        const check = validatePasswordStrength(newPass);
-        if (!check.ok) {
-            showToast(check.message, 'error');
-            return;
-        }
-    }
-
-    const res = await callBackend({
-        mode: 'add-admin-user',
-        newUsername,
-        email,
-        password: newPass,
-        role: selectedRole,
-        tenantSlug: getActiveAdminTenantSlug()
-    });
-
-    showToast(res.message || 'Admin user created successfully!', res.ok ? 'success' : 'error');
-    if (res.ok) loadAdminUsersList();
+    if (container) container.innerHTML = '<p class="admin-intro">Organization owners manage authorized personnel in Watch Tower. Every administrator uses their own account and recovery email.</p>';
 }
 
 /* ---------- Export Functions ---------- */
@@ -1133,8 +903,8 @@ function exportStaffRosterCSV() {
         'Work Policy': s.schedule_policy || 'weekly_hybrid',
         'Team Lead': s.is_team_lead ? 'Yes' : 'No',
         'Include In Reports': s.include_in_reports !== false ? 'Yes' : 'No',
-        'Device Status': (s.device_id || s.deviceId) ? 'Linked' : 'Unlinked',
-        'Device ID': s.device_id || s.deviceId || 'None'
+        'Device Status': s.device_linked ? 'Linked' : 'Unlinked',
+        'Device linked': s.device_linked ? 'Yes' : 'No'
     }));
     const tenantSlug = currentTenantConfig ? currentTenantConfig.slug : 'workspace';
     exportToCSV(rows, `${tenantSlug}_staff_roster`);
@@ -1164,14 +934,12 @@ async function exportFullTenantArchive() {
         const tenant = currentTenantConfig || await getActiveTenant();
         const tenantSlug = tenant ? tenant.slug : (typeof getActiveTenantSlug === 'function' ? getActiveTenantSlug() : 'default');
         const config = await getTenantConfig(tenantSlug);
-        let logQuery = supabaseClient ? supabaseClient.from('attendance').select('*') : null;
-        if (logQuery) {
-            logQuery = logQuery.eq('tenant_slug', tenantSlug);
-        }
-        const { data: logs } = logQuery ? await logQuery.limit(500) : { data: [] };
+        if (!supabaseClient) throw new Error('Connect to download workspace records.');
+        const { data: logs, error } = await supabaseClient.rpc('get_admin_attendance', {p_tenant_slug:tenantSlug,p_limit:500});
+        if (error) throw error;
 
         const archiveObj = {
-            version: '3.0.0',
+            version: typeof APP_VERSION !== 'undefined' ? APP_VERSION : '1.1.1',
             exported_at: new Date().toISOString(),
             tenant,
             config,
@@ -1191,76 +959,13 @@ async function exportFullTenantArchive() {
     }
 }
 
-function requestWorkspaceDeletion() {
-    const tenant = currentTenantConfig;
-    const name = tenant ? tenant.name : 'this company';
-    const slug = tenant ? tenant.slug : '';
-
-    // "Are You Sure?" Cancellation Retention Modal (Rule 3: Retains ~4x more users with an exclusive deal)
-    const overlay = document.createElement('div');
-    overlay.className = 'dialog-overlay';
-    overlay.innerHTML = `
-        <div class="dialog-box" style="max-width: 480px; width: 92vw; text-align: center; padding: 28px 24px;">
-            <div style="width: 48px; height: 48px; border-radius: 50%; background: rgba(220, 38, 38, 0.1); color: var(--danger); display: flex; align-items: center; justify-content: center; margin: 0 auto 16px auto;">
-                <i data-lucide="shield-alert" size="24"></i>
-            </div>
-            <h3 style="margin-bottom: 8px; font-size: 1.25rem;">Before you go...</h3>
-            <p style="color: var(--text-muted); font-size: 0.88rem; line-height: 1.5; margin-bottom: 18px;">
-                We'd love to keep supporting <strong>${escapeHtml(name)}</strong>'s hybrid & office team. To make your journey smoother, we've unlocked a special loyalty partner deal for your account:
-            </p>
-            
-            <div style="background: rgba(26, 86, 219, 0.08); border: 1px dashed var(--primary); border-radius: var(--radius-sm); padding: 14px; margin-bottom: 20px;">
-                <div style="font-size: 1.15rem; font-weight: 800; color: var(--primary); margin-bottom: 2px;">
-                    50% OFF for the Next 3 Months
-                </div>
-                <div style="font-size: 0.78rem; color: var(--text-muted);">
-                    Keep all your perimeter-verified attendance logs, hybrid scheduling, and biometric authentication active.
-                </div>
-            </div>
-
-            <div style="display: flex; flex-direction: column; gap: 10px;">
-                <button id="retention-deal-accept-btn" class="admin-btn" type="button" style="width: 100%; justify-content: center; padding: 10px;">
-                    <i data-lucide="tag" size="14"></i> Claim 50% Off &amp; Keep Workspace
-                </button>
-                <button id="retention-deal-cancel-btn" class="admin-btn secondary danger" type="button" style="width: 100%; justify-content: center; font-size: 0.82rem;">
-                    Continue with Deletion Request
-                </button>
-                <button id="retention-modal-dismiss-btn" class="admin-btn secondary" type="button" style="width: 100%; justify-content: center; font-size: 0.82rem;">
-                    Never Mind, Stay on Current Plan
-                </button>
-            </div>
-        </div>
-    `;
-
-    document.body.appendChild(overlay);
-    if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons();
-
-    overlay.querySelector('#retention-deal-accept-btn').addEventListener('click', async () => {
-        overlay.remove();
-        showToast('Special 50% loyalty discount applied to your next 3 billing cycles!', 'success', 6000);
-        try {
-            await callBackend({
-                mode: 'apply-retention-deal',
-                slug: slug,
-                discount_percent: 50,
-                duration_months: 3
-            });
-        } catch (e) {
-            console.warn('Retention deal record ping:', e);
-        }
-    });
-
-    overlay.querySelector('#retention-modal-dismiss-btn').addEventListener('click', () => {
-        overlay.remove();
-    });
-
-    overlay.querySelector('#retention-deal-cancel-btn').addEventListener('click', () => {
-        overlay.remove();
-        const subject = encodeURIComponent(`Workspace Deletion & Data Purge Request: ${name} (${slug})`);
-        const body = encodeURIComponent(`Hello Platform Operations Team,\n\nI am requesting complete account decommissioning, tenant deletion, and database purging for:\n\nCompany: ${name}\nWorkspace Identifier: ${slug}\nRequested By: ${currentAdminUsername}\nDate: ${new Date().toISOString()}\n\nPlease confirm when deletion is scheduled.\n\nThank you.`);
-        const supportTarget = (typeof APP_CONFIG !== 'undefined' && APP_CONFIG?.SUPPORT_EMAIL) || 'support@perimetrr.com';
-        window.location.href = `mailto:${supportTarget}?subject=${subject}&body=${body}`;
-    });
+async function requestWorkspaceDeletion() {
+    const name = currentTenantConfig?.name || 'this workspace';
+    if (!await confirmDialog(`Prepare a deletion request for ${name}? This opens your email app; it does not delete data or submit a request automatically.`, {danger:true,confirmLabel:'Prepare email'})) return;
+    const subject = encodeURIComponent(`Workspace deletion request: ${name}`);
+    const body = encodeURIComponent(`Company: ${name}\nWorkspace: ${currentTenantConfig?.slug || ''}\nRequested by: ${currentAdminUsername}\nPlease explain the verification and deletion process before deleting any data.`);
+    const target = APP_CONFIG.SUPPORT_EMAIL || 'support@perimetrr.com';
+    location.href = `mailto:${target}?subject=${subject}&body=${body}`;
 }
 
 function printWeeklyAttendanceReport() {
@@ -1457,7 +1162,7 @@ function exportWeekMatrixToPDF(logs, schedule, weekStartStr) {
     filteredStaff.forEach(name => {
         const normalizedStaffName = String(name || '').trim().toLowerCase();
         let rowCellsHtml = `<td style="padding: 8px 10px; border: 1px solid #cbd5e1; font-weight: 600; text-align: left; color: #0f172a;">${escapeHtml(name)}</td>`;
-        
+
         let staffPresent = 0;
         let staffLate = 0;
         let staffWfh = 0;
@@ -1577,7 +1282,7 @@ function exportWeekMatrixToPDF(logs, schedule, weekStartStr) {
                     <div style="font-size: 13px; font-weight: bold; color: #0f172a; padding: 6px 12px; background: #f1f5f9; border-radius: 4px;">Week: ${weekRangeStr}</div>
                 </div>
             </div>
-            
+
             <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 11px;">
                 <thead>
                     <tr style="background: #f1f5f9; border: 1px solid #cbd5e1; text-align: left;">
@@ -1598,7 +1303,7 @@ function exportWeekMatrixToPDF(logs, schedule, weekStartStr) {
                     ${tableRowsHtml}
                 </tbody>
             </table>
-            
+
             <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 15px; margin-top: 20px;">
                 <div style="text-align: center;">
                     <div style="font-size: 10px; color: #64748b; text-transform: uppercase; font-weight: bold; margin-bottom: 4px;">Attendance Rate</div>
@@ -1617,7 +1322,7 @@ function exportWeekMatrixToPDF(logs, schedule, weekStartStr) {
                     <div style="font-size: 20px; font-weight: bold; color: #6b21a8;">${totalLeave} days</div>
                 </div>
             </div>
-            
+
             <div style="margin-top: 30px; font-size: 9px; color: #94a3b8; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 10px;">
                 Report generated on ${new Date().toLocaleString()} • ${escapeHtml(currentTenantConfig?.name || 'Perimetrr')} Attendance Systems
             </div>
@@ -1636,7 +1341,7 @@ function exportWeekMatrixToPDF(logs, schedule, weekStartStr) {
 
     document.body.appendChild(printDiv);
     document.body.appendChild(styleTag);
-    
+
     const originalTheme = document.documentElement.getAttribute('data-theme') || 'light';
     document.documentElement.setAttribute('data-theme', 'light');
     const originalTitle = document.title;
@@ -1644,7 +1349,7 @@ function exportWeekMatrixToPDF(logs, schedule, weekStartStr) {
     window.print();
     document.title = originalTitle;
     document.documentElement.setAttribute('data-theme', originalTheme);
-    
+
     setTimeout(() => {
         printDiv.remove();
         styleTag.remove();
@@ -1695,7 +1400,7 @@ async function loadWeekData(isSilent = false) {
     const { monday, friday } = getWeekRange(parseDmyDate(weekBeingLoaded));
     const mondayStr = formatDateDMY(monday);
     const fridayStr = formatDateDMY(friday);
-    
+
     const weekLabel = document.getElementById('week-label');
     if (weekLabel) weekLabel.textContent = `${mondayStr} - ${fridayStr}`;
 
@@ -1705,14 +1410,8 @@ async function loadWeekData(isSilent = false) {
         day.setDate(monday.getDate() + i);
         weekDays.push(formatDateDMY(day));
     }
-    
-    // Check in-memory & localStorage cache for 0ms instant rendering
-    if (!cachedWeekData[weekBeingLoaded]) {
-        try {
-            const stored = safeStorage.getItem('admin_cache_week_' + weekBeingLoaded);
-            if (stored) cachedWeekData[weekBeingLoaded] = JSON.parse(stored);
-        } catch (e) {}
-    }
+
+    // Administrative records stay in memory, never in persistent browser storage.
 
     if (cachedWeekData[weekBeingLoaded]) {
         const cachedLogs = cachedWeekData[weekBeingLoaded].logs || [];
@@ -1733,11 +1432,11 @@ async function loadWeekData(isSilent = false) {
             <div class="skeleton-box skeleton-row"></div>
         `;
     }
-    
+
     try {
         const response = await fetchLogs({ weekStart: weekBeingLoaded, limit: 500 });
         const rawLogs = response.ok && Array.isArray(response.logs) ? response.logs : [];
-        
+
         // Filter logs locally to only include this week's records
         const weekDaysNormalized = weekDays.map(wd => normalizeDateKey(wd));
         const logs = rawLogs.filter(l => {
@@ -1746,10 +1445,9 @@ async function loadWeekData(isSilent = false) {
         });
 
         const schedule = await fetchHybridSchedule(weekBeingLoaded, false);
-        
+
         cachedWeekData[weekBeingLoaded] = { logs, schedule };
-        try { safeStorage.setItem('admin_cache_week_' + weekBeingLoaded, JSON.stringify({ logs, schedule })); } catch (e) {}
-        
+
         if (currentWeekStart === weekBeingLoaded) {
             renderWeekOverview(logs, schedule, weekDays);
             renderAttendanceMatrix(logs, schedule, weekDays);
@@ -1760,7 +1458,7 @@ async function loadWeekData(isSilent = false) {
                 refreshLabel.innerHTML = `<span class="live-pulse-dot" title="30s live auto-refresh active"></span> Live (${timeStr})`;
             }
         }
-        
+
         if (!isSilent && currentTab === 'dashboard') {
             fetchHybridSchedule(weekBeingLoaded, true).then(freshSchedule => {
                 if (freshSchedule && Object.keys(freshSchedule).length) {
@@ -1792,7 +1490,7 @@ async function loadWeekData(isSilent = false) {
 function renderWeekOverview(logs, schedule, weekDays) {
     const host = document.getElementById('today-attendance-list');
     if (!host) return;
-    
+
     const safeLogs = Array.isArray(logs) ? logs : [];
     const signedIn = safeLogs.filter(s => String(s.action || '').trim().toUpperCase() === 'IN').length;
     const lateCount = safeLogs.filter(s => normalizeAttendanceStatus(s.status) === 'late' && String(s.action || '').trim().toUpperCase() === 'IN').length;
@@ -1800,7 +1498,7 @@ function renderWeekOverview(logs, schedule, weekDays) {
     const onTimeCount = Math.max(0, signedIn - lateCount);
     const totalRoster = allStaffList && allStaffList.length ? allStaffList.length : (new Set(safeLogs.map(l => l.name))).size || signedIn;
     const checkInRate = totalRoster > 0 ? Math.round((signedIn / totalRoster) * 100) : 0;
-    
+
     setHtmlIfChanged(host, `
         <div class="today-attendance-summary">
             <div class="summary-stat-card hero">
@@ -1833,17 +1531,17 @@ function renderWeekOverview(logs, schedule, weekDays) {
 function renderAttendanceMatrix(logs, schedule, weekDays) {
     const host = document.getElementById('attendance-matrix');
     if (!host) return;
-    
+
     const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
     const allStaff = new Set();
-    
+
     Object.keys(schedule).forEach(name => allStaff.add(name));
     logs.forEach(entry => allStaff.add(entry.name));
     if (allStaffList.length) allStaffList.forEach(s => allStaff.add(s.name));
-    
+
     const sortedStaff = Array.from(allStaff).sort((a, b) => a.localeCompare(b));
     const scheduleNameIndex = buildScheduleNameIndex(schedule);
-    
+
     const matrix = {};
     sortedStaff.forEach(name => {
         matrix[name] = {};
@@ -1889,7 +1587,7 @@ function renderAttendanceMatrix(logs, schedule, weekDays) {
             };
         });
     });
-    
+
     setHtmlIfChanged(host, `
         <div class="matrix-wrapper">
             <table class="attendance-matrix">
@@ -1980,7 +1678,7 @@ function renderStaffList(staff) {
     if (Array.isArray(staff)) allStaffList = staff;
 
     const searchQuery = (document.getElementById('staff-admin-search')?.value || '').trim().toLowerCase();
-    const filteredStaff = searchQuery 
+    const filteredStaff = searchQuery
         ? allStaffList.filter(s => String(s.name || '').toLowerCase().includes(searchQuery))
         : allStaffList;
 
@@ -1988,7 +1686,7 @@ function renderStaffList(staff) {
         staffList.innerHTML = `<div class="staff-list-state">${searchQuery ? `No staff matching "${escapeHtml(searchQuery)}"` : 'No staff members configured. Add your first staff member below.'}</div>`;
         return;
     }
-    
+
     const headerHtml = `
         <div class="staff-header-row">
             <div>Staff Member</div>
@@ -2006,7 +1704,7 @@ function renderStaffList(staff) {
     };
 
     const rowsHtml = filteredStaff.map((entry) => {
-        const isLocked = Boolean(entry.device_id || entry.deviceId);
+        const isLocked = Boolean(entry.device_linked);
         const pol = policyLabels[entry.schedule_policy] || policyLabels.weekly_hybrid;
         const polHtml = `<span class="staff-policy-tag"${pol.style ? ` style="${pol.style}"` : ''} data-tooltip="${escapeHtml(pol.tooltip || pol.label)}">${pol.label}</span>`;
 
@@ -2057,9 +1755,9 @@ async function handleEditStaff(name) {
         title: `Edit Staff: ${name}`,
         fields: [
             { label: 'Department', placeholder: 'e.g. Media, Engineering, Operations', value: member.dept || 'General' },
-            { 
-                label: 'Work Policy', 
-                type: 'select', 
+            {
+                label: 'Work Policy',
+                type: 'select',
                 value: (member.schedule_policy === 'executive' || member.schedule_policy === 'field_flexible') ? 'remote' : (member.schedule_policy === 'office_only' ? 'office' : (member.schedule_policy || 'weekly_hybrid')),
                 options: [
                     { value: 'weekly_hybrid', label: 'Hybrid' },
@@ -2107,20 +1805,11 @@ async function handleEditStaff(name) {
 
 async function loadStaffList(isSilent = false) {
     const staffList = document.getElementById('staff-list');
-    
-    // Check in-memory & localStorage cache for 0ms instant rendering
+
+    // Render previously authorized in-memory data while refreshing.
     if (allStaffList && allStaffList.length) {
         renderStaffList(allStaffList);
         populateStaffFilterDropdowns(allStaffList);
-    } else {
-        try {
-            const stored = safeStorage.getItem('admin_cache_staff');
-            if (stored) {
-                allStaffList = JSON.parse(stored);
-                renderStaffList(allStaffList);
-                populateStaffFilterDropdowns(allStaffList);
-            }
-        } catch (e) {}
     }
 
     if ((!allStaffList || !allStaffList.length) && staffList && !isSilent) {
@@ -2135,7 +1824,6 @@ async function loadStaffList(isSilent = false) {
         const response = await listStaff();
         if (response.ok && response.staff) {
             allStaffList = response.staff;
-            try { safeStorage.setItem('admin_cache_staff', JSON.stringify(response.staff)); } catch (e) {}
             renderStaffList(response.staff);
             populateStaffFilterDropdowns(response.staff);
         } else if (!allStaffList || !allStaffList.length) {
@@ -2164,7 +1852,7 @@ async function handleAddStaff() {
     if (name.length < 2) { showToast('Staff name must be at least 2 characters.', 'error'); return; }
     if (name.length > 50) { showToast('Staff name must be less than 50 characters.', 'error'); return; }
     if (!/^[a-zA-Z\s\-'.]+$/.test(name)) { showToast('Invalid characters in name.', 'error'); return; }
-    
+
     const deptInput = document.getElementById('new-staff-dept');
     const dept = deptInput ? deptInput.value.trim() || 'General' : 'General';
     const policySelect = document.getElementById('new-staff-policy');
@@ -2395,18 +2083,10 @@ let logsPageSize = 20;
 
 async function loadLogsViewer(isSilent = false) {
     const host = document.getElementById('logs-list');
-    
-    // Check in-memory & localStorage cache for 0ms instant rendering
+
+    // Render previously authorized in-memory data while refreshing.
     if (logsAllRecords && logsAllRecords.length) {
         renderLogsTable();
-    } else {
-        try {
-            const stored = safeStorage.getItem('admin_cache_logs');
-            if (stored) {
-                logsAllRecords = JSON.parse(stored);
-                renderLogsTable();
-            }
-        } catch (e) {}
     }
 
     if ((!logsAllRecords || !logsAllRecords.length) && host && !isSilent) {
@@ -2430,7 +2110,6 @@ async function loadLogsViewer(isSilent = false) {
         });
         if (response.ok && Array.isArray(response.logs)) {
             logsAllRecords = response.logs;
-            try { safeStorage.setItem('admin_cache_logs', JSON.stringify(response.logs)); } catch (e) {}
             logsCurrentPage = 1;
             renderLogsTable();
         } else if (!logsAllRecords || !logsAllRecords.length) {
@@ -2447,6 +2126,9 @@ async function loadLogsViewer(isSilent = false) {
 
 function normalizeAttendanceStatus(status = '') {
     const value = (status || '').toString().trim().toLowerCase();
+    if (value.includes('provisional')) return 'provisional';
+    if (value.includes('rejected') || value.includes('outside')) return 'rejected';
+    if (value === 'on_site') return 'ontime';
     if (value.includes('late')) return 'late';
     if (value.includes('early')) return 'early';
     if (value.includes('miss')) return 'missed';
@@ -2458,7 +2140,10 @@ function getStatusBadgeClass(status = '') {
     switch (normalizeAttendanceStatus(status)) {
         case 'late':
         case 'early':
+        case 'provisional':
             return 'late';
+        case 'rejected':
+            return 'offline';
         case 'missed':
             return 'offline';
         default:
@@ -2469,6 +2154,10 @@ function getStatusBadgeClass(status = '') {
 function getStatusLabel(status = '') {
     const value = (status || '').toString().trim();
     switch (normalizeAttendanceStatus(status)) {
+        case 'provisional':
+            return 'Provisional';
+        case 'rejected':
+            return value.includes('Outside') || value.includes('outside') ? 'Outside Perimeter' : 'Rejected';
         case 'late':
             return 'Late';
         case 'early':
@@ -2515,7 +2204,7 @@ function renderLogsTable() {
                         <span>${escapeHtml(entry.name)}</span>
                         <span class="logs-action ${entry.action === 'IN' ? 'in' : 'out'}">${escapeHtml(entry.action)}</span>
                         <span>${escapeHtml(entry.time)}</span>
-                        <span><span class="status-pill-small ${getStatusBadgeClass(entry.status)}">${escapeHtml(getStatusLabel(entry.status))}</span></span>
+                        <span><span class="status-pill-small ${getStatusBadgeClass(entry.status)}">${escapeHtml(entry.original_status === 'provisional_transfer' && entry.server_status === 'on_site' ? 'Verified after transfer' : getStatusLabel(entry.status))}</span></span>
                         <span>${escapeHtml(entry.distance ? entry.distance + ' meters' : '-')}</span>
                     </div>
                 `).join('')}
@@ -2580,7 +2269,7 @@ function isExemptFromAnalytics(name) {
 
 function processAnalyticsData(logs, schedule, filterType = 'all', customFromDate = null, customToDate = null) {
     if (!logs || !logs.length) return null;
-    
+
     const now = new Date();
     let startDate = null, endDate = null;
 
@@ -2597,13 +2286,13 @@ function processAnalyticsData(logs, schedule, filterType = 'all', customFromDate
     } else if (filterType === 'custom' && customFromDate) {
         const p1 = customFromDate.split('-');
         startDate = parseDmyDate(customFromDate) || (p1.length === 3 ? new Date(parseInt(p1[0], 10), parseInt(p1[1], 10)-1, parseInt(p1[2], 10)) : new Date(customFromDate));
-        
+
         const p2 = customToDate ? customToDate.split('-') : [];
         endDate = customToDate ? (parseDmyDate(customToDate) || (p2.length === 3 ? new Date(parseInt(p2[0], 10), parseInt(p2[1], 10)-1, parseInt(p2[2], 10)) : new Date(customToDate))) : new Date();
-        
+
         if (startDate) startDate.setHours(0, 0, 0, 0);
         if (endDate) endDate.setHours(23, 59, 59, 999);
-        
+
         if (startDate && endDate && startDate > endDate) {
             const temp = new Date(startDate);
             startDate = new Date(endDate);
@@ -2623,7 +2312,7 @@ function processAnalyticsData(logs, schedule, filterType = 'all', customFromDate
     const staffCounts = {};
     let lateCount = 0, earlyOutCount = 0;
     const totalDays = new Set();
-    
+
     filteredLogs.forEach(entry => {
         const name = entry.name;
         if (isExemptFromAnalytics(name)) return;
@@ -2644,7 +2333,7 @@ function processAnalyticsData(logs, schedule, filterType = 'all', customFromDate
             staffCounts[name].daysPresent.add(entry.date);
         }
     });
-    
+
     Object.entries(schedule).forEach(([name, days]) => {
         if (isExemptFromAnalytics(name)) return;
         if (!staffCounts[name]) {
@@ -2662,9 +2351,9 @@ function processAnalyticsData(logs, schedule, filterType = 'all', customFromDate
             });
         }
     });
-    
+
     const totalDaysInRange = totalDays.size;
-    
+
     const staffBreakdown = Object.entries(staffCounts)
         .map(([name, counts]) => ({
             name,
@@ -2676,14 +2365,14 @@ function processAnalyticsData(logs, schedule, filterType = 'all', customFromDate
             wfhDays: counts.wfhDays,
             daysPresent: counts.daysPresent.size,
             expectedOfficeDays: totalDaysInRange - counts.wfhDays,
-            attendanceRate: totalDaysInRange > 0 
+            attendanceRate: totalDaysInRange > 0
                 ? (tenantWfhQuotaEnabled
                     ? Math.min(100, Math.round(((counts.daysPresent.size + counts.wfhDays) / Math.max(totalDaysInRange, 1)) * 100))
                     : Math.round((counts.daysPresent.size / Math.max(totalDaysInRange, 1)) * 100))
                 : 0
         }))
         .sort((a, b) => a.totalActions - b.totalActions);
-    
+
     return {
         totalEntries: filteredLogs.length,
         uniqueStaff: Object.keys(staffCounts).length,
@@ -2700,19 +2389,19 @@ function processAnalyticsData(logs, schedule, filterType = 'all', customFromDate
 function renderAnalytics() {
     const host = document.getElementById('analytics-content');
     if (!host) return;
-    
+
     if (!analyticsData) {
         host.innerHTML = '<div class="staff-list-state">No data available for analytics. Load the Dashboard first.</div>';
         return;
     }
-    
+
     const data = analyticsData;
     const deviceEvents = deviceEventsAll;
     const totalEventPages = Math.max(1, Math.ceil(deviceEvents.length / DEVICE_EVENTS_PAGE_SIZE));
     if (deviceEventsPage > totalEventPages) deviceEventsPage = totalEventPages;
     const eventsStart = (deviceEventsPage - 1) * DEVICE_EVENTS_PAGE_SIZE;
     const pageEvents = deviceEvents.slice(eventsStart, eventsStart + DEVICE_EVENTS_PAGE_SIZE);
-    
+
     const onTimeRate = Math.max(0, 100 - Number(data.latePercentage || 0)).toFixed(1);
 
     if (!setHtmlIfChanged(host, `
@@ -2738,7 +2427,7 @@ function renderAnalytics() {
                 <span class="analytics-label">Late Rate (${data.lateCount || 0})</span>
             </div>
         </div>
-        
+
         <div class="analytics-section">
             <h4><i data-lucide="alert-triangle" size="16" style="vertical-align:middle; margin-right:5px; color:#eab308;"></i> Least Active Staff</h4>
             <p class="admin-intro">Staff with lowest office attendance rate. Scheduled Home days are excluded from requirements.</p>
@@ -2769,7 +2458,7 @@ function renderAnalytics() {
                 </div>
             </div>
         </div>
-        
+
         <div class="analytics-section">
             <h4><i data-lucide="award" size="16" style="vertical-align:middle; margin-right:5px; color:#f59e0b;"></i> Most Active Staff</h4>
             <div class="analytics-table-wrapper">
@@ -2799,7 +2488,7 @@ function renderAnalytics() {
                 </div>
             </div>
         </div>
-        
+
         <div class="analytics-section">
             <h4><i data-lucide="list" size="16" style="vertical-align:middle; margin-right:5px;"></i> Full Staff Breakdown</h4>
             <div class="analytics-table-wrapper">
@@ -2829,11 +2518,11 @@ function renderAnalytics() {
                 </div>
             </div>
         </div>
-        
+
         <div class="logs-footer">
             <button id="export-analytics-btn" class="admin-btn secondary small" type="button"><i data-lucide="download" size="13" style="vertical-align:middle; margin-right:4px;"></i> Export CSV</button>
         </div>
-        
+
         <div class="analytics-section">
             <h4><i data-lucide="shield-alert" size="16" style="vertical-align:middle; margin-right:5px; color:#dc2626;"></i> Device & System Audit Events</h4>
             <p class="admin-intro">Real-time log entries recorded from Database Audit Log, Distance Alerts, and device security events.</p>
@@ -2862,7 +2551,7 @@ function renderAnalytics() {
             ` : '<div class="staff-list-state">No device errors, distance alerts, or system audit events recorded.</div>'}
         </div>
     `)) return;
-    
+
     document.getElementById('export-analytics-btn')?.addEventListener('click', () => {
         const exportData = analyticsData.staffBreakdown.map(s => ({
             Name: s.name, 'Sign Ins': s.signIns, 'Sign Outs': s.signOuts,
@@ -2925,25 +2614,14 @@ async function loadAnalytics(filterType = null, customFrom = null, customTo = nu
         customFrom = currentAnalyticsFrom;
         customTo = currentAnalyticsTo;
     }
-    
+
     const host = document.getElementById('analytics-content');
-    
+
     let hasLoadedFromCache = false;
-    // Check in-memory or localStorage cache for 0ms instant rendering
+    // Render previously authorized in-memory data while refreshing.
     if (analyticsData && filterType === 'all' && !customFrom) {
         renderAnalytics();
         hasLoadedFromCache = true;
-    } else if (filterType === 'all' && !customFrom) {
-        try {
-            const stored = safeStorage.getItem('admin_cache_analytics');
-            if (stored) {
-                const parsed = JSON.parse(stored);
-                analyticsData = parsed.analyticsData;
-                deviceEventsAll = parsed.deviceEventsAll || [];
-                renderAnalytics();
-                hasLoadedFromCache = true;
-            }
-        } catch (e) {}
     }
 
     if (host && !isSilent && !hasLoadedFromCache) {
@@ -2953,10 +2631,10 @@ async function loadAnalytics(filterType = null, customFrom = null, customTo = nu
             <div class="skeleton-box skeleton-row"></div>
         `;
     }
-    
+
     try {
         const allSchedule = Object.values(cachedWeekData).reduce((acc, w) => ({ ...acc, ...((w && w.schedule) || {}) }), {});
-        
+
         const [attendanceLogs, analyticsResponse, alertsResponse, auditResponse] = await Promise.all([
             fetchLogs({ limit: 1000 })
                 .then(r => (r && r.ok && Array.isArray(r.logs)) ? r.logs : [])
@@ -3003,7 +2681,6 @@ async function loadAnalytics(filterType = null, customFrom = null, customTo = nu
 
         renderAnalytics();
         if (filterType === 'all' && !customFrom) {
-            try { safeStorage.setItem('admin_cache_analytics', JSON.stringify({ analyticsData, deviceEventsAll })); } catch (e) {}
         }
     } catch (error) {
         console.error('loadAnalytics failed:', error);
@@ -3018,19 +2695,8 @@ async function loadAnalytics(filterType = null, customFrom = null, customTo = nu
 
 function renderAdminPanel() {
     const panelHost = document.getElementById('admin-panel-host');
-    const isSuper = safeSession.getItem('is_superuser') === 'true';
-    const roleTier = safeSession.getItem('admin_role_tier') || 'admin';
-    const isMasquerading = safeSession.getItem('is_masquerading') === 'true';
-    const masqueradeTenant = safeSession.getItem('masquerade_tenant') || (currentTenantConfig ? currentTenantConfig.slug : '');
-
     const badgeContainer = document.getElementById('topbar-badge-container');
-    if (badgeContainer) {
-        if (roleTier === 'developer' && (isSuper || isMasquerading)) {
-            badgeContainer.innerHTML = `<span class="dev-mode-pill" title="Developer Operator Session" style="font-size:0.68rem; font-weight:700; background:rgba(99, 102, 241, 0.15); color:#818cf8; border:1px solid rgba(99, 102, 241, 0.35); padding:2px 7px; border-radius:6px; display:inline-flex; align-items:center; gap:4px; letter-spacing:0.04em;"><i data-lucide="terminal" size="11"></i> DEVELOPER</span>`;
-        } else {
-            badgeContainer.innerHTML = '';
-        }
-    }
+    if (badgeContainer) badgeContainer.textContent = '';
 
     const titleWrap = document.getElementById('admin-workspace-title');
     const tenantNameEl = document.getElementById('admin-header-tenant-name');
@@ -3042,18 +2708,7 @@ function renderAdminPanel() {
         }
     }
 
-    const masqueradeBanner = isMasquerading ? `
-        <div class="operator-masquerade-banner" style="background: linear-gradient(90deg, #1e1b4b, #312e81); border: 1px solid #6366f1; border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; gap: 10px; color: #e0e7ff; font-size: 0.82rem;">
-            <div style="display: flex; align-items: center; gap: 8px;">
-                <i data-lucide="shield-alert" size="16" style="color: #a5b4fc; flex-shrink: 0;"></i>
-                <span><strong>PLATFORM OPERATOR MODE:</strong> Masquerading as Developer for workspace <code>${escapeHtml(masqueradeTenant)}</code>. Password bypassed.</span>
-            </div>
-            <button type="button" onclick="handleLogout(false)" style="background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.25); color: #fff; padding: 4px 10px; border-radius: 5px; font-size: 0.75rem; font-weight: 600; cursor: pointer; white-space: nowrap;">Exit Masquerade</button>
-        </div>
-    ` : '';
-
     panelHost.innerHTML = `
-        ${masqueradeBanner}
         <div class="admin-tabs">
             <button class="tab-btn active" data-tab="dashboard" title="Dashboard"><span class="tab-icon"><i data-lucide="layout-dashboard" size="14"></i></span><span class="tab-label">Dashboard</span></button>
             <button class="tab-btn" data-tab="staff" title="Staff"><span class="tab-icon"><i data-lucide="users" size="14"></i></span><span class="tab-label">Staff</span></button>
@@ -3062,7 +2717,7 @@ function renderAdminPanel() {
             <button class="tab-btn" data-tab="config" title="Config"><span class="tab-icon"><i data-lucide="settings" size="14"></i></span><span class="tab-label">Config</span></button>
             <button class="tab-btn" data-tab="account" title="Account"><span class="tab-icon"><i data-lucide="shield" size="14"></i></span><span class="tab-label">Account</span></button>
         </div>
-        
+
         <div id="tab-dashboard" class="tab-content active">
             <div class="dashboard-header">
                 <div class="week-navigator">
@@ -3095,7 +2750,7 @@ function renderAdminPanel() {
                 </button>
             </div>
         </div>
-        
+
         <div id="tab-staff" class="tab-content">
             <div class="section-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
                 <h3>Staff Management</h3>
@@ -3143,7 +2798,7 @@ function renderAdminPanel() {
                 </div>
             </div>
         </div>
-        
+
         <div id="tab-logs" class="tab-content">
             <div class="section-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
                 <h3>Attendance Records</h3>
@@ -3170,7 +2825,7 @@ function renderAdminPanel() {
             </div>
             <div id="logs-list"><div class="staff-list-state">Loading records...</div></div>
         </div>
-        
+
         <div id="tab-analytics" class="tab-content">
             <div class="section-header">
                 <h3>Attendance Analytics</h3>
@@ -3190,10 +2845,10 @@ function renderAdminPanel() {
             </div>
             <div id="analytics-content"><div class="staff-list-state">Loading analytics...</div></div>
         </div>
-        
+
         <div id="tab-config" class="tab-content">
             <div class="section-header"><h3>System Configuration</h3><p class="admin-intro">Office location, attendance schedule & perimeter settings</p></div>
-            
+
             <div class="config-section-group">
                 <h4>Office Location & Perimeter</h4>
                 <div class="config-cards">
@@ -3272,7 +2927,7 @@ function renderAdminPanel() {
                     <span class="account-icon" style="color:var(--primary);"><i data-lucide="qr-code" size="20"></i></span>
                     <div>
                         <strong>Employee Workspace Pairing & Invite</strong>
-                        <p class="admin-intro">Share your 6-character pairing code or QR code with new hires or staff members anytime.</p>
+                        <p class="admin-intro">Create staff profiles first, then share the workspace code, link, or QR code.</p>
                         <div style="display:flex; gap:10px; margin-top:8px;">
                             <button class="admin-btn primary small" type="button" onclick="openShareInviteModal()">
                                 <i data-lucide="share-2" size="13"></i> View Pairing Code & QR
@@ -3281,24 +2936,12 @@ function renderAdminPanel() {
                     </div>
                 </div>
 
-                <div class="account-card" style="border:1px solid rgba(16,185,129,0.3); background:rgba(16,185,129,0.05);">
-                    <span class="account-icon" style="color:#10b981;"><i data-lucide="credit-card" size="20"></i></span>
-                    <div>
-                        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                            <strong>Subscription & Commercial Plan</strong>
-                            <span class="status-pill-small" style="background:rgba(16,185,129,0.15); color:#059669; font-weight:700;">PRO TRIAL</span>
-                        </div>
-                        <p class="admin-intro" id="billing-trial-status-text">
-                            14-Day Free Trial active. Full access to all features.
-                        </p>
-                        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:8px;">
-                            <button class="admin-btn secondary small" type="button" onclick="openCouponModal()">
-                                <i data-lucide="ticket" size="13"></i> Redeem Promo Code
-                            </button>
-                            <button class="admin-btn primary small" type="button" onclick="showToast('Connecting to billing checkout...', 'info')">
-                                <i data-lucide="zap" size="13"></i> Upgrade to Pro ($29/mo)
-                            </button>
-                        </div>
+                <div class="account-card">
+                    <span class="account-icon"><i data-lucide="building-2" size="20"></i></span>
+                    <div><strong>Enterprise organization</strong>
+                        <p class="admin-intro">Group branches under one organization. Existing workspace ownership is required; setup does not activate paid billing.</p>
+                        <a class="admin-btn secondary small" href="../enterprise/?workspace=${encodeURIComponent(currentTenantConfig?.id || '')}">Set up organization</a>
+                        <a class="admin-btn primary small" href="../watch-tower/">Open Watch Tower</a>
                     </div>
                 </div>
 
@@ -3314,14 +2957,15 @@ function renderAdminPanel() {
                         <p class="admin-intro" id="recovery-email-display">Active: Loading...</p>
                     </div>
                     <button id="set-recovery-email-btn" class="admin-btn secondary small" type="button">Set / Edit</button>
+                </div>
                 <div class="account-card" id="web-push-card" style="border:1px solid rgba(59,130,246,0.3); background:rgba(59,130,246,0.05);">
                     <span class="account-icon" style="color:#3b82f6;"><i data-lucide="bell" size="18"></i></span>
                     <div>
                         <div style="display:flex; align-items:center; gap:8px;">
-                            <strong>Web Push Notifications</strong>
+                            <strong>Browser Notifications</strong>
                             <span id="push-status-badge" class="status-pill-small" style="background:rgba(107,114,128,0.2); color:var(--text-muted); font-size:0.68rem; padding:1px 6px; border-radius:4px; font-weight:700;">NOT ENABLED</span>
                         </div>
-                        <p class="admin-intro" id="push-status-text">Receive morning push alerts when staff submit phone transfer requests, even with Command Center closed.</p>
+                        <p class="admin-intro" id="push-status-text">Get local transfer-request alerts while Command Center is open. Background push delivery is not configured.</p>
                     </div>
                     <button id="enable-push-notifications-btn" class="admin-btn primary small" type="button" style="white-space:nowrap;">Enable Alerts</button>
                 </div>
@@ -3337,9 +2981,7 @@ function renderAdminPanel() {
                             <strong>Delegated Admin Users & Roles</strong>
                             <p class="admin-intro">Manage administrators, managers, and delegated operator access.</p>
                         </div>
-                        <button id="add-admin-user-btn" class="admin-btn primary small" type="button" style="width:auto;">
-                            <i data-lucide="user-plus" size="13"></i> Add Admin
-                        </button>
+                        <a class="admin-btn primary small" href="../watch-tower/">Manage organization access</a>
                     </div>
                     <div id="admin-users-list" style="display:grid; gap:8px;">
                         <div class="staff-list-state">Loading admin users...</div>
@@ -3446,8 +3088,7 @@ function renderAdminPanel() {
         } catch (e) { showToast('Server error.', 'error'); }
     });
 
-    document.getElementById('add-admin-user-btn')?.addEventListener('click', handleAddAdminUser);
-    initAdminPushNotifications();
+    initAdminBrowserNotifications();
 
 
     document.getElementById('analytics-filter-all')?.addEventListener('click', (e) => {
@@ -3771,7 +3412,7 @@ function navigateTourStep(direction) {
 
 function setTourStep(stepIndex) {
     currentTourStep = Math.max(0, Math.min(stepIndex, TOTAL_TOUR_STEPS - 1));
-    
+
     // Update step badge
     const badge = document.getElementById('tour-step-badge');
     if (badge) badge.textContent = `Step ${currentTourStep + 1} of ${TOTAL_TOUR_STEPS}`;
@@ -3831,21 +3472,8 @@ window.setTourStep = setTourStep;
    FORGOT PASSWORD
    ============================================================ */
 
-async function runForgotPasswordFlow() {
-    const userStep = await showInlineDialog({ title: 'Forgot Password', message: 'Enter your admin username.', fields: [{ placeholder: 'Username' }], confirmLabel: 'Send Code' });
-    if (!userStep) return;
-    try {
-        const res = await requestPasswordResetCode(userStep[0]);
-        showToast(res.message, res.ok ? 'success' : 'error');
-        if (!res.ok) return;
-    } catch (e) { showToast('Server error.', 'error'); return; }
-
-    const codeStep = await showInlineDialog({ title: 'Enter Reset Code', message: '6-digit code sent to your email.', fields: [{ placeholder: '6-digit code' }, { placeholder: 'New password', type: 'password' }], confirmLabel: 'Reset' });
-    if (!codeStep) return;
-    try {
-        const res = await confirmPasswordReset(userStep[0], codeStep[0], codeStep[1]);
-        showToast(res.message, res.ok ? 'success' : 'error');
-    } catch (e) { showToast('Server error.', 'error'); }
+function runForgotPasswordFlow() {
+    location.href = '../enterprise/?recover=1';
 }
 
 /* ============================================================
@@ -3854,93 +3482,163 @@ async function runForgotPasswordFlow() {
 
 async function checkPendingDeviceTransferRequests() {
     try {
-        const slug = getActiveAdminTenantSlug() || (currentTenantConfig ? currentTenantConfig.slug : 'default');
+        const slug = getActiveAdminTenantSlug() || (typeof currentTenantConfig !== 'undefined' && currentTenantConfig ? currentTenantConfig.slug : 'default');
         const response = await callBackend({ mode: 'get-device-transfers', tenantSlug: slug });
         if (!response || !response.ok || !Array.isArray(response.transfers)) return;
 
-        const pendingRequests = response.transfers.filter(e => 
-            e.status === 'pending' || e.status === 'PENDING'
-        );
+        const pendingRequests = response.transfers.filter(e => e.status === 'pending' || e.status === 'PENDING');
 
-        if (!pendingRequests.length) return;
+        window._latestPendingDeviceRequests = pendingRequests;
+        const badge = document.getElementById('notif-badge');
 
-        const req = pendingRequests[0];
-        const staffName = req.staff_name || req.staffName || req.name || 'A staff member';
-        const reqTime = req.requested_at || req.requestedAt || req.time || 'Recently';
-        const pinCode = req.transfer_code ? String(req.transfer_code) : '';
+        if (badge) {
+            if (pendingRequests.length > 0) {
+                badge.style.display = 'flex';
+                badge.textContent = pendingRequests.length;
 
-        // Browser push/desktop alert if permitted
-        if ('Notification' in window && Notification.permission === 'granted') {
-            try {
-                new Notification('The Perimeter: Device Transfer Request', {
-                    body: `${staffName} has requested to bind their attendance to a new phone (PIN: ${pinCode || 'Pending'}).`,
-                    icon: '../image/perimetrr-mark.svg'
-                });
-            } catch(e) {}
-        }
-
-        const existingModal = document.getElementById('device-req-dialog-box');
-        if (existingModal) return;
-
-        const dialog = document.createElement('div');
-        dialog.id = 'device-req-dialog-box';
-        dialog.className = 'dialog-overlay confirm-dialog-overlay active';
-        dialog.style.zIndex = '10000';
-        dialog.innerHTML = `
-            <div class="dialog-box confirm-dialog-card" style="max-width: 440px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                    <h3 style="margin: 0; font-size: 1.1rem; color: var(--text);"><i data-lucide="smartphone" size="18" style="vertical-align:middle; margin-right:6px; color:var(--primary);"></i> Device Transfer Request</h3>
-                    <button id="device-req-close-btn" style="background: none; border: none; color: var(--muted); font-size: 1.2rem; cursor: pointer; padding: 2px 6px;">&times;</button>
-                </div>
-                <p style="font-size: 0.88rem; color: var(--text); line-height: 1.5; margin-bottom: 12px;">
-                    <strong>${escapeHtml(staffName)}</strong> has requested to bind their attendance account to a new phone.
-                    <br><small style="color: var(--muted);">Requested at: ${escapeHtml(reqTime)}</small>
-                </p>
-                ${pinCode ? `
-                <div style="background: rgba(57,255,136,0.08); border: 1px solid rgba(57,255,136,0.35); border-radius: 6px; padding: 8px 12px; margin-bottom: 14px; text-align: center;">
-                    <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Authorization PIN</div>
-                    <div style="font-size: 1.4rem; font-weight: 800; letter-spacing: 0.15em; color: #10b981; font-family: monospace;">${escapeHtml(pinCode)}</div>
-                </div>` : ''}
-                <div style="display: flex; gap: 10px; justify-content: flex-end;">
-                    <button id="device-req-reject-btn" class="admin-btn secondary small danger" type="button"><i data-lucide="x" size="13" style="vertical-align:middle; margin-right:2px;"></i> Reject</button>
-                    <button id="device-req-approve-btn" class="admin-btn small" type="button"><i data-lucide="check" size="13" style="vertical-align:middle; margin-right:2px;"></i> Approve Transfer</button>
-                </div>
-            </div>
-        `;
-
-        document.body.appendChild(dialog);
-        if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons();
-
-        document.getElementById('device-req-close-btn').addEventListener('click', () => dialog.remove());
-        
-        document.getElementById('device-req-reject-btn').addEventListener('click', async () => {
-            try {
-                await callBackend({ mode: 'reject-device-transfer', tenantSlug: slug, staffName: staffName, requestId: req.id });
-                showToast('Transfer request rejected.', 'info');
-            } catch(e) {}
-            dialog.remove();
-        });
-
-        document.getElementById('device-req-approve-btn').addEventListener('click', async () => {
-            try {
-                const res = await callBackend({ mode: 'approve-device-transfer', tenantSlug: slug, staffName: staffName, requestId: req.id });
-                if (res && res.ok) {
-                    showToast(`Device transfer approved for ${staffName}! Device unlinked.`, 'success');
-                } else {
-                    showToast((res && res.message) || 'Could not approve transfer.', 'error');
+                // Show notification if it's the first time we see this count
+                if (window._lastNotifCount !== pendingRequests.length) {
+                    window._lastNotifCount = pendingRequests.length;
+                    if ('Notification' in window && Notification.permission === 'granted') {
+                        try {
+                            new Notification('The Perimeter: Device Transfer Requests', {
+                                body: `You have ${pendingRequests.length} pending device transfer request(s).`,
+                                icon: '../image/perimetrr-mark.svg'
+                            });
+                        } catch(e) {}
+                    }
                 }
-            } catch (e) {
-                showToast('Could not process approval.', 'error');
-            } finally {
-                dialog.remove();
+            } else {
+                badge.style.display = 'none';
+                badge.textContent = '0';
+                window._lastNotifCount = 0;
             }
-        });
-
-    } catch (err) {
-        console.warn('Could not check pending device transfer requests:', err);
+        }
+    } catch (e) {
+        console.error('Error checking device transfers:', e);
     }
 }
 
+document.addEventListener('DOMContentLoaded', () => {
+    const notifBtn = document.getElementById('notif-btn');
+    if (notifBtn) {
+        notifBtn.addEventListener('click', () => {
+            if (!isAdminLoggedIn) { showToast('Sign in to review workspace transfer requests.', 'info'); return; }
+            const reqs = window._latestPendingDeviceRequests || [];
+
+            const existingModal = document.getElementById('device-req-list-dialog');
+            if (existingModal) { existingModal.remove(); return; }
+
+            const dialog = document.createElement('div');
+            dialog.id = 'device-req-list-dialog';
+            dialog.style.position = 'absolute';
+            dialog.style.top = '60px';
+            dialog.style.right = '20px';
+            dialog.style.background = 'var(--surface)';
+            dialog.style.border = '1px solid var(--border)';
+            dialog.style.borderRadius = '12px';
+            dialog.style.width = 'min(340px, calc(100vw - 40px))';
+            dialog.style.maxHeight = '400px';
+            dialog.style.boxShadow = '0 10px 25px rgba(0,0,0,0.5)';
+            dialog.style.zIndex = '10000';
+            dialog.style.display = 'flex';
+            dialog.style.flexDirection = 'column';
+
+            let listHtml = '';
+            if (reqs.length === 0) {
+                listHtml = '<div style="text-align:center; padding: 20px; color: var(--text-muted); font-size: 0.85rem;">No pending requests.</div>';
+            } else {
+                listHtml = reqs.map(req => {
+                    const staffName = req.staff_name || req.staffName || req.name || 'A staff member';
+                    const reqTime = req.requested_at || req.requestedAt || req.time || 'Recently';
+                    return `
+                        <div style="background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 8px; display:flex; flex-direction:column; gap:8px;">
+                            <div>
+                                <strong style="color:var(--text); font-size:0.9rem;">${escapeHtml(staffName)}</strong>
+                                <div style="font-size:0.75rem; color:var(--text-muted);">Requested: ${escapeHtml(reqTime)}</div>
+                            </div>
+                            <div style="display:flex; gap:8px; justify-content:flex-end;">
+                                <button class="admin-btn secondary small danger req-reject-btn" data-req-id="${escapeHtml(req.request_id || req.id || '')}" data-staff-name="${escapeHtml(staffName)}" type="button" style="padding:4px 8px; font-size:0.75rem;">Reject</button>
+                                <button class="admin-btn small req-approve-btn" data-req-id="${escapeHtml(req.request_id || req.id || '')}" data-staff-name="${escapeHtml(staffName)}" type="button" style="padding:4px 8px; font-size:0.75rem;">Approve</button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            dialog.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--border);">
+                    <h3 style="margin: 0; font-size: 0.95rem; font-weight: 600; color: var(--text);"><i data-lucide="bell" size="14" style="vertical-align:middle; margin-right:4px;"></i> Device Transfer Requests</h3>
+                </div>
+                <div style="overflow-y:auto; padding: 12px;">
+                    ${listHtml}
+                </div>
+            `;
+
+            document.body.appendChild(dialog);
+            if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons();
+
+            // Click outside to close
+            setTimeout(() => {
+                const closeHandler = (e) => {
+                    if (!dialog.contains(e.target) && e.target !== notifBtn && !notifBtn.contains(e.target)) {
+                        dialog.remove();
+                        document.removeEventListener('click', closeHandler);
+                    }
+                };
+                document.addEventListener('click', closeHandler);
+            }, 50);
+
+            dialog.querySelectorAll('.req-reject-btn').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const reqId = btn.getAttribute('data-req-id');
+                    const staffName = btn.getAttribute('data-staff-name');
+                    btn.disabled = true;
+                    btn.textContent = '...';
+                    try {
+                        const slug = getActiveAdminTenantSlug() || (typeof currentTenantConfig !== 'undefined' && currentTenantConfig ? currentTenantConfig.slug : 'default');
+                        const res = await callBackend({ mode: 'reject-device-transfer', tenantSlug: slug, staffName: staffName, requestId: reqId });
+                        if (res && res.ok) {
+                            showToast('Request rejected.', 'success');
+                            btn.closest('div').parentElement.remove();
+                            checkPendingDeviceTransferRequests();
+                        } else {
+                            throw new Error(res?.error || 'The request could not be rejected. Please try again.');
+                        }
+                    } catch (e) {
+                        showToast(e.message || 'Connection failed. Please try again.', 'error');
+                        btn.disabled = false;
+                        btn.textContent = 'Reject';
+                    }
+                });
+            });
+
+            dialog.querySelectorAll('.req-approve-btn').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const reqId = btn.getAttribute('data-req-id');
+                    const staffName = btn.getAttribute('data-staff-name');
+                    btn.disabled = true;
+                    btn.textContent = '...';
+                    try {
+                        const slug = getActiveAdminTenantSlug() || (typeof currentTenantConfig !== 'undefined' && currentTenantConfig ? currentTenantConfig.slug : 'default');
+                        const res = await callBackend({ mode: 'approve-device-transfer', tenantSlug: slug, staffName: staffName, requestId: reqId });
+                        if (res && res.ok) {
+                            showToast(`Device transfer approved for ${staffName}.`, 'success');
+                            btn.closest('div').parentElement.remove();
+                            checkPendingDeviceTransferRequests();
+                        } else {
+                            throw new Error(res?.error || 'The request could not be approved. Please try again.');
+                        }
+                    } catch (e) {
+                        showToast(e.message || 'Connection failed. Please try again.', 'error');
+                        btn.disabled = false;
+                        btn.textContent = 'Approve';
+                    }
+                });
+            });
+        });
+    }
+});
 async function initAdminPushNotifications() {
     const btn = document.getElementById('enable-push-notifications-btn');
     const badge = document.getElementById('push-status-badge');
@@ -3957,7 +3655,7 @@ async function initAdminPushNotifications() {
     const updateStatus = () => {
         if (Notification.permission === 'granted') {
             if (badge) { badge.textContent = 'ACTIVE'; badge.style.background = 'rgba(16,185,129,0.15)'; badge.style.color = '#10b981'; }
-            if (statusText) statusText.textContent = 'Push alerts active. You will be notified instantly when device transfers are requested.';
+            if (statusText) statusText.textContent = 'Local browser alerts enabled. Keep Command Center open to check for device transfer requests.';
             btn.innerHTML = '<i data-lucide="bell" size="13"></i> Send Test Alert';
             if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons();
         } else if (Notification.permission === 'denied') {
@@ -3973,7 +3671,7 @@ async function initAdminPushNotifications() {
         try {
             if (Notification.permission === 'granted') {
                 new Notification('The Perimeter Command Center', {
-                    body: 'Push alerts configured properly. Monitoring incoming staff transfer requests.',
+                    body: 'Local notifications work in this browser. Keep Command Center open to check transfer requests.',
                     icon: '../image/perimetrr-mark.svg'
                 });
                 showToast('Test notification sent.', 'info');
@@ -3985,22 +3683,10 @@ async function initAdminPushNotifications() {
             if (permission === 'granted') {
                 showToast('Web notifications enabled!', 'success');
                 new Notification('The Perimeter Command Center', {
-                    body: 'Web notifications enabled. Morning transfer requests will alert here.',
+                    body: 'Local browser notifications enabled while Command Center is open.',
                     icon: '../image/perimetrr-mark.svg'
                 });
 
-                if ('serviceWorker' in navigator) {
-                    try {
-                        const reg = await navigator.serviceWorker.ready;
-                        if (reg && reg.pushManager) {
-                            const sub = await reg.pushManager.getSubscription();
-                            if (sub) {
-                                const slug = getActiveAdminTenantSlug() || 'default';
-                                await callBackend({ mode: 'save-push-subscription', tenantSlug: slug, subscription: sub.toJSON() });
-                            }
-                        }
-                    } catch(e) {}
-                }
             } else {
                 showToast('Notification permission denied.', 'error');
             }
@@ -4015,8 +3701,8 @@ function setLoginLoading(isLoading) {
     const loginBtn = document.getElementById('admin-login-btn');
     const form = document.getElementById('admin-login-form');
     const messageEl = document.getElementById('admin-message');
-    if (loginBtn) { 
-        loginBtn.disabled = isLoading; 
+    if (loginBtn) {
+        loginBtn.disabled = isLoading;
         loginBtn.innerHTML = isLoading ? '<i data-lucide="loader-2" class="spin" size="14" style="vertical-align:middle; margin-right:4px;"></i> Logging in...' : '<i data-lucide="lock" size="14" style="vertical-align:middle; margin-right:4px;"></i> Log in';
         if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons();
     }
@@ -4089,23 +3775,15 @@ async function handleAdminLogin(event) {
             ADMIN_AUTH_RATE_LIMIT.recordSuccess();
             isAdminLoggedIn = true;
             currentAdminUsername = username;
-            safeSession.setItem('admin_session', JSON.stringify({ 
-                username, 
-                adminToken: response.adminToken || '', 
-                csrfToken: response.csrfToken || '', 
-                timestamp: Date.now() 
+            safeSession.setItem('admin_session', JSON.stringify({
+                username,
+                adminToken: response.adminToken || '',
+                csrfToken: response.csrfToken || '',
+                timestamp: Date.now()
             }));
             if (response.csrfToken) safeSession.setItem('admin_csrf_token', response.csrfToken);
             if (response.adminToken) safeSession.setItem('admin_token', response.adminToken);
-            
-            // Standard tenant admin logins have role 'admin'. Developer role is only granted if logging in via developer masquerade or explicit operator credentials
-            if (response.role === 'developer' && (safeSession.getItem('is_masquerading') === 'true' || safeSession.getItem('developer_operator') === 'true')) {
-                safeSession.setItem('is_superuser', 'true');
-                safeSession.setItem('admin_role_tier', 'developer');
-            } else {
-                safeSession.setItem('is_superuser', 'false');
-                safeSession.setItem('admin_role_tier', 'admin');
-            }
+
             safeSession.setItem('admin_username', username);
             if (response.tenantSlug) {
                 safeSession.setItem('admin_tenant_slug', response.tenantSlug);
@@ -4113,11 +3791,11 @@ async function handleAdminLogin(event) {
                 try {
                     currentTenantConfig = await getTenantConfig(response.tenantSlug);
                     if (currentTenantConfig && currentTenantConfig.name) {
-                        document.title = `${currentTenantConfig.name} - Admin Console`;
+                        document.title = `${currentTenantConfig.name} - Command Center`;
                     }
                 } catch(e) {}
             }
-            
+
             document.getElementById('admin-login-form').style.display = 'none';
             document.getElementById('forgot-password-link').style.display = 'none';
             const hero = document.querySelector('.admin-hero');
@@ -4125,14 +3803,14 @@ async function handleAdminLogin(event) {
             renderAdminPanel();
             checkPendingDeviceTransferRequests();
             resetInactivityTimer();
-            
+
             document.addEventListener('click', resetInactivityTimer);
             document.addEventListener('keydown', resetInactivityTimer);
             document.addEventListener('touchstart', resetInactivityTimer);
         } else {
             const lockSec = ADMIN_AUTH_RATE_LIMIT.recordFailure();
             if (lockSec > 0) {
-                messageEl.textContent = `Too many failed attempts. Console locked for ${lockSec}s.`;
+                messageEl.textContent = `Too many failed attempts. Command Center locked for ${lockSec}s.`;
             } else {
                 messageEl.textContent = response.message || 'Invalid admin credentials.';
             }
@@ -4162,7 +3840,7 @@ async function initAdminTenantBranding() {
         const slug = getActiveAdminTenantSlug();
         currentTenantConfig = slug ? await getTenantConfig(slug) : await getActiveTenant();
         if (currentTenantConfig) {
-            document.title = `${currentTenantConfig.name} - Admin Console`;
+            document.title = `${currentTenantConfig.name} - Command Center`;
             const heroSubtitle = document.querySelector('.admin-hero .admin-intro');
             if (heroSubtitle && currentTenantConfig.name) {
                 heroSubtitle.textContent = `Sign in to manage ${currentTenantConfig.name} attendance, staff access, and work schedules.`;
@@ -4176,145 +3854,57 @@ async function initAdminTenantBranding() {
     }
 }
 
-async function handleMasqueradeLogin(tokenStr) {
-    try {
-        const decoded = JSON.parse(atob(tokenStr));
-        const { slug, ts, hash } = decoded;
-        if (!slug || !ts || !hash) {
-            showToast('Invalid operator masquerade token.', 'error');
-            return;
-        }
-
-        // Freshness: max 10 minutes (600,000 ms)
-        if (Math.abs(Date.now() - ts) > 10 * 60 * 1000) {
-            showToast('Operator masquerade token expired. Please relaunch from Super Admin.', 'error');
-            return;
-        }
-
-        // Validate HMAC/Hash against platform master key
-        let valid = false;
-        try {
-            let activeMasterHash = null;
-            if (supabaseClient) {
-                const { data } = await supabaseClient.from('app_config').select('value').eq('key', 'SUPER_ADMIN_MASTER_KEY_HASH').single();
-                if (data && data.value) {
-                    activeMasterHash = String(data.value).trim();
-                }
-            }
-
-            if (activeMasterHash) {
-                // Token MUST match the active database hash
-                const expectedHash = await sha256Hex(`${slug}:${ts}:${activeMasterHash}`);
-                if (hash === expectedHash) {
-                    valid = true;
-                }
-            } else {
-                console.error('Cannot validate masquerade token: No master key hash configured in database.');
-            }
-        } catch(e) {
-            console.error('Masquerade validation error:', e);
-        }
-
-        if (!valid) {
-            showToast('Invalid operator masquerade token signature.', 'error');
-            return;
-        }
-
-        // Authenticate session as Developer
-        isAdminLoggedIn = true;
-        currentAdminUsername = 'Platform Operator (Developer)';
-        safeSession.setItem('admin_session', JSON.stringify({
-            username: currentAdminUsername,
-            adminToken: 'masquerade_operator_token',
-            csrfToken: 'masquerade_operator_csrf',
-            timestamp: Date.now()
-        }));
-        safeSession.setItem('admin_token', 'masquerade_operator_token');
-        safeSession.setItem('admin_csrf_token', 'masquerade_operator_csrf');
-        safeSession.setItem('is_superuser', 'true');
-        safeSession.setItem('admin_role_tier', 'developer');
-        safeSession.setItem('admin_username', currentAdminUsername);
-        safeSession.setItem('is_masquerading', 'true');
-        safeSession.setItem('masquerade_tenant', slug);
-        safeSession.setItem('admin_tenant_slug', slug);
-        safeStorage.setItem('active_tenant_slug', slug);
-
-        try {
-            currentTenantConfig = await getTenantConfig(slug);
-            if (currentTenantConfig && currentTenantConfig.name) {
-                document.title = `${currentTenantConfig.name} - Admin Console`;
-            }
-        } catch(e) {}
-
-        // Ensure active tenant is set to slug
-        safeStorage.setItem('active_tenant_slug', slug);
-
-        // Clean query params from URL bar immediately without reload
-        if (window.history && window.history.replaceState) {
-            window.history.replaceState({}, document.title, window.location.pathname);
-        }
-
-        const form = document.getElementById('admin-login-form');
-        if (form) form.style.display = 'none';
-        const forgot = document.getElementById('forgot-password-link');
-        if (forgot) forgot.style.display = 'none';
-        const hero = document.querySelector('.admin-hero');
-        if (hero) hero.style.display = 'none';
-
-        renderAdminPanel();
-        showToast(`Developer operator access verified for ${slug}!`, 'success');
-        resetInactivityTimer();
-        document.addEventListener('click', resetInactivityTimer);
-        document.addEventListener('keydown', resetInactivityTimer);
-        document.addEventListener('touchstart', resetInactivityTimer);
-    } catch(err) {
-        console.error('Masquerade login error:', err);
-        showToast('Failed to parse operator token.', 'error');
-    }
-}
-
-function initAdminApp() {
+async function initAdminApp() {
     initTheme();
     initRefreshButton();
     initAllPasswordToggles();
-    initAdminTenantBranding();
+    await initAdminTenantBranding();
     initAdminModalDismissals();
+    for (const key of Object.keys(localStorage)) if (key.startsWith('admin_cache_')) localStorage.removeItem(key);
+    if (supabaseClient?.auth) supabaseClient.auth.onAuthStateChange(event => {
+        if (event === 'SIGNED_OUT') {
+            isAdminLoggedIn = false; allStaffList = []; logsAllRecords = []; cachedWeekData = {}; analyticsData = null; deviceEventsAll = [];
+            const host = document.getElementById('admin-panel-host'); if (host) host.replaceChildren();
+            document.getElementById('admin-login-form').style.display = '';
+            document.getElementById('forgot-password-link').style.display = '';
+        }
+    });
     document.getElementById('guided-tour-btn')?.addEventListener('click', () => openTenantTourModal(0));
 
     const urlParams = new URLSearchParams(window.location.search);
-    const masqueradeToken = urlParams.get('masquerade');
-    if (masqueradeToken) {
-        handleMasqueradeLogin(masqueradeToken);
-        return;
-    }
-    
-    const savedSession = safeSession.getItem('admin_session');
-    if (savedSession) {
+    // Legacy client-signed impersonation tokens are no longer accepted.
+    let verifiedUser = null;
+    try {
+        const { data, error } = await supabaseClient.auth.getUser();
+        if (!error) verifiedUser = data?.user;
+    } catch (_) {}
+    let membership = null;
+    if (verifiedUser) {
         try {
-            const session = JSON.parse(savedSession);
-            if (session.username && session.timestamp && (Date.now() - session.timestamp < 3600000)) {
-                isAdminLoggedIn = true;
-                currentAdminUsername = session.username;
-                if (session.adminToken) safeSession.setItem('admin_token', session.adminToken);
-                if (session.csrfToken) safeSession.setItem('admin_csrf_token', session.csrfToken);
-                safeSession.setItem('admin_username', session.username);
-                const form = document.getElementById('admin-login-form');
-                if (form) form.style.display = 'none';
-                const forgot = document.getElementById('forgot-password-link');
-                if (forgot) forgot.style.display = 'none';
-                const hero = document.querySelector('.admin-hero');
-                if (hero) hero.style.display = 'none';
-                renderAdminPanel();
-                resetInactivityTimer();
-                document.addEventListener('click', resetInactivityTimer);
-                document.addEventListener('keydown', resetInactivityTimer);
-                document.addEventListener('touchstart', resetInactivityTimer);
-            } else {
-                handleLogout(false);
-            }
-        } catch (e) { handleLogout(false); }
+            const {data, error} = await supabaseClient.rpc('get_admin_workspaces');
+            if (error) throw error;
+            const slug = getActiveAdminTenantSlug();
+            membership = (data || []).find(entry => !slug || entry.tenants?.slug === slug);
+        } catch (_) {}
     }
-    
+    if (membership?.tenants) {
+        currentTenantConfig = {...currentTenantConfig, ...membership.tenants};
+        safeSession.setItem('admin_tenant_slug', membership.tenants.slug);
+        safeSession.setItem('admin_session', JSON.stringify({username:verifiedUser.email, timestamp:Date.now()}));
+        isAdminLoggedIn = true;
+        currentAdminUsername = verifiedUser.email;
+        document.getElementById('admin-login-form').style.display = 'none';
+        document.getElementById('forgot-password-link').style.display = 'none';
+        const hero = document.querySelector('.admin-hero');
+        if (hero) hero.style.display = 'none';
+        renderAdminPanel();
+        resetInactivityTimer();
+        ['click','keydown','touchstart'].forEach(event => document.addEventListener(event, resetInactivityTimer));
+    } else {
+        safeSession.removeItem('admin_session');
+        isAdminLoggedIn = false;
+    }
+
     const form = document.getElementById('admin-login-form');
     if (form) {
         form.addEventListener('submit', (e) => {
@@ -4348,26 +3938,34 @@ function initAdminApp() {
 
 function getTenantPairingDetails() {
     const slug = currentTenantConfig?.slug || (typeof getActiveTenantSlug === 'function' ? getActiveTenantSlug() : 'workspace');
-    const code = currentTenantConfig?.workspace_code || currentTenantConfig?.workspaceCode || (typeof generateWorkspaceCode === 'function' ? generateWorkspaceCode(slug) : `${slug.substring(0, 4).toUpperCase()}-26`);
+    const code = currentTenantConfig?.workspace_code;
+    if (!code) throw new Error('The workspace has no pairing code. Refresh and try again.');
     const origin = (typeof window !== 'undefined' && window.location) ? window.location.origin : '';
     const basePath = (typeof window !== 'undefined' && window.location) ? window.location.pathname.replace(/\/command-center(\/.*)?$/, '/') : '/';
     const joinUrl = `${origin}${basePath}?join=${encodeURIComponent(code)}`;
     return { slug, code, joinUrl };
 }
 
-function openShareInviteModal() {
+async function openShareInviteModal() {
     const modal = document.getElementById('share-invite-modal');
     const codeEl = document.getElementById('share-modal-code');
     const qrImg = document.getElementById('share-modal-qr-img');
     if (!modal) return;
 
-    const { code, joinUrl } = getTenantPairingDetails();
+    let details;
+    try { details = getTenantPairingDetails(); } catch (error) { showToast(error.message, 'error'); return; }
+    const {code, joinUrl} = details;
     if (codeEl) codeEl.textContent = code;
     if (qrImg) {
-        qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=8&data=${encodeURIComponent(joinUrl)}`;
+        qrImg.removeAttribute('src');
+        qrImg.hidden = true;
     }
     modal.style.display = 'flex';
     if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons();
+    try {
+        const image = await getWorkspaceQrDataUrl(joinUrl);
+        if (qrImg && modal.style.display === 'flex' && codeEl?.textContent === code) { qrImg.src = image; qrImg.hidden = false; }
+    } catch (error) { showToast(error.message, 'error'); }
 }
 
 function closeShareInviteModal() {
@@ -4390,7 +3988,7 @@ function copyShareInviteLink() {
     const { joinUrl } = getTenantPairingDetails();
     if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(joinUrl).then(() => {
-            showToast('One-time join link copied to clipboard!', 'success');
+            showToast('Workspace invitation link copied to clipboard!', 'success');
         });
     } else {
         showToast(joinUrl, 'info');
@@ -4420,7 +4018,15 @@ async function shareWorkspaceInvite() {
     const { code, joinUrl } = getTenantPairingDetails();
     const shareData = { title: 'Join our Perimetrr workspace', text: `Use workspace code ${code} to join our Perimetrr workspace.`, url: joinUrl };
     try {
-        if (navigator.share) return await navigator.share(shareData);
+        if (navigator.share) {
+            const image = document.getElementById('share-modal-qr-img');
+            if (image?.src?.startsWith('data:image/png')) {
+                const blob = await (await fetch(image.src)).blob();
+                const file = new File([blob], `perimetrr-workspace-${code}.png`, {type:'image/png'});
+                if (navigator.canShare?.({files:[file]})) return await navigator.share({...shareData,files:[file]});
+            }
+            return await navigator.share(shareData);
+        }
         await navigator.clipboard.writeText(`${shareData.text}\n${joinUrl}`);
         showToast('Workspace invitation copied to clipboard.', 'success');
     } catch (error) {
@@ -4428,73 +4034,8 @@ async function shareWorkspaceInvite() {
     }
 }
 
-/* ============================================================
-   BILLING & COUPON PROMO REDEMPTION
-   ============================================================ */
-
-function openCouponModal() {
-    const modal = document.getElementById('billing-coupon-modal');
-    const input = document.getElementById('coupon-code-input');
-    const msg = document.getElementById('coupon-status-msg');
-    if (input) input.value = '';
-    if (msg) { msg.style.display = 'none'; msg.textContent = ''; }
-    if (modal) modal.style.display = 'flex';
-    if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons();
-}
-
-function closeCouponModal() {
-    const modal = document.getElementById('billing-coupon-modal');
-    if (modal) modal.style.display = 'none';
-}
-
-async function handleApplyCoupon() {
-    const input = document.getElementById('coupon-code-input');
-    const msg = document.getElementById('coupon-status-msg');
-    const btn = document.getElementById('apply-coupon-btn');
-    const code = (input?.value || '').trim().toUpperCase();
-    if (!code) {
-        if (msg) { msg.style.display = 'block'; msg.style.color = '#ef4444'; msg.textContent = 'Please enter a coupon code.'; }
-        return;
-    }
-
-    if (btn) { btn.disabled = true; btn.textContent = 'Applying...'; }
-    try {
-        const slug = currentTenantConfig?.slug || (typeof getActiveTenantSlug === 'function' ? getActiveTenantSlug() : 'default');
-        const res = await callBackend({ mode: 'apply-coupon', tenantSlug: slug, couponCode: code });
-        if (res && res.ok) {
-            if (msg) {
-                msg.style.display = 'block';
-                msg.style.color = '#10b981';
-                msg.textContent = res.message || 'Coupon successfully applied!';
-            }
-            showToast(res.message || 'Coupon successfully applied!', 'success');
-            setTimeout(() => {
-                closeCouponModal();
-                if (currentTenantConfig) {
-                    if (res.newTrialEnd) currentTenantConfig.trial_ends_at = res.newTrialEnd;
-                    if (res.discountApplied) currentTenantConfig.retention_discount_applied = true;
-                }
-            }, 1200);
-        } else {
-            if (msg) {
-                msg.style.display = 'block';
-                msg.style.color = '#ef4444';
-                msg.textContent = res.message || 'Invalid or expired coupon code.';
-            }
-        }
-    } catch(err) {
-        if (msg) {
-            msg.style.display = 'block';
-            msg.style.color = '#ef4444';
-            msg.textContent = err.message || 'Failed to apply coupon.';
-        }
-    } finally {
-        if (btn) { btn.disabled = false; btn.textContent = 'Apply Code'; }
-    }
-}
-
 function initAdminModalDismissals() {
-    const backdropIds = ['share-invite-modal', 'billing-coupon-modal', 'tenant-guided-tour-modal'];
+    const backdropIds = ['share-invite-modal', 'tenant-guided-tour-modal'];
     backdropIds.forEach(id => {
         const el = document.getElementById(id);
         if (!el) return;
@@ -4521,53 +4062,10 @@ function initAdminModalDismissals() {
     });
 }
 
-/* ---------- Rolling 15-Minute Inactivity Session Guard ---------- */
-let idleTimeoutTimer = null;
-const IDLE_LIMIT_MS = 15 * 60 * 1000; // 15 Minutes
-const MAX_SESSION_MS = 8 * 60 * 60 * 1000; // 8 Hours Max
-
-function resetOperatorIdleTimer() {
-    clearTimeout(idleTimeoutTimer);
-
-    const sessionStart = parseInt(sessionStorage.getItem('operator_session_start') || sessionStorage.getItem('masquerade_start_ts') || '0', 10);
-    if (sessionStart && (Date.now() - sessionStart > MAX_SESSION_MS)) {
-        terminateOperatorSession('Maximum session duration (8 hours) reached.');
-        return;
-    }
-
-    idleTimeoutTimer = setTimeout(() => {
-        terminateOperatorSession('Session terminated due to 15 minutes of inactivity.');
-    }, IDLE_LIMIT_MS);
-}
-
-function initOperatorIdleMonitor() {
-    const isMasquerade = Boolean(sessionStorage.getItem('masquerade_active') || sessionStorage.getItem('admin_token') || sessionStorage.getItem('attendance_super_admin_unlocked'));
-    if (!isMasquerade) return;
-
-    if (!sessionStorage.getItem('operator_session_start')) {
-        sessionStorage.setItem('operator_session_start', Date.now().toString());
-    }
-
-    ['mousedown', 'keydown', 'scroll', 'touchstart'].forEach(evt => {
-        window.addEventListener(evt, resetOperatorIdleTimer, { passive: true });
-    });
-
-    resetOperatorIdleTimer();
-}
-
-function terminateOperatorSession(reason) {
-    clearTimeout(idleTimeoutTimer);
-    sessionStorage.clear();
-    alert(`[Security Alert] ${reason}`);
-    window.location.href = '../watch-tower/';
-}
-
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
         initAdminApp();
-        initOperatorIdleMonitor();
     });
 } else {
     initAdminApp();
-    initOperatorIdleMonitor();
 }

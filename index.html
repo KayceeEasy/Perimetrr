@@ -3,44 +3,28 @@
 
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Perimetrr — Presence You Can Prove | GPS-Verified Staff Attendance</title>
-    <meta name="title" content="Perimetrr — Presence You Can Prove | GPS-Verified Staff Attendance" />
-    <meta name="description"
-        content="Eliminate proxy attendance and fake GPS spoofing with server-side geofencing. High-precision staff presence verification without expensive biometric hardware." />
-    <meta name="keywords" content="staff attendance, GPS geofence, time tracking, proxy attendance prevention, PWA attendance, biometric replacement, fleet operations" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Perimetrr — Presence You Can Prove</title>
+    <meta name="keywords" content="staff attendance, GPS geofence, time tracking, proxy attendance prevention, PWA attendance, device-linked attendance, enterprise branches" />
     <meta name="author" content="Perimetrr Technologies" />
     <meta name="theme-color" content="#0F1B2D" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="mobile-web-app-title" content="Perimetrr" />
-    
+
     <!-- Open Graph (Facebook, LinkedIn, WhatsApp, Slack) -->
-    <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://perimetrr.com/" />
-    <meta property="og:site_name" content="Perimetrr" />
-    <meta property="og:title" content="Perimetrr — Presence You Can Prove" />
-    <meta property="og:description"
-        content="Stop proxy attendance and payroll leaks. Server-side geofenced presence verification without expensive hardware scanners." />
-    <meta property="og:image" content="https://perimetrr.com/image/perimetrr-mark.svg" />
-    
+
     <!-- Twitter / X Cards -->
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:url" content="https://perimetrr.com/" />
-    <meta name="twitter:title" content="Perimetrr — Presence You Can Prove" />
-    <meta name="twitter:description"
-        content="Stop proxy attendance and payroll leaks. Server-side geofenced presence verification without expensive hardware scanners." />
-    <meta name="twitter:image" content="https://perimetrr.com/image/perimetrr-mark.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=3.0.5" />
+    <link rel="stylesheet" href="style.css?v=1.1.1" />
     <link rel="manifest" href="manifest.json" />
     <link rel="icon" type="image/svg+xml" href="image/perimetrr-mark.svg" />
-    <link rel="apple-touch-icon" href="image/perimetrr-mark.svg" />
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="apple-touch-icon" href="image/apple-touch-icon.png" />
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2"></script>
     <script src="https://unpkg.com/lucide@0.344.0/dist/umd/lucide.min.js"></script>
     <script>
         // Dynamically set paths based on current location for portability
@@ -60,16 +44,33 @@
             if (btn) btn.style.display = 'inline-flex';
         });
     </script>
+
+    <meta name="description" content="Workspace attendance with location checks, device pairing, hybrid schedules and clear attendance records.">
+    <link rel="canonical" href="https://perimetrr.com/">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Perimetrr">
+    <meta property="og:title" content="Perimetrr — Presence You Can Prove">
+    <meta property="og:description" content="Workspace attendance with location checks, device pairing, hybrid schedules and clear attendance records.">
+    <meta property="og:url" content="https://perimetrr.com/">
+    <meta property="og:image" content="https://perimetrr.com/image/social-preview.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="Perimetrr — Presence you can prove">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Perimetrr — Presence You Can Prove">
+    <meta name="twitter:description" content="Workspace attendance with location checks, device pairing, hybrid schedules and clear attendance records.">
+    <meta name="twitter:image" content="https://perimetrr.com/image/social-preview.png">
+    <link rel="stylesheet" href="polish.css?v=1.1.1">
 </head>
 
 <body class="homepage-active">
-    <a href="#main-content" class="skip-link">Skip to main content</a>
+    <a href="#homepage-view" class="skip-link">Skip to main content</a>
 
     <!-- ============================================================
          PERIMETRR PUBLIC HOMEPAGE & PRODUCT SHOWCASE
          ============================================================ -->
     <div id="homepage-view" class="homepage-wrapper" data-theme="dark" style="display:flex;">
-        
+
         <!-- Navigation Bar -->
         <header class="hp-navbar">
             <a href="./" class="hp-brand">
@@ -82,7 +83,7 @@
                 <a href="#features" class="hp-nav-link">Features</a>
                 <a href="#demo" class="hp-nav-link">See How It Works</a>
                 <a href="#compare" class="hp-nav-link">Hardware vs Perimetrr</a>
-                <a href="./onboard/" class="hp-nav-link">Pricing</a>
+                <a href="./onboard/" class="hp-nav-link">Create workspace</a>
             </nav>
 
             <div class="hp-nav-actions">
@@ -129,7 +130,7 @@
             </h1>
 
             <p class="hp-hero-sub">
-                Know who's actually at work. Your team clocks in from their phones when they arrive at the office — no expensive fingerprint machines, no fake locations, no checking in for absent coworkers.
+                Know who's actually at work. Your team clocks in from their phones when they arrive at the office — with location checks, paired devices, and clear records for managers.
             </p>
 
             <div class="hp-hero-ctas">
@@ -152,7 +153,7 @@
                 <div class="hp-radar-ring r1"></div>
                 <div class="hp-radar-ring r2"></div>
                 <div class="hp-radar-ring r3"></div>
-                
+
                 <div class="hp-radar-core">
                     <img src="./image/perimetrr-mark.svg" alt="Perimeter Mark" width="48" height="48" />
                     <div style="font-size:0.75rem; font-weight:700; color:#27FB8A; letter-spacing:1px; text-transform:uppercase;">The Perimeter</div>
@@ -166,20 +167,20 @@
         <section id="features" class="hp-features-section">
             <div class="hp-section-header">
                 <h2>Why Teams Switch to Perimetrr</h2>
-                <p>Stop paying for hours people didn't work. Simple for employees, airtight for managers.</p>
+                <p>Stop paying for hours people didn't work. Simple for employees, clear for managers.</p>
             </div>
 
             <div class="hp-grid-3">
                 <div class="hp-card">
                     <div class="hp-card-icon"><i data-lucide="shield-check" size="22"></i></div>
-                    <h3>Tamper-Proof Location Defense</h3>
-                    <p>Fake GPS and mock location apps don't work here. The system verifies physical distance directly on the secure server before any check-in is approved.</p>
+                    <h3>Location Checks at Sign-In</h3>
+                    <p>Sign-ins are checked against your workspace’s Perimeter. Device location can be inaccurate or manipulated; review exceptions alongside your attendance records.</p>
                 </div>
 
                 <div class="hp-card">
                     <div class="hp-card-icon"><i data-lucide="smartphone" size="22"></i></div>
                     <h3>1 Phone = 1 Verified Employee</h3>
-                    <p>Each phone is securely linked to one staff member. Nobody can clock in on behalf of a friend or coworker who is running late.</p>
+                    <p>Each phone is securely linked to one staff member. Device pairing helps prevent casual account sharing. Administrators manage device transfer requests.</p>
                 </div>
 
                 <div class="hp-card">
@@ -197,13 +198,13 @@
                 <div class="hp-card">
                     <div class="hp-card-icon"><i data-lucide="file-spreadsheet" size="22"></i></div>
                     <h3>1-Click Clean Payroll Export</h3>
-                    <p>Export second-accurate timesheets formatted cleanly for Excel, QuickBooks, and payroll with one click. Never argue over manual timecards again.</p>
+                    <p>Export second-accurate timesheets in CSV format for review in a spreadsheet or your payroll workflow with one click. Never argue over manual timecards again.</p>
                 </div>
 
                 <div class="hp-card">
                     <div class="hp-card-icon"><i data-lucide="tower-control" size="22"></i></div>
                     <h3>Multi-Branch & Agency Fleet</h3>
-                    <p>Manage multiple offices, retail branches, or client companies from one master screen with custom company branding.</p>
+                    <p>Authorized organization administrators oversee only their company’s attached branch workspaces in Watch Tower. Each branch keeps its own Perimeter, staff and schedule.</p><a href="enterprise/">Set up an enterprise organization</a>
                 </div>
             </div>
         </section>
@@ -227,12 +228,12 @@
                     <tbody>
                         <tr>
                             <td><strong>Upfront Hardware Cost</strong></td>
-                            <td>$800 – $1,500 per device + technician wiring</td>
+                            <td>Dedicated equipment and installation</td>
                             <td><strong>$0 (Zero Hardware Needed)</strong></td>
                         </tr>
                         <tr>
                             <td><strong>Setup Time</strong></td>
-                            <td>2–4 weeks (technician installation)</td>
+                            <td>Depends on hardware and installation</td>
                             <td><strong>Under 2 minutes</strong></td>
                         </tr>
                         <tr>
@@ -243,12 +244,12 @@
                         <tr>
                             <td><strong>Multiple Offices / Field Sites</strong></td>
                             <td>Requires purchasing hardware for every location</td>
-                            <td><strong>Unlimited Locations from 1 Account</strong></td>
+                            <td><strong>Separate company workspaces</strong></td>
                         </tr>
                         <tr>
                             <td><strong>Maintenance & Downtime</strong></td>
                             <td>Frequent breakdowns and costly repair calls</td>
-                            <td><strong>Always updated, zero maintenance</strong></td>
+                            <td><strong>Browser-based updates; no scanner maintenance</strong></td>
                         </tr>
                     </tbody>
                 </table>
@@ -291,7 +292,7 @@
 
             <div style="max-width:1140px; margin:24px auto 0 auto; padding-top:16px; border-top:1px solid rgba(255,255,255,0.06); font-size:0.75rem; color:var(--text-muted); display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px;">
                 <div>Copyright &copy; 2026 Perimetrr Technologies. All Rights Reserved.</div>
-                <div>Status: <span style="color:#27FB8A;">● All Systems Operational</span></div>
+                <div> <span style="color:#27FB8A;">Workspace attendance, made clear</span></div>
             </div>
         </footer>
     </div>
@@ -373,11 +374,6 @@
                     <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
                         <span id="linked-dept-display" class="linked-sub">Staff Member</span>
                         <span id="linked-lead-badge" class="badge-team-lead" style="display:none; font-size:0.68rem; background:rgba(57,255,136,0.12); color:#39FF88; border:1px solid rgba(57,255,136,0.3); padding:1px 6px; border-radius:4px; font-weight:600;"><i data-lucide="shield" size="11" style="vertical-align:middle; margin-right:2px;"></i> Team Lead</span>
-                        <span id="linked-bio-badge" class="badge-bio"
-
-                            style="display:none; font-size:0.68rem; background:rgba(16,185,129,0.12); color:#10b981; border:1px solid rgba(16,185,129,0.3); padding:1px 6px; border-radius:4px; font-weight:600;"><i
-                                data-lucide="shield-check" size="11"
-                                style="vertical-align:middle; margin-right:2px;"></i> Biometrics</span>
                     </div>
                 </div>
                 <div style="display:flex; align-items:center; gap:6px;">
@@ -388,7 +384,7 @@
                     </button>
                     <span class="device-locked-pill" title="Device linked to this employee."
                         data-tooltip="Device securely linked to your profile. Contact your administrator to transfer or reset."><i
-                            data-lucide="lock" size="12"></i> <span data-i18n="deviceBound">Linked</span></span>
+                            data-lucide="lock" size="12"></i> <span id="device-authorization-status">Checking device</span></span>
                 </div>
             </div>
 
@@ -943,10 +939,10 @@
 
                 <div class="policy-card"
                     style="background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px;">
-                    <h4
+                    <h3
                         style="color: var(--primary); margin: 0 0 6px 0; display: flex; align-items: center; gap: 6px; font-size: 0.92rem; font-weight: 700;">
                         <i data-lucide="map-pin" size="16"></i> 📍 Instantaneous Proximity Verification (Zero Tracking)
-                    </h4>
+                    </h3>
                     <p style="margin: 0; font-size: 0.84rem; color: var(--text-2);">GPS coordinates are sampled
                         <strong>strictly at the exact instant</strong> you tap "Sign In" or "Sign Out" to calculate your
                         distance from the authorized office perimeter. Your route history, travel speed, and personal
@@ -955,34 +951,29 @@
 
                 <div class="policy-card"
                     style="background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px;">
-                    <h4
+                    <h3
                         style="color: var(--primary); margin: 0 0 6px 0; display: flex; align-items: center; gap: 6px; font-size: 0.92rem; font-weight: 700;">
                         <i data-lucide="bell" size="16"></i> 🔔 Passive Perimeter Arrival Reminders
-                    </h4>
-                    <p style="margin: 0; font-size: 0.84rem; color: var(--text-2);">Mobile arrival prompts rely on your
-                        phone OS's native low-power perimeter listener. The app stays dormant until your hardware enters
-                        the workplace radius to fire a single local notification. Zero location data leaves your device.
+                    </h3>
+                    <p style="margin: 0; font-size: 0.84rem; color: var(--text-2);">With location permission, the open app can show whether you are inside the office Perimeter. When you record attendance, your coordinates are sent to the server for a distance check. Background arrival alerts are not guaranteed by mobile browsers.
                     </p>
                 </div>
 
                 <div class="policy-card"
                     style="background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px;">
-                    <h4
+                    <h3
                         style="color: var(--primary); margin: 0 0 6px 0; display: flex; align-items: center; gap: 6px; font-size: 0.92rem; font-weight: 700;">
-                        <i data-lucide="fingerprint" size="16"></i> 🔐 Hardware-Level Biometric Protection
-                    </h4>
-                    <p style="margin: 0; font-size: 0.84rem; color: var(--text-2);">Touch ID, Face ID, and Device PIN
-                        authentication are processed exclusively within your phone's hardware <strong>Secure
-                            Enclave</strong> via W3C WebAuthn standards. Biometric traits remain locked inside your
-                        device and are never uploaded or accessible to any server.</p>
+                        <i data-lucide="key-round" size="16"></i> Linked Browser Credential
+                    </h3>
+                    <p style="margin: 0; font-size: 0.84rem; color: var(--text-2);">A browser credential is checked against the staff profile stored in Supabase. It is not a hardware identifier or proof of the employee’s identity. Clearing browser storage or using a different browser requires linking or an approved transfer.</p>
                 </div>
 
                 <div class="policy-card"
                     style="background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px;">
-                    <h4
+                    <h3
                         style="color: var(--primary); margin: 0 0 6px 0; display: flex; align-items: center; gap: 6px; font-size: 0.92rem; font-weight: 700;">
                         <i data-lucide="shield" size="16"></i> 🏢 Multi-Tenant Data Isolation &amp; Employee Rights
-                    </h4>
+                    </h3>
                     <p style="margin: 0; font-size: 0.84rem; color: var(--text-2);">Attendance logs (timestamp,
                         verification method, perimeter status) are encrypted in transit (TLS 1.3) and at rest (AES-256),
                         isolated within your employer's workspace vault. You maintain rights to access and verify your
@@ -1086,89 +1077,17 @@
         </div>
     </div>
 
-    <!-- Biometric Enrollment Modal -->
-    <div id="biometric-enroll-modal" class="faq-overlay" role="dialog" aria-modal="true" style="display:none;">
-        <div class="faq-modal-content" style="max-width: 420px; text-align: center;">
-            <div style="margin-bottom: 12px; color: #10b981; display: flex; justify-content: center;"><i
-                    data-lucide="shield-check" size="48"></i></div>
-            <h2 id="biometric-modal-title"
-                style="font-size: 1.25rem; font-weight: 700; margin-bottom: 6px; color: var(--text);">Biometric / PIN
-                Verification Required</h2>
-            <p id="biometric-modal-desc"
-                style="font-size: 0.86rem; color: var(--text-muted); margin-bottom: 20px; line-height: 1.5;">
-                To securely link this device to your profile, please verify your device's native <strong>Face ID,
-                    Fingerprint, or Device PIN</strong>.
-            </p>
-            <div style="display: flex; flex-direction: column; gap: 10px; width: 100%;">
-                <button type="button" id="enable-bio-confirm-btn"
-                    style="width: 100%; padding: 12px; background: #10b981; color: #ffffff; border: none; border-radius: 8px; font-size: 0.95rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-sizing: border-box;">
-                    <i data-lucide="fingerprint" size="18"></i> Verify Biometrics / Device PIN
-                </button>
-                <button type="button" id="skip-bio-btn"
-                    style="width: 100%; padding: 10px; background: transparent; color: var(--text-muted); border: 1px solid var(--border); border-radius: 8px; font-size: 0.85rem; cursor: pointer; box-sizing: border-box;">
-                    Cancel Setup
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Device Transfer / Unlink Modal -->
-    <div id="device-transfer-modal" class="faq-overlay" role="dialog" aria-modal="true" style="display:none;">
-        <div class="faq-modal-content" style="max-width: 440px; text-align: left;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <div style="color: var(--primary);"><i data-lucide="arrow-left-right" size="22"></i></div>
-                    <h2 style="font-size: 1.15rem; font-weight: 700; margin: 0; color: var(--text);">Switch Account /
-                        Device</h2>
-                </div>
-                <button type="button" id="close-transfer-modal-btn" class="faq-close-btn" aria-label="Close modal"
-                    style="position:static; margin:0;">&times;</button>
-            </div>
-            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 16px; line-height: 1.45;">
-                This phone is securely bound to <strong id="transfer-current-name"
-                    style="color:var(--text);">--</strong>. To switch employees or unbind this device, select an option
-                below:
-            </p>
-
-            <div style="display: flex; flex-direction: column; gap: 14px; width: 100%;">
-                <!-- Option 1: Instant Admin PIN / Password Unlock -->
-                <div
-                    style="background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; box-sizing: border-box;">
-                    <div
-                        style="font-size: 0.88rem; font-weight: 600; color: var(--text); margin-bottom: 4px; display:flex; align-items:center; gap:6px;">
-                        <i data-lucide="key" size="14" style="color:var(--primary);"></i> Admin Instant Unlock
-                    </div>
-                    <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 8px;">
-                        An administrator can enter their workspace password or PIN to immediately unbind this phone.
-                    </p>
-                    <div style="display: flex; gap: 6px; flex-wrap: wrap;">
-                        <input type="password" id="transfer-admin-pwd" placeholder="Enter Workspace Admin Password"
-                            aria-label="Admin password"
-                            style="flex: 1 1 180px; min-width: 0; padding: 8px 10px; font-size: 0.82rem; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--text); box-sizing: border-box;" />
-                        <button type="button" id="confirm-admin-unlink-btn" class="btn-primary small"
-                            style="flex: 0 0 auto; white-space: nowrap; padding: 8px 14px; font-size: 0.82rem;">Unlock</button>
-                    </div>
-                    <div id="transfer-admin-pwd-msg" style="display:none; font-size: 0.75rem; margin-top: 6px;"></div>
-                </div>
-
-                <!-- Option 2: 1-Tap Request Transfer -->
-                <div
-                    style="background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; box-sizing: border-box;">
-                    <div
-                        style="font-size: 0.88rem; font-weight: 600; color: var(--text); margin-bottom: 4px; display:flex; align-items:center; gap:6px;">
-                        <i data-lucide="smartphone" size="14" style="color:#10b981;"></i> Request Device Transfer
-                    </div>
-                    <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 8px;">
-                        If your previous phone was inactive for 7+ days, this phone will link automatically. Otherwise, an authorization PIN is generated for your Team Lead or Workspace Admin.
-                    </p>
-                    <button type="button" id="request-transfer-btn"
-                        style="width: 100%; padding: 9px; background: transparent; border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 0.82rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; box-sizing: border-box;">
-                        <i data-lucide="send" size="14"></i> Request Device Transfer
-                    </button>
-                    <div id="transfer-request-msg" style="display:none; font-size: 0.75rem; margin-top: 8px;"></div>
-                </div>
-            </div>
-        </div>
+    <!-- Device transfers require approval. No local unlock or QR credential bypass. -->
+    <div id="device-transfer-modal" class="faq-overlay" role="dialog" aria-modal="true" aria-labelledby="transfer-heading" style="display:none;">
+      <div class="faq-modal-content" style="max-width:440px;text-align:left;">
+        <button type="button" id="close-transfer-modal-btn" class="faq-close-btn" aria-label="Close device transfer">&times;</button>
+        <h2 id="transfer-heading">Request a device transfer</h2>
+        <p>Staff profile: <strong id="transfer-current-name">—</strong></p>
+        <p>Your administrator or an authorized Team Lead must approve a new device. Until then, attendance from this device is marked provisional—not verified attendance.</p>
+        <p>Approved requests reconcile only their own provisional records. Rejected requests also reject those provisional records.</p>
+        <button type="button" id="request-transfer-btn" class="btn-primary"><i data-lucide="send" size="14"></i> Request Device Transfer</button>
+        <p id="transfer-request-msg" role="status" style="display:none;white-space:pre-line;font-size:.85rem;"></p>
+      </div>
     </div>
 
     <!-- Team Lead In-App Approvals Modal -->
@@ -1195,8 +1114,8 @@
     </div>
 
 
-    <script src="common.js?v=3.0.5"></script>
-    <script src="script.js?v=3.0.5"></script>
+    <script src="common.js?v=1.1.1"></script>
+    <script src="script.js?v=1.1.1"></script>
     <script>
         if ('serviceWorker' in navigator) {
             // Force browser to bypass HTTP cache when checking for Service Worker updates

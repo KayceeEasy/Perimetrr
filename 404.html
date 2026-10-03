@@ -1,54 +1,19 @@
 <!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <title>Redirecting…</title>
-    <script>
-        // GitHub Pages SPA Router for Perimetrr
-        // When GH Pages can't find a file it serves this 404.html.
-        // We parse the path, extract the workspace slug, and redirect
-        // to the correct static page with ?tenant=slug preserved.
-        (function () {
-            var loc = window.location;
-            var segments = loc.pathname.split('/').filter(Boolean);
-
-            // Detect GitHub Pages repo prefix (e.g. /Perimetrr/)
-            var isGhio = loc.hostname.indexOf('.github.io') !== -1;
-            var repoName = isGhio && segments.length > 0 ? segments.shift() : null;
-            var basePath = repoName ? '/' + repoName : '';
-
-            // Known static routes that are NOT workspace slugs
-            var knownRoutes = ['command-center', 'admin', 'watch-tower', 'onboard', 'hybrid', 'image'];
-
-            var slug = '';
-            var targetPage = '/';
-
-            if (segments.length > 0 && knownRoutes.indexOf(segments[0]) === -1) {
-                // First segment is a workspace code / slug
-                slug = segments[0];
-                if (segments.length > 1 && knownRoutes.indexOf(segments[1]) !== -1) {
-                    // e.g. /ACME-4821/command-center/ → redirect to /command-center/?tenant=ACME-4821
-                    var route = segments[1] === 'admin' ? 'command-center' : segments[1];
-                    targetPage = '/' + route + '/';
-                }
-                // else /ACME-4821/ → redirect to /?tenant=ACME-4821
-            }
-
-            // Build redirect URL
-            var query = slug ? '?tenant=' + encodeURIComponent(slug) : '';
-            // Preserve any existing query params
-            if (loc.search) {
-                query = query
-                    ? query + '&' + loc.search.substring(1)
-                    : loc.search;
-            }
-
-            var dest = loc.protocol + '//' + loc.host + basePath + targetPage + query + loc.hash;
-            loc.replace(dest);
-        })();
-    </script>
-</head>
-<body>
-    <p>Redirecting&hellip;</p>
-</body>
-</html>
+<html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Page Not Found • Perimetrr</title>
+<meta name="description" content="This Perimetrr page could not be found. Return home or open your Command Center.">
+<meta name="robots" content="noindex, follow"><link rel="canonical" href="https://perimetrr.com/404.html">
+<link rel="icon" type="image/svg+xml" href="/image/perimetrr-mark.svg"><link rel="apple-touch-icon" href="/image/apple-touch-icon.png">
+<meta property="og:type" content="website"><meta property="og:title" content="Page Not Found • Perimetrr">
+<meta property="og:description" content="Return to Perimetrr or your workspace’s Command Center.">
+<meta property="og:url" content="https://perimetrr.com/404.html"><meta property="og:image" content="https://perimetrr.com/image/social-preview.png">
+<meta property="og:image:alt" content="Perimetrr — Presence you can prove"><meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Page Not Found • Perimetrr"><meta name="twitter:description" content="Return to Perimetrr or your workspace’s Command Center.">
+<meta name="twitter:image" content="https://perimetrr.com/image/social-preview.png"><link rel="stylesheet" href="/polish.css?v=1.1.0">
+<style>body{margin:0;min-height:100dvh;display:grid;place-items:center;background:#0f1b2d;color:#f5f7fb;font-family:Inter,system-ui,sans-serif;padding:24px}main{width:min(100%,560px)}.code{color:#27fb8a;letter-spacing:.15em;font-weight:700}h1{font-size:clamp(2rem,6vw,3rem);line-height:1.15}p{color:#b8c4d7;line-height:1.7}nav{display:flex;gap:12px;flex-wrap:wrap;margin-top:28px}a{padding:14px 20px;color:#0f1b2d;background:#27fb8a;border-radius:10px;font-weight:600;text-decoration:none}a.secondary{color:#f5f7fb;background:#21324a}</style>
+</head><body><main><img src="/image/perimetrr-mark.svg" alt="Perimetrr" width="48" height="48">
+<p class="code">404 · PAGE NOT FOUND</p><h1>This page isn’t here.</h1>
+<p>The address may be incomplete, or the page may have moved. If you’re joining a workspace, use the pairing code your administrator shared.</p>
+<nav aria-label="Recovery options"><a href="/">Return home</a><a class="secondary" href="/command-center/">Command Center</a></nav>
+</main></body></html>

@@ -2,6 +2,8 @@ User-agent: *
 Disallow: /watch-tower/
 Allow: /
 
+
+Sitemap: https://perimetrr.com/sitemap.xml
 # Block AI Scrapers and Crawlers
 User-agent: GPTBot
 Disallow: /

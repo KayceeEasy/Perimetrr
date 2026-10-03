@@ -5,37 +5,32 @@ const hybridSupabaseClient = (typeof window !== 'undefined' && window.supabaseCl
         ? supabaseClient
         : (window.supabase && window.APP_CONFIG ? window.supabase.createClient(
             window.APP_CONFIG.SUPABASE_URL,
-            window.APP_CONFIG.SUPABASE_KEY
+            window.APP_CONFIG.SUPABASE_KEY,
+            { db: { schema: 'api' } }
           ) : null));
 
 
 const urlParams = new URLSearchParams(window.location.search);
-let activeTenantSlug = (typeof getActiveTenantSlug === 'function' ? getActiveTenantSlug() : null) || urlParams.get('tenant') || '';
+let activeTenantSlug = urlParams.get('tenant') || (typeof getActiveTenantSlug === 'function' ? getActiveTenantSlug() : null) || '';
 
 let STORAGE_KEY = `perimetrr-hybrid-schedule-${activeTenantSlug || 'default'}`;
 let HISTORY_STORAGE_KEY = `perimetrr-hybrid-history-${activeTenantSlug || 'default'}`;
 
 // Admin Mode check: active authenticated admin session strictly for this tenant
-function checkHasAdminSession() {
-    const isSuper = (typeof safeSession !== 'undefined' && safeSession.getItem('is_superuser') === 'true') || sessionStorage.getItem('is_superuser') === 'true';
-    if (isSuper) return true;
-
-    const unlockedExplicit = Boolean(activeTenantSlug && sessionStorage.getItem(`perimetrr_admin_unlocked_${activeTenantSlug}`));
-    if (unlockedExplicit) return true;
-
-    const adminSession = sessionStorage.getItem('admin_session');
-    const adminToken = sessionStorage.getItem('admin_token');
-    const sessionTenant = sessionStorage.getItem('admin_tenant_slug') || sessionStorage.getItem('admin_tenant') || (typeof safeSession !== 'undefined' && safeSession.getItem('admin_tenant_slug'));
-
-    if ((adminSession || adminToken) && sessionTenant) {
-        if (!activeTenantSlug || sessionTenant.toLowerCase() === activeTenantSlug.toLowerCase()) {
-            return true;
-        }
-    }
-    return false;
+async function checkHasAdminSession() {
+    if (!hybridSupabaseClient) return false;
+    try {
+        const {data, error} = await hybridSupabaseClient.auth.getUser();
+        if (error || !data?.user) return false;
+        const result = await hybridSupabaseClient.rpc('get_admin_workspaces');
+        if (result.error) return false;
+        const memberships = Array.isArray(result.data) ? result.data : [];
+        const match = memberships.find(entry => entry.tenants?.slug === activeTenantSlug);
+        return Boolean(match);
+    } catch (_) { return false; }
 }
 
-let IS_ADMIN = checkHasAdminSession();
+let IS_ADMIN = false;
 let isWorkspaceAuthorized = false;
 let tenantHybridOfficeDays = 2;
 
@@ -63,7 +58,7 @@ async function handleHybridAdminLogin(event) {
     const submitBtn = document.getElementById('hybrid-admin-submit-btn');
 
     const email = (emailInput ? emailInput.value : '').trim();
-    const password = (pwdInput ? pwdInput.value : '').trim();
+    const password = pwdInput ? pwdInput.value : '';
 
     if (!email || !password) {
         if (errEl) { errEl.textContent = 'Email and password required.'; errEl.style.display = 'block'; }
@@ -78,7 +73,7 @@ async function handleHybridAdminLogin(event) {
     try {
         const res = await callBackend({ mode: 'admin-login', email, password, tenantSlug: activeTenantSlug });
         if (res && res.ok) {
-            if (activeTenantSlug && res.tenantSlug && res.tenantSlug.toLowerCase() !== activeTenantSlug.toLowerCase() && !res.isSuperuser) {
+            if (activeTenantSlug && res.tenantSlug && res.tenantSlug.toLowerCase() !== activeTenantSlug.toLowerCase()) {
                 if (errEl) {
                     errEl.textContent = 'This admin account does not have access to this workspace.';
                     errEl.style.display = 'block';
@@ -86,7 +81,6 @@ async function handleHybridAdminLogin(event) {
                 return;
             }
 
-            sessionStorage.setItem(`perimetrr_admin_unlocked_${activeTenantSlug}`, 'true');
             sessionStorage.setItem('admin_tenant_slug', activeTenantSlug);
             if (res.adminToken) sessionStorage.setItem('admin_token', res.adminToken);
             IS_ADMIN = true;
@@ -116,9 +110,6 @@ async function handleHybridAdminLogin(event) {
 
 function handleSwitchWorkspace() {
     sessionStorage.removeItem('hybrid_authorized_tenant');
-    if (activeTenantSlug) {
-        sessionStorage.removeItem(`perimetrr_admin_unlocked_${activeTenantSlug}`);
-    }
     activeTenantSlug = '';
     try {
         if (window.history && window.history.replaceState) {
@@ -164,13 +155,9 @@ let currentDeptFilter = "all";
    ============================================================ */
 
 async function checkWorkspaceAuth() {
-    if (checkHasAdminSession()) {
+    if (await checkHasAdminSession()) {
         isWorkspaceAuthorized = true;
         IS_ADMIN = true;
-        if (!activeTenantSlug) {
-            const adminSessionSlug = sessionStorage.getItem('admin_tenant') || (typeof safeSession !== 'undefined' && safeSession.getItem('masquerade_tenant'));
-            if (adminSessionSlug) activeTenantSlug = adminSessionSlug;
-        }
         return true;
     }
 
@@ -183,7 +170,7 @@ async function checkWorkspaceAuth() {
     }
 
     // Check if this device is paired to a workspace
-    const pairedSlug = typeof safeStorage !== 'undefined' ? safeStorage.getItem('attendance_tenant_slug') : localStorage.getItem('attendance_tenant_slug');
+    const pairedSlug = typeof safeStorage !== 'undefined' ? safeStorage.getItem('active_tenant_slug') : localStorage.getItem('active_tenant_slug');
     if (pairedSlug) {
         if (!activeTenantSlug) activeTenantSlug = pairedSlug;
         if (activeTenantSlug === pairedSlug) {
@@ -196,7 +183,8 @@ async function checkWorkspaceAuth() {
     const codeParam = urlParams.get('code');
     if (codeParam && typeof callBackend === 'function') {
         try {
-            const res = await callBackend({ mode: 'check-pairing-code', code: codeParam });
+            const tenant = await getTenantByWorkspaceCode(codeParam);
+            const res = tenant ? { ok: true, slug: tenant.slug } : null;
             if (res && res.ok && res.slug) {
                 activeTenantSlug = res.slug;
                 sessionStorage.setItem('hybrid_authorized_tenant', res.slug);
@@ -216,20 +204,21 @@ async function handleUnlockGate(event) {
     const code = (input ? input.value : '').trim().toUpperCase();
 
     if (!code || code.length < 4) {
-        if (errEl) { errEl.textContent = 'Please enter your 6-character Workspace Code.'; errEl.style.display = 'block'; }
+        if (errEl) { errEl.textContent = 'Enter the Workspace Code shared by your administrator (for example, ABCD-1234).'; errEl.style.display = 'block'; }
         return;
     }
 
     try {
         if (typeof callBackend !== 'function') throw new Error('Backend unavailable');
-        const res = await callBackend({ mode: 'check-pairing-code', code });
+        const tenant = await getTenantByWorkspaceCode(code);
+        const res = tenant ? { ok: true, slug: tenant.slug } : null;
         if (res && res.ok && res.slug) {
             activeTenantSlug = res.slug;
             sessionStorage.setItem('hybrid_authorized_tenant', res.slug);
             STORAGE_KEY = `perimetrr-hybrid-schedule-${activeTenantSlug}`;
             HISTORY_STORAGE_KEY = `perimetrr-hybrid-history-${activeTenantSlug}`;
             isWorkspaceAuthorized = true;
-            IS_ADMIN = checkHasAdminSession();
+            IS_ADMIN = await checkHasAdminSession();
 
             document.getElementById('hybrid-auth-gate').style.display = 'none';
             document.querySelector('.container').style.display = 'block';
@@ -281,17 +270,7 @@ async function loadDynamicStaff() {
             tenantStaff = await getTenantStaffList(activeTenantSlug);
         }
 
-        if ((!tenantStaff || !tenantStaff.length) && hybridSupabaseClient) {
-            try {
-                const { data } = await hybridSupabaseClient
-                    .from('staff')
-                    .select('*')
-                    .eq('tenant_slug', activeTenantSlug)
-                    .order('name');
-                if (data && data.length) tenantStaff = data;
-            } catch(e) {}
-        }
-
+        ALL_STAFF = [];
         if (tenantStaff && tenantStaff.length) {
             // Strict filtering: Only weekly_hybrid staff appear on the schedule
             // office_only (100% on-site) and field_flexible (remote) are strictly excluded
@@ -370,17 +349,21 @@ async function saveHybridSettings() {
     const select = document.getElementById('hybrid-office-days-select');
     const val = parseInt(select?.value || '2', 10);
     if (val >= 1 && val <= 4) {
-        tenantHybridOfficeDays = val;
         try {
             if (typeof callBackend === 'function') {
-                await callBackend({
+                const response = await callBackend({
                     mode: 'update-config',
                     key: 'HYBRID_OFFICE_DAYS',
                     value: val,
                     tenantSlug: activeTenantSlug
                 });
+                if (!response?.ok) throw new Error(response?.message || 'The quota could not be saved.');
+                tenantHybridOfficeDays = val;
             }
-        } catch(e) {}
+        } catch(e) {
+            if (typeof showToast === 'function') showToast(e.message || 'Unable to save the quota. Try again.', 'error');
+            return;
+        }
         closeHybridSettingsModal();
         generateNew();
         if (typeof showToast === 'function') {
@@ -429,7 +412,8 @@ function ensureScheduleData(data) {
     pool.forEach(p => {
         valid[p.name] = {};
         DAYS.forEach(d => {
-            valid[p.name][d] = (data && data[p.name] && data[p.name][d]) ? data[p.name][d] : "Home";
+            const status = data?.[p.name]?.[d];
+            valid[p.name][d] = ['Office', 'Home', 'Leave'].includes(status) ? status : 'Unscheduled';
         });
     });
     return valid;
@@ -516,7 +500,7 @@ function renderTable() {
         let homeCount = 0;
         const star = person.is_team_lead ? ` <span class="staff-lead-star" title="Team Lead">★</span>` : "";
 
-        let rowHtml = `<td style="font-weight:600; text-align:left;">${person.name}${star}<br><span style="font-size:0.75rem; color:var(--text-muted); font-weight:normal;">${person.dept}</span></td>`;
+        let rowHtml = `<td style="font-weight:600; text-align:left;">${escapeHtml(person.name)}${star}<br><span style="font-size:0.75rem; color:var(--text-muted); font-weight:normal;">${escapeHtml(person.dept)}</span></td>`;
 
         DAYS.forEach(day => {
             const status = (currentData[person.name] && currentData[person.name][day]) ? currentData[person.name][day] : "Home";
@@ -529,7 +513,7 @@ function renderTable() {
             rowHtml += `
                 <td>
                     <div class="day-slot ${statusClass}" ${draggableAttr}
-                         data-person="${person.name}" data-day="${day}" data-status="${status}"
+                         data-person="${escapeHtml(person.name)}" data-day="${day}" data-status="${status}"
                          style="${cursorStyle}">
                          ${status}
                     </div>
@@ -635,26 +619,14 @@ async function loadHistory(updateTable = false) {
     }
 
     try {
-        const { data: dbData, error } = await hybridSupabaseClient
-            .from('hybrid_schedules')
-            .select('*')
-            .order('timestamp', { ascending: false })
-            .limit(30);
-
-        if (error) throw error;
-
-        const tenantRows = (dbData || []).filter(row => {
-            if (!row.week_key) return false;
-            return row.week_key.startsWith(`${activeTenantSlug}::`);
-        });
-
-        const remoteHistory = tenantRows.map(row => ({
-            weekKey: getUnscopedWeekKey(row.week_key),
-            data: row.schedule_data,
-            timestamp: row.timestamp
+        const response = await callBackend({mode:'get-hybrid-history', tenantSlug:activeTenantSlug});
+        if (!response?.ok) throw new Error(response?.message || 'Unable to load schedule history.');
+        const remoteHistory = (response.history || []).map(row => ({
+            weekKey: formatScheduleRange(row.week_start), data: row.schedule_data, timestamp: row.updated_at
         }));
 
-        const history = mergeHistory(remoteHistory, localHistory);
+        // A successful cloud read is authoritative for every browser in this workspace.
+        const history = remoteHistory;
 
         if (updateTable) {
             const currentRange = getWeekRange(0);
@@ -696,20 +668,10 @@ async function loadHistory(updateTable = false) {
     }
 }
 
-function mergeHistory(remote, local) {
-    const map = new Map();
-    remote.forEach(item => map.set(item.weekKey, item));
-    local.forEach(item => {
-        if (!map.has(item.weekKey)) {
-            map.set(item.weekKey, item);
-        } else {
-            const existing = map.get(item.weekKey);
-            if (new Date(item.timestamp) > new Date(existing.timestamp)) {
-                map.set(item.weekKey, item);
-            }
-        }
-    });
-    return Array.from(map.values()).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+function formatScheduleRange(iso) {
+    const start = new Date(iso + 'T12:00:00');
+    const end = new Date(start); end.setDate(end.getDate() + 4);
+    return `${formatDate(start)} - ${formatDate(end)}, ${end.getFullYear()}`;
 }
 
 function renderHistoryCards(history) {
@@ -779,19 +741,15 @@ async function autoSync(targetWeekKey) {
     saveHistoryToStorage(history);
     renderHistoryCards(history);
 
-    if (hybridSupabaseClient) {
-        try {
-            await hybridSupabaseClient.from('hybrid_schedules').upsert([{
-                week_key: getScopedWeekKey(targetWeekKey),
-                schedule_data: currentData,
-                timestamp: entry.timestamp
-            }], { onConflict: 'week_key' });
-        } catch(e) {
-            console.warn("Could not sync to cloud DB:", e);
-        }
+    try {
+        const res = await callBackend({ mode: 'save-hybrid-schedule', tenantSlug: activeTenantSlug, weekStart: entry.weekKey, scheduleData: currentData });
+        if (!res?.ok) throw new Error(res?.message || 'Unable to save the schedule.');
+        if (statusEl) statusEl.textContent = '✓ Synced';
+    } catch (_) {
+        if (statusEl) statusEl.textContent = 'Saved on this device only — cloud sync failed. Retry when connected.';
+        if (typeof showToast === 'function') showToast('Cloud sync failed. Your local schedule is saved; try saving again when connected.', 'error');
+        return;
     }
-
-    if (statusEl) statusEl.innerHTML = `✓ Synced`;
     setTimeout(() => { if (statusEl) statusEl.innerHTML = ""; }, 2500);
 }
 

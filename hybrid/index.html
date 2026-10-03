@@ -2,29 +2,45 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
     <title>Hybrid Work Schedule • Perimetrr</title>
-    <meta name="description" content="Visual hybrid shift management and daily office quota allocation." />
-    <meta property="og:title" content="Hybrid Work Schedule • Perimetrr" />
     <link rel="icon" type="image/svg+xml" href="../image/perimetrr-mark.svg">
-    <link rel="apple-touch-icon" sizes="180x180" href="../image/perimetrr-mark.svg">
-    <link rel="stylesheet" href="style.css">
+    <link rel="apple-touch-icon" sizes="180x180" href="../image/apple-touch-icon.png">
+    <link rel="stylesheet" href="style.css?v=1.1.1">
     <!-- Libraries -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="../common.js?v=3.0.3"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2"></script>
+    <script src="../common.js?v=1.1.1"></script>
+    <script src="https://unpkg.com/lucide@0.344.0/dist/umd/lucide.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+    <meta name="description" content="View your workspace’s weekly office and remote-work schedule with Perimetrr.">
+    <link rel="canonical" href="https://perimetrr.com/hybrid/">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Perimetrr">
+    <meta property="og:title" content="Hybrid Work Schedule • Perimetrr">
+    <meta property="og:description" content="View your workspace’s weekly office and remote-work schedule with Perimetrr.">
+    <meta property="og:url" content="https://perimetrr.com/hybrid/">
+    <meta property="og:image" content="https://perimetrr.com/image/social-preview.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="Perimetrr — Presence you can prove">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Hybrid Work Schedule • Perimetrr">
+    <meta name="twitter:description" content="View your workspace’s weekly office and remote-work schedule with Perimetrr.">
+    <meta name="twitter:image" content="https://perimetrr.com/image/social-preview.png">
+    <link rel="stylesheet" href="../polish.css?v=1.1.1">
 </head>
 <body id="main-body">
 
 <!-- Workspace Verification Gate (Shows on unlinked / unauthorized devices) -->
 <div id="hybrid-auth-gate" class="hybrid-gate-overlay" style="display:none;">
     <div class="hybrid-gate-card">
-        <div class="hybrid-gate-icon"><i data-lucide="shield-lock" size="44" style="color:var(--primary);"></i></div>
-        <h2>Workspace Access Required</h2>
-        <p>To protect employee privacy, enter your organization's 6-character Workspace Code to access the hybrid schedule.</p>
+        <div class="hybrid-gate-icon"><i data-lucide="shield-check" size="44" style="color:var(--primary);"></i></div>
+        <h1>Workspace Access Required</h1>
+        <p>Enter the workspace code shared by your administrator to view your branch’s hybrid schedule. Keep this code within your team.</p>
         <form id="hybrid-gate-form" onsubmit="handleUnlockGate(event)">
-            <input type="text" id="hybrid-workspace-code-input" class="hybrid-code-input" placeholder="e.g. ABC123" maxlength="10" autocomplete="off" autocapitalize="characters" aria-label="6-character Workspace Code" required autofocus />
+            <input type="text" id="hybrid-workspace-code-input" class="hybrid-code-input" placeholder="e.g. ABCD-1234" maxlength="9" autocomplete="off" autocapitalize="characters" aria-label="Workspace code" required autofocus />
             <div id="hybrid-gate-error" class="hybrid-gate-error" style="display:none;"></div>
             <button type="submit" class="btn-primary-gate">Unlock Schedule</button>
         </form>
@@ -155,6 +171,6 @@
     </div>
 </div>
 
-<script src="script.js"></script>
+<script src="script.js?v=1.1.1"></script>
 </body>
 </html>

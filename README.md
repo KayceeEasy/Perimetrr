@@ -1,89 +1,60 @@
-# 🏢 Staff Attendance Cloud
+# Perimetrr
 
-> A smart, secure, and modern digital attendance platform for companies and hybrid teams with GPS perimeter verification, biometric authentication, and anti-proxy device binding.
+A browser-based attendance app for tenant workspaces, with server-side Perimeter checks, linked browser credentials, weekly hybrid schedules, and organization-scoped branch oversight.
 
----
+## Product flows
 
-## 🌟 What is Staff Attendance Cloud?
+- Administrators create a workspace and staff profiles in Command Center, then share the workspace URL, code, or QR image.
+- Employees open the shared workspace and link a registered profile. A browser credential is verified by the server; it is not hardware attestation or proof of a person.
+- A new browser can request a device transfer. Inside-Perimeter attendance remains provisional until an authorized administrator or same-workspace Team Lead approves it.
+- Approval updates only the matching request’s provisional attendance. Original status, request identity, and resolution remain available for auditing. Rejection does not turn attendance into verified presence.
+- Organization owners create or attach branch workspaces through Enterprise Organization Setup. Watch Tower exposes only organizations and branches authorized for the signed-in account.
+- All interfaces use the same tenant staff directory and Monday-based schedule records. Local drafts are not cloud saves.
+- Organization setup does not purchase a subscription. New workspaces start on the Free plan. Paid billing and reseller entitlements are not activated by selecting a label.
 
-**Staff Attendance Cloud** is an automated employee check-in and attendance tracking solution built for businesses that value accuracy, simplicity, and trust. 
+## Local development
 
-Whether your team is fully on-site or works a modern hybrid schedule, Staff Attendance Cloud ensures employees are physically present at the office when signing in—without expensive biometric hardware, fingerprint scanners, or complicated punch-card systems.
+Requires Node.js 22 or later.
 
----
+```powershell
+npm test
+npm run preview
+npm run build
+```
 
-## ✨ Key Benefits for Your Organization
+The preview server defaults to http://127.0.0.1:4173. Deploy only the generated `dist` directory. The publish allowlist excludes environment files, management scripts, SQL, tests, documentation, and dependencies.
 
-### 📍 True On-Site Verification (GPS Perimeter)
-- Staff can only check in when they are physically within your company's designated office radius.
-- Eliminates proxy check-ins (staff signing in for coworkers) and fraudulent off-site check-ins.
+## Database changes
 
-### 🔒 Device-Locked Accounts (Zero Proxy Sign-Ins)
-- Each employee account is bound to that staff member's specific phone.
-- Colleagues cannot sign in for absent coworkers from other devices.
-- Need to switch phones? Company administrators can easily reassign or reset device links in one click.
+Reviewed SQL sources, applied to the connected database on 2026-10-03:
 
-### 👆 1-Tap Biometric Authentication
-- Employees can authenticate their identity using native **Face ID**, **Touch ID**, or **Fingerprint recognition** directly on their smartphones.
-- Fast, seamless, and frictionless arrival experience—just tap and go.
+1. `security-hardening.sql` and `enterprise-and-transfers.sql`, applied atomically.
+2. `advisor-hardening.sql`, applied after advisor inspection and rollback-only regression tests.
+3. `dedicated-api-schema.sql`, applied after rollback-only preflight. Supabase Data API exposure is now `api` only, with `extensions` as its extra search path.
 
-### 🏠 Hybrid & Remote Work Management
-- Seamlessly coordinate in-office and remote days across your company.
-- Real-time contextual statuses:
-  - 📍 **Office**: Scheduled and verified in-person work day.
-  - 🏠 **Home**: Scheduled remote or virtual work day.
-  - 🌴 **Leave**: Approved vacation, sick leave, or holiday.
-- Team leads and HR managers can review and set weekly schedules in seconds.
+Browsers use `{ db: { schema: 'api' } }`. The API offers 27 explicitly granted operations, not raw tables. Existing application tables and RLS policies remain intact in the now-unexposed `public` section; browser roles cannot use that section. Platform services retain their existing access. Shared workspace URLs, codes, and QR pairing are unchanged.
 
-### 📡 Uninterrupted Offline Functionality
-- If office Wi-Fi or mobile data drops, staff can still record their check-ins without interruption.
-- The app securely stores records locally and automatically syncs them to the company dashboard the instant connection returns.
+Apply sources in this order for an already-provisioned database. Do not reapply the older grant scripts after the dedicated boundary. These sources do not replace the still-needed clean provisioning baseline/migration ledger.
 
-### ⚡ Lightning-Fast Type-to-Search Roster
-- Employees simply tap the search box or type a couple of letters to find their name.
-- No tedious typing or manual verification forms—instant selection with department identification.
+The private management utility reads credentials from ignored local environment settings. It never ships in the public build. Agent access keys were not changed.
 
----
+Repeat the rollback-only database regression suite:
 
-## 📱 How It Works for Employees
+```powershell
+node tools/database-query.cjs tests/enterprise-transfers.sql tests/api-schema.sql --atomic --check --apply
+node tools/api-schema-config.cjs inspect
+node tools/verify-api-schema.cjs
+node tools/database-advisors.cjs
+```
 
-1. **Open the Portal**: Launch your company's attendance link on your phone or computer (or install it as an app via the 1-click install button).
-2. **Select Your Name**: Start typing your name in the search box to find and select your profile.
-3. **Single-Tap Sign In / Out**:
-   - Arriving at work? Tap **SIGN IN** (or confirm with Face ID / Fingerprint).
-   - Leaving for the day? Tap **SIGN OUT**.
-4. **View Live Schedule**: Instantly see your scheduled work location (Office, Home, or Leave) for today and the rest of the week.
+The `--apply` flag permits SQL operations inside the test transaction; `--check --atomic` ends it with ROLLBACK. Do not run the fixture suite without those flags.
 
----
+The API configuration is managed with `node tools/api-schema-config.cjs enable` after the reviewed SQL boundary is installed. It changes only exposed schemas/search path and never prints the management response's JWT secret. Do not restore `public` exposure to accommodate old browser bundles: publish the matching frontend release instead.
 
-## 📊 How It Works for Company Administrators
+## Release status and limitations
 
-- **Live Attendance Feed**: Real-time view of who has checked in, who is working remotely, who is on leave, and arrival timestamps.
-- **Weekly Schedule Matrix**: At-a-glance weekly grid displaying attendance statuses across all departments.
-- **Instant Invite Link & QR Sharing**: Generate and share your company's workspace pairing code or dynamic QR code at any time so new hires can link their phones in seconds.
-- **Automated Reporting & Exports**: Download complete attendance logs and employee rosters into spreadsheet-ready CSV formats or print clean PDF summary sheets for HR and payroll processing.
-- **Self-Serve Company Onboarding**: Get your company workspace set up in under 2 minutes with a 14-day free trial—no credit card required.
+Version 1.1.1 uses semantic versioning. Hosting deployment and the production frontend's use of this release still require verification.
 
----
+See [SECURITY-IMPLEMENTATION.md](SECURITY-IMPLEMENTATION.md) for verification evidence and unresolved launch risks. The latest security advisor reports no errors; PostGIS's installation location still produces a warning, but its tables/functions are blocked for browser roles and no longer exposed through REST or GraphQL. Shared-workspace enrollment was deliberately left unchanged for this release.
 
-## 📲 Native Mobile Companion App
-
-- Optional native companion app for Android and iOS devices.
-- **Smart Arrival Notifications**: Automatically detects when you arrive within your office's perimeter and sends a timely reminder to check in.
-- **Weekend & Remote Protection**: Notifications are automatically silenced on weekends and on days you are scheduled to work from home or on leave.
-
----
-
-## 📄 Privacy & Data Security
-
-Staff Attendance Cloud is engineered with strict privacy standards:
-- **Location is Never Tracked Continuously**: GPS coordinates are verified only for a split second at the exact moment of check-in to confirm office proximity. Your continuous location is never monitored, stored, or tracked.
-- **Encrypted Corporate Vault**: All company data, rosters, and attendance logs are isolated within enterprise-grade encrypted databases.
-
----
-
-## 💼 Getting Started
-
-Visit your company's customized workspace link (e.g. `https://perimetrr.com/your-company/`) or scan your office QR code to start tracking daily attendance effortlessly.
-
-&copy; 2026 Staff Attendance Cloud. All rights reserved.
+GPS can be inaccurate or spoofed. Clearing browser storage or using another browser can remove the local credential and requires relinking or transfer approval. Offline records are queued attempts, not verified server attendance until accepted. Browser notifications operate while Command Center is open; background push delivery and native biometric attendance are not configured.

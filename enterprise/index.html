@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Enterprise Organization Setup • Perimetrr</title>
+<meta name="description" content="Register your Perimetrr enterprise organization or connect an existing workspace to securely oversee company branches in Watch Tower.">
+<link rel="canonical" href="https://perimetrr.com/enterprise/">
+<link rel="icon" type="image/svg+xml" href="../image/perimetrr-mark.svg">
+<link rel="apple-touch-icon" sizes="180x180" href="../image/apple-touch-icon.png">
+<meta property="og:type" content="website"><meta property="og:site_name" content="Perimetrr">
+<meta property="og:title" content="Enterprise Organization Setup • Perimetrr">
+<meta property="og:description" content="Register your Perimetrr enterprise organization or connect an existing workspace to securely oversee company branches in Watch Tower.">
+<meta property="og:url" content="https://perimetrr.com/enterprise/">
+<meta property="og:image" content="https://perimetrr.com/image/social-preview.png">
+<meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Perimetrr — Presence you can prove">
+<meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Enterprise Organization Setup • Perimetrr">
+<meta name="twitter:description" content="Register your Perimetrr enterprise organization or connect an existing workspace to securely oversee company branches in Watch Tower.">
+<meta name="twitter:image" content="https://perimetrr.com/image/social-preview.png">
+<link rel="stylesheet" href="../watch-tower/style.css?v=1.1.1"><link rel="stylesheet" href="../polish.css?v=1.1.1">
+<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2"></script>
+<script defer src="../version.js?v=1.1.1"></script><script defer src="../common.js?v=1.1.1"></script>
+<script defer src="enterprise.js?v=1.1.1"></script>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="topbar"><a class="wordmark" href="../"><img src="../image/perimetrr-mark.svg" alt="" width="28" height="28">Perimetrr</a><nav aria-label="Organization navigation"><a href="../watch-tower/">Watch Tower</a><a href="../onboard/">Single workspace setup</a><button type="button" id="enterprise-signout" hidden>Sign out</button></nav></header>
+<main id="main" class="workspace">
+<p class="eyebrow">ENTERPRISE ORGANIZATION SETUP</p><h1>Your company. All its branches.</h1>
+<p class="muted">Group your branch workspaces under one organization. Authorized personnel oversee those branches in Watch Tower—not another enterprise’s workspaces.</p>
+<p id="enterprise-message" role="status" aria-live="polite" class="notice">Checking your account…</p>
+<section id="enterprise-auth" class="card auth-card" hidden aria-labelledby="enterprise-auth-heading">
+<h2 id="enterprise-auth-heading">Start with your administrator account</h2>
+<p class="muted">Already own a workspace? Sign in with its owner account. New to Perimetrr? Register and confirm your email first.</p>
+<form id="enterprise-auth-form">
+<label for="enterprise-email">Work email</label><input id="enterprise-email" type="email" required autocomplete="username" maxlength="254">
+<label for="enterprise-password">Password</label><input id="enterprise-password" type="password" required autocomplete="current-password" maxlength="128">
+<div class="actions"><button type="submit">Sign in</button><button type="button" id="enterprise-register" class="secondary">Register an account</button></div>
+</form>
+<p class="muted">New passwords need at least 8 characters and a mix of letters, numbers or symbols.</p>
+<form id="enterprise-verify-form" hidden><label for="enterprise-otp">Email confirmation code</label><input id="enterprise-otp" required inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6,8}" minlength="6" maxlength="8"><button type="submit">Confirm email</button></form>
+<button type="button" id="enterprise-recover" class="secondary">Send password recovery email</button>
+</section>
+<section id="enterprise-recovery" class="card auth-card" hidden aria-labelledby="recovery-heading"><h2 id="recovery-heading">Set a new password</h2>
+<form id="enterprise-recovery-form"><label for="enterprise-new-password">New password</label><input id="enterprise-new-password" type="password" required autocomplete="new-password" minlength="8" maxlength="128"><button type="submit">Save password</button></form></section>
+<section id="enterprise-setup" class="card auth-card" hidden aria-labelledby="organization-heading">
+<h2 id="organization-heading">Create your organization</h2>
+<p id="enterprise-account" class="muted"></p>
+<form id="enterprise-setup-form">
+<label for="enterprise-name">Organization name</label><input id="enterprise-name" required minlength="2" maxlength="128" autocomplete="organization">
+<label for="enterprise-workspace">First branch</label><select id="enterprise-workspace"><option value="">Start without a branch</option></select>
+<p class="muted">Only unattached workspaces owned by this account can be upgraded here. Their staff, schedules and attendance remain unchanged.</p>
+<button type="submit">Create organization &amp; open Watch Tower</button>
+</form>
+<p class="muted">You become the organization owner. You can create or attach additional branches and authorize other administrators in Watch Tower.</p>
+</section>
+<section id="enterprise-existing" class="card" hidden><h2>Your organizations</h2><div id="enterprise-organizations" class="actions"></div></section>
+<p class="muted">This sets up organization oversight; it does not purchase or activate a paid subscription. Existing workspace plans remain unchanged.</p>
+</main>
+</body></html>

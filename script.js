@@ -7,7 +7,6 @@ const MAX_HISTORY_ITEMS = 3;
 const OWNERSHIP_MODES = {
     verify: 'verify-owner',
     register: 'register-owner',
-    reassign: 'reassign-owner'
 };
 
 let deviceId = '';
@@ -30,6 +29,7 @@ function distanceInMeters(aLat, aLon, bLat, bLon) {
 
 function updatePerimeterFeedback(position) {
     if (!position || !activePerimeter) return;
+    if (activePerimeter.latitude == null || activePerimeter.longitude == null) return;
     const latitude = Number(activePerimeter.latitude);
     const longitude = Number(activePerimeter.longitude);
     const radius = Number(activePerimeter.radius || activePerimeter.radius_meters || 100);
@@ -64,28 +64,14 @@ function openDeviceIdb() {
 }
 
 function generateUuid() {
-    return crypto.randomUUID
-        ? crypto.randomUUID()
-        : Array.from(crypto.getRandomValues(new Uint8Array(16)))
-            .map((b, i) => ([4, 6, 8, 10].includes(i) ? (b & 0x3f | 0x80).toString(16) : b.toString(16)).padStart(2, '0'))
-            .join('');
+    if (crypto.randomUUID) return crypto.randomUUID();
+    const bytes = crypto.getRandomValues(new Uint8Array(16));
+    bytes[6] = (bytes[6] & 15) | 64; bytes[8] = (bytes[8] & 63) | 128;
+    const hex = Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+    return [hex.slice(0,8),hex.slice(8,12),hex.slice(12,16),hex.slice(16,20),hex.slice(20)].join('-');
 }
 
-function computeCanvasHardwareHash() {
-    try {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        ctx.textBaseline = 'top';
-        ctx.font = "14px 'Arial'";
-        ctx.fillStyle = '#f60';
-        ctx.fillRect(125, 1, 62, 20);
-        ctx.fillText('Perimetrr-Security-v2', 2, 15);
-        return btoa(canvas.toDataURL()).slice(-8);
-    } catch (canvasError) {
-        console.warn('Canvas fingerprinting unavailable:', canvasError.message);
-        return 'xx';
-    }
-}
+function getDeviceId() { return deviceId || window._deviceId || null; }
 
 async function getOrCreateDeviceIdentity() {
     try {
@@ -96,9 +82,9 @@ async function getOrCreateDeviceIdentity() {
             req.onsuccess = () => resolve(req.result);
             req.onerror = () => reject(req.error);
         });
-        if (existing && existing.uuid) return existing;
+        if (existing && /^[0-9a-f-]{36}$/i.test(existing.uuid)) { db.close(); return existing; }
 
-        const identity = { uuid: generateUuid(), hw: computeCanvasHardwareHash() };
+        const identity = { uuid: generateUuid() };
 
         await new Promise((resolve, reject) => {
             const tx = db.transaction(IDB_STORE, 'readwrite');
@@ -106,6 +92,7 @@ async function getOrCreateDeviceIdentity() {
             tx.oncomplete = resolve;
             tx.onerror = () => reject(tx.error);
         });
+        db.close();
         return identity;
     } catch (idbError) {
         console.warn('IndexedDB unavailable, falling back to localStorage:', idbError.message);
@@ -120,14 +107,14 @@ async function getOrCreateDeviceIdentity() {
                 if (parsed && parsed.uuid) return parsed;
             } catch (parseErr) {}
         }
-        const identity = { uuid: generateUuid(), hw: computeCanvasHardwareHash() };
+        const identity = { uuid: generateUuid() };
         safeStorage.setItem(lsKey, JSON.stringify(identity));
         return identity;
     } catch (lsError) {
         console.warn('localStorage also unavailable, using session-only identity:', lsError.message);
     }
 
-    return { uuid: generateUuid(), hw: 'xx' };
+    return { uuid: generateUuid() };
 }
 
 async function generateIdentity() {
@@ -137,11 +124,8 @@ async function generateIdentity() {
         const { uuid } = await getOrCreateDeviceIdentity();
         return uuid;
     } catch (error) {
-        console.warn('generateIdentity failed completely, using fallback:', error.message);
-        const emergencyUuid = (window.crypto && crypto.getRandomValues)
-            ? Array.from(crypto.getRandomValues(new Uint8Array(16))).map((b) => b.toString(16).padStart(2, '0')).join('')
-            : (Date.now().toString(36) + Math.random().toString(36).slice(2));
-        return emergencyUuid;
+        setMessage('This browser could not create a secure device identity. Use a supported browser with storage enabled.','msg-late');
+        return null;
     }
 }
 
@@ -186,11 +170,15 @@ function renderRecentLog() {
         return;
     }
     logList.innerHTML = entries.slice(0, MAX_HISTORY_ITEMS).map((entry) => {
-        const statusText = entry.status === 'pending' ? 'Pending'
+        const statusText = entry.server_status === 'provisional_transfer' ? 'Provisional — transfer pending'
+            : entry.server_status === 'rejected' ? 'Rejected'
+            : entry.original_status === 'provisional_transfer' && entry.server_status === 'on_site' ? 'Verified after transfer approval'
+            : entry.status === 'pending' ? 'Pending'
             : entry.status === 'synced' ? 'Synced'
             : entry.status === 'failed' ? 'Failed'
             : 'Offline';
-        const statusClass = entry.status === 'pending' ? 'pending'
+        const statusClass = entry.server_status === 'provisional_transfer' || entry.server_status === 'rejected' ? 'pending'
+            : entry.status === 'pending' ? 'pending'
             : entry.status === 'synced' ? 'synced'
             : 'offline';
         const cleanName = escapeHtml(entry.name);
@@ -257,11 +245,6 @@ function registerDeviceOwnership(name, staffId) {
     return callBackend({ mode: OWNERSHIP_MODES.register, deviceId, name: name || '', staffId: staffId || null });
 }
 
-async function reassignDeviceOwnership(newName, resetCode) {
-    const resetCodeHash = await sha256Hex(resetCode);
-    return callBackend({ mode: OWNERSHIP_MODES.reassign, deviceId, name: newName || '', resetCodeHash });
-}
-
 /* ---------- Local-only device hint ---------- */
 
 function getLocalDeviceLockHint() {
@@ -285,11 +268,11 @@ function saveRecentEntry(entry) {
     renderRecentLog();
 }
 
-function updateRecentEntryStatus(id, status) {
+function updateRecentEntryStatus(id, status, serverStatus) {
     const entries = readStoredJson(STORAGE_KEYS.recentLog, []);
     const idx = entries.findIndex((e) => e.id === id);
     if (idx === -1) return false;
-    entries[idx] = { ...entries[idx], status };
+    entries[idx] = { ...entries[idx], status, ...(serverStatus ? {server_status:serverStatus} : {}) };
     writeStoredJson(STORAGE_KEYS.recentLog, entries);
     renderRecentLog();
     return true;
@@ -300,11 +283,11 @@ function scheduleSyncRetry(baseDelay = 8000) {
     if (!navigator.onLine || syncInProgress) return;
     const pendingQueue = readStoredJson(STORAGE_KEYS.pendingQueue, []);
     if (!pendingQueue.length) return;
-    
+
     const retryCount = parseInt(safeStorage.getItem('sync_retry_count') || '0', 10);
     const delay = Math.min(baseDelay * Math.pow(2, retryCount), 60000);
     safeStorage.setItem('sync_retry_count', retryCount + 1);
-    
+
     syncRetryTimer = setTimeout(() => {
         flushPendingQueue();
     }, delay);
@@ -539,7 +522,7 @@ function updateActionHeroState() {
 
     // Filter user's logs for today (including pending offline records)
     const userTodayLogs = recentLogs.filter((entry) => {
-        if (!entry || entry.name !== name || entry.status === 'failed') return false;
+        if (!entry || entry.name !== name || entry.status === 'failed' || ['outside_perimeter','rejected'].includes(entry.server_status)) return false;
         if (entry.timestamp && entry.timestamp.startsWith(todayKey)) return true;
         if (entry.date && entry.date === todayKey) return true;
         return false;
@@ -619,7 +602,6 @@ function initStaffIdentityView() {
     const deptDisplay = document.getElementById('linked-dept-display');
     const staffSelect = document.getElementById('staff-name');
     const searchInput = document.getElementById('staff-search-input');
-    const bioTriggerBtn = document.getElementById('biometric-auth-trigger');
 
     if (!linkedCard || !unlinkedBox) return;
 
@@ -645,10 +627,7 @@ function initStaffIdentityView() {
         }
         if (deptDisplay) deptDisplay.textContent = savedDept;
 
-        const bioBadge = document.getElementById('linked-bio-badge');
-        if (bioBadge) {
-            bioBadge.style.display = isBiometricsEnrolled(savedName) ? 'inline-block' : 'none';
-        }
+
 
         if (staffSelect) {
             staffSelect.innerHTML = `<option value="${escapeHtml(savedName)}" selected>${escapeHtml(savedName)}</option>`;
@@ -675,13 +654,9 @@ function initStaffIdentityView() {
         if (leadBanner) leadBanner.style.display = 'none';
         linkedCard.style.display = 'none';
         unlinkedBox.style.display = 'block';
-        const bioBadge = document.getElementById('linked-bio-badge');
-
-        if (bioBadge) bioBadge.style.display = 'none';
-        if (bioTriggerBtn) bioTriggerBtn.style.display = 'none';
 
         if (staffSelect && !staffSelect.value) {
-            staffSelect.innerHTML = '<option value="">Select your name...</option>' + 
+            staffSelect.innerHTML = '<option value="">Select your name...</option>' +
                 currentStaffList.map(n => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('');
             staffSelect.value = '';
         }
@@ -690,19 +665,6 @@ function initStaffIdentityView() {
         updateSignInButtonsState();
         updateScheduleBanner(null);
         initSearchableStaffDropdown();
-    }
-
-    // Attach Biometric Trigger button handler
-    if (bioTriggerBtn && !bioTriggerBtn.dataset.bound) {
-        bioTriggerBtn.dataset.bound = 'true';
-        bioTriggerBtn.addEventListener('click', () => {
-            const inBtn = document.getElementById('in-btn');
-            if (inBtn && !inBtn.disabled) {
-                inBtn.click();
-            } else {
-                showToast('Attendance button is not active yet. Please verify GPS location.', 'info');
-            }
-        });
     }
 
     if (window.lucide && typeof window.lucide.createIcons === 'function') {
@@ -833,6 +795,7 @@ function initSearchableStaffDropdown() {
             const binding = await registerDeviceOwnership(name, staffObj?.id);
             if (!binding.ok) {
                 showToast(binding.message || 'This device cannot be linked to that staff profile.', 'error');
+                openDeviceTransferModal(name);
                 return;
             }
             select.value = name;
@@ -985,58 +948,6 @@ function populateStaffDropdown(names) {
     initSearchableStaffDropdown();
 }
 
-function showBiometricEnrollModal(staffId, staffName, onEnrollSuccess, onEnrollCancel) {
-    const modal = document.getElementById('biometric-enroll-modal');
-    const confirmBtn = document.getElementById('enable-bio-confirm-btn');
-    const skipBtn = document.getElementById('skip-bio-btn');
-    const titleEl = document.getElementById('biometric-modal-title');
-    const descEl = document.getElementById('biometric-modal-desc');
-    if (!modal) return;
-
-    if (titleEl) {
-        titleEl.textContent = 'Biometric / PIN Verification Required';
-    }
-    if (descEl && staffName) {
-        descEl.innerHTML = `To securely link this device to <strong>${escapeHtml(staffName)}</strong>, please verify your device's native <strong>Face ID, Fingerprint, or Device PIN</strong>.`;
-    }
-
-    modal.style.display = 'flex';
-
-    if (confirmBtn) {
-        confirmBtn.onclick = async () => {
-            confirmBtn.disabled = true;
-            confirmBtn.innerHTML = 'Verifying Biometrics / PIN...';
-            try {
-                const tenant = await getActiveTenant();
-                await enrollBiometrics(staffId, staffName, tenant ? tenant.name : 'Attendance Cloud');
-                modal.style.display = 'none';
-                const bioBadge = document.getElementById('linked-bio-badge');
-                if (bioBadge) bioBadge.style.display = 'inline-block';
-                updateSignInButtonsState();
-                showToast(`Biometric / PIN verified! Device linked to ${staffName}.`, 'success');
-                if (typeof onEnrollSuccess === 'function') onEnrollSuccess();
-            } catch (err) {
-                console.warn('Biometric enrollment error:', err);
-                modal.style.display = 'none';
-                showToast(err.message || 'Biometric / PIN enrollment cancelled.', 'error');
-                if (typeof onEnrollCancel === 'function') onEnrollCancel();
-            } finally {
-                confirmBtn.disabled = false;
-                confirmBtn.innerHTML = '<i data-lucide="fingerprint" size="18"></i> Verify Biometrics / Device PIN';
-                if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons();
-            }
-        };
-    }
-
-    if (skipBtn) {
-        skipBtn.onclick = () => {
-            modal.style.display = 'none';
-            showToast('Biometric verification cancelled. Device not linked.', 'info');
-            if (typeof onEnrollCancel === 'function') onEnrollCancel();
-        };
-    }
-}
-
 async function loadStaffDropdown() {
     const activeTenant = await getActiveTenant();
     if (!activeTenant) {
@@ -1047,7 +958,8 @@ async function loadStaffDropdown() {
     }
 
     // 1. Check local cache first for instantaneous rendering
-    const cachedStaff = readStoredJson('attendance_staff_cache_v2', []);
+    const staffCacheKey = `staff_cache_${activeTenant.slug}`;
+    const cachedStaff = readStoredJson(staffCacheKey, []);
     if (Array.isArray(cachedStaff) && cachedStaff.length) {
         staffDirectoryData = cachedStaff;
         const names = cachedStaff.map(s => typeof s === 'string' ? s : s.name).filter(Boolean);
@@ -1056,9 +968,9 @@ async function loadStaffDropdown() {
 
     try {
         const res = await callBackend({ mode: 'list-staff' });
-        if (res && res.ok && Array.isArray(res.staff) && res.staff.length) {
+        if (res && res.ok && Array.isArray(res.staff)) {
             staffDirectoryData = res.staff;
-            writeStoredJson('attendance_staff_cache_v2', staffDirectoryData);
+            writeStoredJson(staffCacheKey, staffDirectoryData);
             const names = res.staff.map(s => s.name).filter(Boolean);
             populateStaffDropdown(names);
         }
@@ -1072,15 +984,13 @@ async function loadStaffDropdown() {
         try {
             const res = await callBackend({ mode: 'verify-staff-member', name: savedName });
             if (res && res.ok && res.name) {
-                // Check if administrator has remotely reset or unlinked this device
-                if (res.was_unlinked_by_admin && getLocalDeviceLockHint()) {
-                    safeStorage.removeItem('saved_name');
-                    safeStorage.removeItem('saved_dept');
+                const label=document.getElementById('device-authorization-status');
+                if(label)label.textContent=res.allowed?(res.provisional?'Transfer pending':'Linked'):'Not authorized';
+                const badge=document.querySelector('.device-locked-pill');
+                if(badge)badge.title=res.message||'Device authorization is checked by the server.';
+                if(!res.allowed){
                     clearLocalDeviceLockHint();
-                    clearBiometrics(savedName);
-                    initStaffIdentityView();
-                    showToast('Your device binding was reset by the administrator. Please select your name.', 'info');
-                    return;
+                    setMessage(res.message||'Device authorization required. Request a transfer or contact your administrator.','msg-late');
                 }
                 safeStorage.setItem('saved_dept', res.dept || 'Staff Member');
                 const deptDisplay = document.getElementById('linked-dept-display');
@@ -1235,11 +1145,12 @@ async function handleAttendanceResponse(data) {
         return;
     }
 
-    const { status, message: text, distance: distanceStr } = data.raw;
-    const isSuccess = ['WELCOME', 'NORMAL', 'LATE'].includes(status);
+    const { status, message: text } = data.raw;
+    const distanceStr = data.raw.distance_meters ?? data.raw.distance;
+    const isSuccess = data.ok === true && ['WELCOME','NORMAL','LATE','on_site','late','remote','provisional_transfer'].includes(status);
 
     if (isSuccess) {
-        setMessage(text || 'Action recorded.', (status === 'WELCOME' || status === 'NORMAL') ? 'msg-welcome' : 'msg-late');
+        setMessage(text || 'Action recorded.', status === 'provisional_transfer' ? 'msg-late' : 'msg-welcome');
         playWindowsSound(status === 'WELCOME' || status === 'NORMAL');
     } else {
         setMessage(text || status || 'Action denied.', 'msg-late');
@@ -1258,14 +1169,15 @@ async function handleAttendanceResponse(data) {
 
         if (activeSubmission.pendingId) {
             triggerOfflineSyncNotification(activeSubmission.name, activeSubmission.action);
-            const updated = updateRecentEntryStatus(activeSubmission.pendingId, 'synced');
+            const updated = updateRecentEntryStatus(activeSubmission.pendingId, 'synced', status);
             if (!updated) {
                 saveRecentEntry({
                     id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
                     name: activeSubmission.name,
                     action: activeSubmission.action,
                     timestamp: new Date().toISOString(),
-                    status: 'synced'
+                    status: 'synced',
+                    server_status: status
                 });
             }
             removeQueuedSubmission(activeSubmission.pendingId);
@@ -1275,7 +1187,8 @@ async function handleAttendanceResponse(data) {
                 name: activeSubmission.name,
                 action: activeSubmission.action,
                 timestamp: new Date().toISOString(),
-                status: 'synced'
+                status: 'synced',
+                server_status: status
             });
         }
 
@@ -1284,7 +1197,7 @@ async function handleAttendanceResponse(data) {
 
         try {
             const response = await registerDeviceOwnership(activeSubmission.name);
-            if ((response.allowed || response.owner || response.message) && !getLocalDeviceLockHint()) {
+            if ((response.ok || response.allowed) && !getLocalDeviceLockHint()) {
                 setLocalDeviceLockHint(activeSubmission.name);
             }
         } catch (error) {
@@ -1313,6 +1226,7 @@ let locationWatchId = null;
 let locationWatchErrorShown = false;
 let coordsTimestamp = 0;
 function warmUpGps() {
+    if (!getActiveTenantDirect() || getActiveTenantDirect()?.slug === 'demo') return;
     if (!navigator.geolocation) return;
     navigator.geolocation.getCurrentPosition(
         (pos) => {
@@ -1347,6 +1261,8 @@ document.addEventListener('visibilitychange', () => {
 
 
 function requestLocation() {
+    if (getActiveTenantDirect()?.slug === 'demo') { updatePerimeterFeedback(coords); return; }
+    if (!getActiveTenantDirect()) return;
     if (!navigator.geolocation) {
         const locStatus = document.getElementById('loc-status');
         if (locStatus) locStatus.innerText = 'GPS unsupported';
@@ -1494,7 +1410,7 @@ function initRefreshButton() {
         } catch (e) {
             console.warn('Cache purge error during hard refresh:', e);
         }
-        
+
         const cleanUrl = new URL(window.location.href);
         cleanUrl.searchParams.set('reload', Date.now());
         window.location.href = cleanUrl.toString();
@@ -1555,8 +1471,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateActionHeroState();
     if (safeStorage.getItem('saved_name') || getLocalDeviceLockHint()) {
         requestLocation();
-    } else {
-        warmUpGps();
     }
     flushPendingQueue();
     loadStaffDropdown();
@@ -1618,7 +1532,6 @@ async function attemptAutoInstallPrompt(isFirstInteraction = false) {
             deferredPrompt = null;
             window.__deferredPwaPrompt = null;
         } catch (e) {
-            console.log('Auto-prompt waiting for gesture:', e.message);
         }
     } else {
         const isIos = /ipad|iphone|ipod/i.test(navigator.userAgent) && !window.MSStream;
@@ -1765,12 +1678,12 @@ function initFaqModal() {
     const faqContent = document.getElementById('faq-content');
     const categoryBtns = document.querySelectorAll('.faq-category-btn');
     const questionBtns = document.querySelectorAll('.faq-question');
-    
+
     if (!faqModal) return;
-    
+
     let previousActiveElement = null;
     let isSearching = false;
-    
+
     if (faqBtn && !faqBtn.dataset.bound) {
         faqBtn.dataset.bound = 'true';
         faqBtn.addEventListener('click', () => {
@@ -1786,42 +1699,42 @@ function initFaqModal() {
             openFaqModal();
         });
     }
-    
+
     if (faqCloseBtn) {
         faqCloseBtn.addEventListener('click', closeFaqModal);
     }
-    
+
     faqModal.addEventListener('click', (e) => {
         if (e.target === faqModal) {
             closeFaqModal();
         }
     });
-    
+
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && faqModal.classList.contains('active')) {
             closeFaqModal();
         }
     });
-    
+
     categoryBtns.forEach(btn => {
         btn.addEventListener('click', () => {
             const category = btn.closest('.faq-category').dataset.category;
             filterByCategory(category);
-            
+
             categoryBtns.forEach(b => {
                 b.classList.remove('active');
                 b.setAttribute('aria-pressed', 'false');
             });
             btn.classList.add('active');
             btn.setAttribute('aria-pressed', 'true');
-            
+
             if (faqSearch) {
                 faqSearch.value = '';
                 isSearching = false;
             }
         });
     });
-    
+
     if (faqSearch) {
         faqSearch.addEventListener('input', (e) => {
             const query = e.target.value.toLowerCase().trim();
@@ -1829,17 +1742,17 @@ function initFaqModal() {
             searchFaq(query);
         });
     }
-    
+
     questionBtns.forEach(btn => {
         btn.addEventListener('click', () => {
             const answer = btn.nextElementSibling;
             const isExpanded = btn.getAttribute('aria-expanded') === 'true';
-            
+
             const currentSection = btn.closest('.faq-section');
             if (currentSection && !isSearching) {
                 const allQuestions = currentSection.querySelectorAll('.faq-question');
                 const allAnswers = currentSection.querySelectorAll('.faq-answer');
-                
+
                 allQuestions.forEach(q => {
                     q.setAttribute('aria-expanded', 'false');
                 });
@@ -1848,7 +1761,7 @@ function initFaqModal() {
                     a.setAttribute('aria-hidden', 'true');
                 });
             }
-            
+
             if (!isExpanded) {
                 btn.setAttribute('aria-expanded', 'true');
                 answer.classList.add('open');
@@ -1860,12 +1773,12 @@ function initFaqModal() {
             }
         });
     });
-    
+
     function openFaqModal() {
         faqModal.classList.add('active');
         faqModal.setAttribute('aria-hidden', 'false');
         document.body.style.overflow = 'hidden';
-        
+
         // Reset to first category cleanly
         categoryBtns.forEach(btn => {
             btn.classList.remove('active');
@@ -1886,7 +1799,7 @@ function initFaqModal() {
         if (window.lucide && typeof window.lucide.createIcons === 'function') {
             window.lucide.createIcons();
         }
-        
+
         setTimeout(() => {
             if (faqSearch) {
                 faqSearch.focus();
@@ -1895,17 +1808,17 @@ function initFaqModal() {
             }
         }, 100);
     }
-    
+
     function closeFaqModal() {
         faqModal.classList.remove('active');
         faqModal.setAttribute('aria-hidden', 'true');
         document.body.style.overflow = '';
-        
+
         if (faqSearch) {
             faqSearch.value = '';
             isSearching = false;
         }
-        
+
         categoryBtns.forEach(btn => {
             btn.classList.remove('active');
             btn.setAttribute('aria-pressed', 'false');
@@ -1915,7 +1828,7 @@ function initFaqModal() {
             firstCategoryBtn.classList.add('active');
             firstCategoryBtn.setAttribute('aria-pressed', 'true');
         }
-        
+
         questionBtns.forEach(btn => {
             btn.setAttribute('aria-expanded', 'false');
             const answer = btn.nextElementSibling;
@@ -1924,12 +1837,12 @@ function initFaqModal() {
                 answer.setAttribute('aria-hidden', 'true');
             }
         });
-        
+
         if (previousActiveElement) {
             previousActiveElement.focus();
         }
     }
-    
+
     function filterByCategory(category) {
         const sections = faqContent.querySelectorAll('.faq-section');
         sections.forEach(section => {
@@ -1940,34 +1853,34 @@ function initFaqModal() {
             }
         });
     }
-    
+
     function showAllSections() {
         const sections = faqContent.querySelectorAll('.faq-section');
         sections.forEach(section => {
             section.style.display = 'block';
         });
     }
-    
+
     function searchFaq(query) {
         const sections = faqContent.querySelectorAll('.faq-section');
         const allItems = faqContent.querySelectorAll('.faq-item');
-        
+
         if (!query) {
             sections.forEach(section => { section.style.display = 'block'; });
             allItems.forEach(item => { item.style.display = 'block'; });
             return;
         }
-        
+
         sections.forEach(section => { section.style.display = 'block'; });
-        
+
         allItems.forEach(item => {
             const question = item.querySelector('.faq-question span');
             const answer = item.querySelector('.faq-answer');
-            
+
             if (question && answer) {
                 const questionText = question.textContent.toLowerCase();
                 const answerText = answer.textContent.toLowerCase();
-                
+
                 if (questionText.includes(query) || answerText.includes(query)) {
                     item.style.display = 'block';
                     const questionBtn = item.querySelector('.faq-question');
@@ -2215,7 +2128,7 @@ function initWorkspaceConnect() {
 
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
             if (guidanceBox && guidanceText) {
-                guidanceText.innerHTML = '<strong>Camera not supported:</strong> Your browser does not support live camera scanning. Please type your 6-character code below.';
+                guidanceText.innerHTML = '<strong>Camera not supported:</strong> Your browser does not support live camera scanning. Please type your Workspace Code (ABCD-1234) below.';
                 guidanceBox.style.display = 'block';
             }
             if (input) input.focus();
@@ -2269,11 +2182,11 @@ function initWorkspaceConnect() {
 
             if (guidanceBox && guidanceText) {
                 if (isDenied) {
-                    guidanceText.innerHTML = '<strong>Camera access blocked:</strong> Tap the <strong>🔒 icon</strong> in your browser address bar to allow camera, or enter your 6-character code below.';
+                    guidanceText.innerHTML = '<strong>Camera access blocked:</strong> Tap the <strong>🔒 icon</strong> in your browser address bar to allow camera, or enter your Workspace Code (ABCD-1234) below.';
                 } else if (isNotFound) {
-                    guidanceText.innerHTML = '<strong>No camera detected:</strong> No active camera hardware was found. Enter your 6-character code below.';
+                    guidanceText.innerHTML = '<strong>No camera detected:</strong> No active camera hardware was found. Enter your Workspace Code (ABCD-1234) below.';
                 } else {
-                    guidanceText.innerHTML = '<strong>Camera unavailable:</strong> Could not start video feed. Enter your 6-character code below.';
+                    guidanceText.innerHTML = '<strong>Camera unavailable:</strong> Could not start video feed. Enter your Workspace Code (ABCD-1234) below.';
                 }
                 guidanceBox.style.display = 'block';
             }
@@ -2433,8 +2346,27 @@ async function initTenantBranding() {
     }
 }
 
+const DEMO_STATE_KEY = 'perimetrr_demo_state_backup';
+function restoreDemoState() {
+    const backup = readStoredJson(DEMO_STATE_KEY, null);
+    if (!backup || typeof backup !== 'object') return;
+    for (const [key, value] of Object.entries(backup)) {
+        if (value === null) safeStorage.removeItem(key);
+        else safeStorage.setItem(key, value);
+    }
+    safeStorage.removeItem(DEMO_STATE_KEY);
+}
+// Restore a interrupted test drive before normal application initialization.
+restoreDemoState();
+
 window.launchPublicSandbox = async function() {
     try {
+        if (!safeStorage.getItem(DEMO_STATE_KEY)) {
+            const keys = [...Object.values(STORAGE_KEYS), 'active_tenant', 'active_tenant_slug', 'saved_name', 'saved_dept', 'attendance_staff_cache_v2'];
+            const backup = Object.fromEntries(keys.map(key => [key, safeStorage.getItem(key)]));
+            writeStoredJson(DEMO_STATE_KEY, backup);
+        }
+        stopLocationWatch();
         const demoTenant = {
             id: "demo-workspace-uuid",
             slug: "demo",
@@ -2450,6 +2382,7 @@ window.launchPublicSandbox = async function() {
 
         const homepageView = document.getElementById('homepage-view');
         const mainCard = document.getElementById('main-content');
+        document.querySelector('.skip-link')?.setAttribute('href', '#main-content');
         if (document.body) document.body.classList.remove('homepage-active');
         if (homepageView) homepageView.style.display = 'none';
         if (mainCard) mainCard.style.display = 'block';
@@ -2503,9 +2436,59 @@ window.launchPublicSandbox = async function() {
         if (window.lucide && typeof window.lucide.createIcons === 'function') {
             window.lucide.createIcons();
         }
+
+        let widget = document.getElementById('demo-sandbox-widget');
+        if (!widget) {
+            widget = document.createElement('div');
+            widget.id = 'demo-sandbox-widget';
+            widget.style.position = 'fixed';
+            widget.style.bottom = '20px';
+            widget.style.right = '20px';
+            widget.style.background = 'rgba(15, 23, 42, 0.9)';
+            widget.style.border = '1px solid var(--primary-accent)';
+            widget.style.borderRadius = '8px';
+            widget.style.padding = '12px 16px';
+            widget.style.zIndex = '9999';
+            widget.style.boxShadow = '0 8px 32px rgba(0,0,0,0.4)';
+            widget.style.display = 'flex';
+            widget.style.flexDirection = 'column';
+            widget.style.gap = '10px';
+            widget.style.color = 'var(--text-light)';
+            widget.style.fontFamily = 'var(--font-primary)';
+            widget.style.fontSize = '0.85rem';
+            widget.innerHTML = `
+                <div style="font-weight: 600; color: var(--primary-accent); margin-bottom: 4px;">Sandbox Controls</div>
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                    <input type="checkbox" id="demo-perimeter-toggle" checked style="accent-color: var(--primary-accent);">
+                    <span>Inside HQ Perimeter</span>
+                </label>
+                <button id="demo-exit-btn" style="background: rgba(239,68,68,0.2); border: 1px solid #ef4444; color: #fca5a5; border-radius: 4px; padding: 6px; cursor: pointer; font-size: 0.8rem; margin-top: 4px; transition: all 0.2s;">Exit Sandbox</button>
+            `;
+            document.body.appendChild(widget);
+
+            document.getElementById('demo-perimeter-toggle').addEventListener('change', (e) => {
+                const isInside = e.target.checked;
+                if (isInside) {
+                    coords = { lat: 6.4357, lon: 3.4738 };
+                } else {
+                    coords = { lat: 6.4357 + 0.01, lon: 3.4738 }; // roughly 1.1km away
+                }
+                coordsTimestamp = Date.now();
+                updatePerimeterFeedback(coords);
+                updateSignInButtonsState();
+            });
+
+            document.getElementById('demo-exit-btn').addEventListener('click', () => {
+                restoreDemoState();
+                window.location.reload();
+            });
+        }
+        widget.style.display = 'flex';
+
         showToast("Welcome to the Acme Demo Terminal! 1-click test drive active.", "success");
     } catch (err) {
-        console.error('launchPublicSandbox error:', err);
+        restoreDemoState();
+        showToast('The demo could not open. Your workspace data is unchanged. Please reload and try again.', 'error');
     }
 };
 
@@ -2513,6 +2496,7 @@ window.showHomepageView = function() {
     const homepageView = document.getElementById('homepage-view');
     const mainCard = document.getElementById('main-content');
     if (document.body) document.body.classList.add('homepage-active');
+    document.querySelector('.skip-link')?.setAttribute('href', '#homepage-view');
     if (homepageView) homepageView.style.display = 'flex';
     if (mainCard) mainCard.style.display = 'none';
     const tenant = (typeof getActiveTenantDirect === 'function' ? getActiveTenantDirect() : null);
@@ -2533,6 +2517,7 @@ window.showTerminalView = function() {
     const homepageView = document.getElementById('homepage-view');
     const mainCard = document.getElementById('main-content');
     if (document.body) document.body.classList.remove('homepage-active');
+    document.querySelector('.skip-link')?.setAttribute('href', '#main-content');
     if (homepageView) homepageView.style.display = 'none';
     if (mainCard) mainCard.style.display = 'block';
     if (window.lucide && typeof window.lucide.createIcons === 'function') {
@@ -2540,16 +2525,14 @@ window.showTerminalView = function() {
     }
 };
 
-function openDeviceTransferModal() {
+let pendingTransferStaffName = '';
+function openDeviceTransferModal(candidateName = '') {
     const modal = document.getElementById('device-transfer-modal');
     if (!modal) return;
-    const savedName = safeStorage.getItem('saved_name') || getLocalDeviceLockHint() || '';
+    const savedName = candidateName || safeStorage.getItem('saved_name') || getLocalDeviceLockHint() || '';
+    pendingTransferStaffName = savedName;
     const nameEl = document.getElementById('transfer-current-name');
     if (nameEl) nameEl.textContent = savedName || 'Current Employee';
-    const pwdInput = document.getElementById('transfer-admin-pwd');
-    if (pwdInput) pwdInput.value = '';
-    const pwdMsg = document.getElementById('transfer-admin-pwd-msg');
-    if (pwdMsg) { pwdMsg.style.display = 'none'; pwdMsg.textContent = ''; }
     const reqMsg = document.getElementById('transfer-request-msg');
     if (reqMsg) { reqMsg.style.display = 'none'; reqMsg.textContent = ''; }
     modal.style.display = 'flex';
@@ -2576,95 +2559,29 @@ function initDeviceTransferModal() {
         });
     }
 
-    const confirmAdminBtn = document.getElementById('confirm-admin-unlink-btn');
-    if (confirmAdminBtn && !confirmAdminBtn.dataset.bound) {
-        confirmAdminBtn.dataset.bound = 'true';
-        confirmAdminBtn.addEventListener('click', async () => {
-            const pwdInput = document.getElementById('transfer-admin-pwd');
-            const msgEl = document.getElementById('transfer-admin-pwd-msg');
-            const pwd = pwdInput ? pwdInput.value.trim() : '';
-            if (!pwd) {
-                if (msgEl) { msgEl.style.display = 'block'; msgEl.style.color = '#ef4444'; msgEl.textContent = 'Please enter admin password.'; }
-                return;
-            }
-
-            confirmAdminBtn.disabled = true;
-            confirmAdminBtn.textContent = 'Checking...';
-
-            try {
-                const activeTenant = await getActiveTenant();
-                let valid = false;
-                const adminEmail = (activeTenant && (activeTenant.admin_email || activeTenant.email || activeTenant.contact_email)) ? (activeTenant.admin_email || activeTenant.email || activeTenant.contact_email) : null;
-                if (adminEmail) {
-                    const check = await callBackend({ mode: 'admin-login', email: adminEmail, password: pwd });
-                    if (check && check.ok) valid = true;
-                }
-
-                if (valid) {
-                    const savedName = safeStorage.getItem('saved_name') || getLocalDeviceLockHint();
-                    if (savedName) {
-                        try { await callBackend({ mode: 'unlink-staff-device', name: savedName }); } catch(e) {}
-                    }
-                    safeStorage.removeItem('saved_name');
-                    safeStorage.removeItem('saved_dept');
-                    clearLocalDeviceLockHint();
-                    if (savedName) clearBiometrics(savedName);
-
-                    closeDeviceTransferModal();
-                    initStaffIdentityView();
-                    showToast('Device unlocked and reset. You may now select a new employee.', 'success');
-                } else {
-                    if (msgEl) { msgEl.style.display = 'block'; msgEl.style.color = '#ef4444'; msgEl.textContent = 'Incorrect admin password.'; }
-                    showToast('Incorrect administrator password.', 'error');
-                }
-            } catch(e) {
-                if (msgEl) { msgEl.style.display = 'block'; msgEl.style.color = '#ef4444'; msgEl.textContent = 'Could not verify admin password.'; }
-            } finally {
-                confirmAdminBtn.disabled = false;
-                confirmAdminBtn.textContent = 'Unlock';
-            }
-        });
-    }
-
     const requestTransferBtn = document.getElementById('request-transfer-btn');
     if (requestTransferBtn && !requestTransferBtn.dataset.bound) {
         requestTransferBtn.dataset.bound = 'true';
         requestTransferBtn.addEventListener('click', async () => {
             const reqMsg = document.getElementById('transfer-request-msg');
-            const savedName = safeStorage.getItem('saved_name') || getLocalDeviceLockHint();
+            const savedName = pendingTransferStaffName || safeStorage.getItem('saved_name') || getLocalDeviceLockHint();
             requestTransferBtn.disabled = true;
             requestTransferBtn.textContent = 'Processing request...';
 
             try {
                 const res = await requestDeviceTransfer(savedName);
                 if (res && res.ok) {
-                    if (res.auto_approved) {
-                        // Item 2: 7-Day Inactivity Auto-Transfer
-                        if (reqMsg) {
-                            reqMsg.style.display = 'block';
-                            reqMsg.innerHTML = '<div style="background:rgba(16,185,129,0.12); border:1px solid #10b981; border-radius:6px; padding:10px; color:#10b981; font-weight:600; font-size:0.82rem;">✓ Device automatically linked via 7-day inactivity auto-transfer! You can now record your attendance.</div>';
-                        }
-                        setLocalDeviceLockHint(savedName);
-                        safeStorage.setItem('saved_name', savedName);
-                        showToast('Device automatically linked via 7-day inactivity auto-transfer!', 'success');
-                        setTimeout(() => {
-                            closeDeviceTransferModal();
-                            initStaffIdentityView();
-                        }, 1800);
-                    } else {
-                        // Item 1: 6-digit confirmation code displayed
-                        if (reqMsg) {
-                            reqMsg.style.display = 'block';
-                            reqMsg.innerHTML = `
-                                <div style="background:rgba(57,255,136,0.08); border:1px solid rgba(57,255,136,0.4); border-radius:8px; padding:12px; margin-top:8px; text-align:center;">
-                                    <div style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:4px;">Authorization PIN</div>
-                                    <div style="font-size:1.7rem; font-weight:800; letter-spacing:0.18em; color:#39FF88; font-family:monospace; margin:4px 0;">${res.transfer_code || '------'}</div>
-                                    <div style="font-size:0.78rem; color:var(--text); margin-top:4px;">Show this 6-digit PIN to your Team Lead or Workspace Admin to authorize immediately.</div>
-                                </div>
-                            `;
-                        }
-                        showToast('Transfer PIN generated. Provide to your Team Lead or Admin.', 'info');
+                    safeStorage.setItem('saved_name',savedName);
+                    const member=staffDirectoryData.find(row=>row.name===savedName);
+                    safeStorage.setItem('saved_dept',member?.dept||member?.department||'Staff Member');
+                    clearLocalDeviceLockHint();
+                    if(reqMsg){
+                        reqMsg.style.display='block';reqMsg.style.color='';
+                        reqMsg.textContent='Transfer code: '+(res.transfer_code||'Unavailable')+'\nShare this code with your Team Lead. The request expires in 24 hours. Attendance stays provisional until approval.';
                     }
+                    initStaffIdentityView();
+                    const label=document.getElementById('device-authorization-status');if(label)label.textContent='Transfer pending';
+                    showToast('Transfer requested. Attendance will be marked provisional until approved.','info');
                 } else {
                     if (reqMsg) {
                         reqMsg.style.display = 'block';
@@ -2693,6 +2610,7 @@ function initDeviceTransferModal() {
 window.cachedLeadPendingTransfers = [];
 
 async function checkLeadPendingApprovals() {
+    if (getActiveTenantDirect()?.slug === 'demo') return;
     try {
         const savedName = safeStorage.getItem('saved_name') || getLocalDeviceLockHint();
         if (!savedName) return;
@@ -2706,18 +2624,19 @@ async function checkLeadPendingApprovals() {
 
         if (!supabaseClient || typeof supabaseClient.rpc !== 'function') return;
 
-        const deviceId = getDeviceId();
+        const leadDeviceId = getDeviceId();
         const { data, error } = await supabaseClient.rpc('get_pending_transfers_for_lead', {
             p_lead_staff_id: currentStaff.id,
-            p_lead_device_id: deviceId
+            p_lead_device_id: leadDeviceId
         });
 
         const banner = document.getElementById('lead-pending-banner');
         const countEl = document.getElementById('lead-pending-count');
 
-        if (!error && Array.isArray(data) && data.length > 0) {
-            window.cachedLeadPendingTransfers = data;
-            if (countEl) countEl.textContent = data.length;
+        const requests = data?.ok && Array.isArray(data.requests) ? data.requests : [];
+        if (!error && requests.length > 0) {
+            window.cachedLeadPendingTransfers = requests;
+            if (countEl) countEl.textContent = requests.length;
             if (banner) {
                 banner.style.display = 'flex';
                 if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons();
@@ -2753,10 +2672,10 @@ function openLeadApprovalsModal() {
                             <strong style="color:var(--text); font-size:0.92rem;">${escapeHtml(t.staff_name)}</strong>
                             <div style="font-size:0.75rem; color:var(--text-muted);">${escapeHtml(t.department || 'General')} • Requested ${t.requested_at ? new Date(t.requested_at).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' }) : 'recently'}</div>
                         </div>
-                        <span style="font-size:0.75rem; background:rgba(57,255,136,0.15); color:#39FF88; padding:2px 8px; border-radius:4px; font-weight:700; font-family:monospace;">${escapeHtml(t.transfer_code || 'PIN')}</span>
+
                     </div>
                     <div style="display:flex; gap:8px; align-items:center; margin-top:4px;">
-                        <input type="text" id="pin-input-${t.request_id}" placeholder="Enter PIN" maxlength="6" value="${t.transfer_code || ''}" style="width:120px; padding:6px 8px; font-size:0.82rem; border-radius:6px; border:1px solid var(--border); background:var(--bg); color:var(--text); text-align:center; font-family:monospace; letter-spacing:0.1em;" />
+                        <input type="text" id="pin-input-${t.request_id}" placeholder="Enter PIN" maxlength="6" value="" style="width:120px; padding:6px 8px; font-size:0.82rem; border-radius:6px; border:1px solid var(--border); background:var(--bg); color:var(--text); text-align:center; font-family:monospace; letter-spacing:0.1em;" />
                         <button type="button" class="btn-primary small approve-lead-transfer-btn" data-req-id="${t.request_id}" data-staff-id="${t.staff_id}" style="flex:1; padding:6px 12px; font-size:0.82rem;">Approve Transfer</button>
                     </div>
                 </div>
@@ -2874,24 +2793,28 @@ async function refreshRecentLogsFromDb() {
         const response = await callBackend({ mode: 'list-logs', name: nameToFetch, limit: 10 });
         if (response && response.ok && Array.isArray(response.logs)) {
             const localLogs = readStoredJson(STORAGE_KEYS.recentLog, []);
-            
+
             // Keep local pending/failed/offline entries
-            const pendingLogs = localLogs.filter(entry => 
+            const pendingLogs = localLogs.filter(entry =>
                 entry && (entry.status === 'pending' || entry.status === 'failed' || entry.status === 'offline')
             );
-            
+
             // Map DB logs
             const dbLogs = response.logs.map(log => ({
                 id: log.id || `${Date.now()}-${Math.random().toString(16).slice(2)}`,
                 name: log.name,
                 action: log.action,
                 timestamp: new Date(log.created_at || `${log.date} ${log.time}`).toISOString(),
-                status: 'synced'
+                status: ['rejected','outside_perimeter'].includes(log.server_status) ? 'failed' : 'synced',
+                server_status: log.server_status,
+                original_status: log.original_status,
+                transfer_resolved_at: log.transfer_resolved_at
             }));
-            
+
             // Reconcile today's DB logs with lastAction & local storage
             const todayKey = getTodayKey();
             const todayDbLogs = response.logs.filter(log => {
+                if(['rejected','outside_perimeter'].includes(log.server_status))return false;
                 const logDate = log.date || (log.created_at ? log.created_at.split('T')[0] : '');
                 return logDate === todayKey;
             });
@@ -2922,31 +2845,31 @@ async function refreshRecentLogsFromDb() {
 
             // Merge & Deduplicate
             const merged = [...pendingLogs];
-            
+
             dbLogs.forEach(dbLog => {
                 const dbLogTime = new Date(dbLog.timestamp).getTime();
                 // Check if this log is already represented in pendingLogs (e.g. within 5 minutes name/action match)
                 const isPendingDuplicate = pendingLogs.some(p => {
                     const pTime = new Date(p.timestamp).getTime();
-                    return p.name === dbLog.name && 
-                        p.action === dbLog.action && 
+                    return p.name === dbLog.name &&
+                        p.action === dbLog.action &&
                         Math.abs(pTime - dbLogTime) < 5 * 60 * 1000;
                 });
                 if (!isPendingDuplicate) {
                     merged.push(dbLog);
                 }
             });
-            
+
             // Sort by timestamp descending
             merged.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-            
+
             // Slice to MAX_HISTORY_ITEMS
             const finalLogs = merged.slice(0, MAX_HISTORY_ITEMS);
-            
+
             writeStoredJson(STORAGE_KEYS.recentLog, finalLogs);
             renderRecentLog();
             updateActionHeroState();
-            
+
             const lastSyncedSpan = document.getElementById('last-synced');
             if (lastSyncedSpan) {
                 const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -2981,7 +2904,7 @@ async function syncScheduleToMobileNative(name) {
         const day = today.getDay();
         const diff = today.getDate() - day + (day === 0 ? -6 : 1);
         const monday = new Date(today.getFullYear(), today.getMonth(), diff);
-        
+
         // Format DMY
         const dd = String(monday.getDate()).padStart(2, '0');
         const mm = String(monday.getMonth() + 1).padStart(2, '0');
@@ -3138,5 +3061,3 @@ window.addEventListener('languageChanged', () => {
         }
     }
 });
-
-

@@ -21,16 +21,18 @@ self.addEventListener('install', (event) => {
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) => Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))))
+    caches.keys().then((keys) => Promise.all(keys.filter((key) => key.startsWith('perimetrr-v') && key !== CACHE_NAME).map((key) => caches.delete(key))))
   );
   self.clients.claim();
 });
 
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
+  const url = new URL(event.request.url);
+  if (url.origin !== self.location.origin) return;
 
   // Bypass service worker completely for administrative interfaces
-  if (event.request.url.includes('/command-center/') || event.request.url.includes('/watch-tower/')) return;
+  if (/\/(command-center|watch-tower|onboard|hybrid|enterprise)\//.test(url.pathname)) return;
 
   // Network-First for HTML navigation so users never get trapped in stale app shells
   if (event.request.mode === 'navigate') {
@@ -42,11 +44,13 @@ self.addEventListener('fetch', (event) => {
           }
           return networkResponse;
         })
-        .catch(() => caches.match(event.request, { ignoreSearch: true }))
+        .catch(async () => (await caches.match('./index.html', { ignoreSearch: true })) || new Response('You are offline. Reconnect and reload Perimetrr.', { status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' } }))
     );
     return;
   }
 
+  // Never cache arbitrary endpoints, exports, credentials or user data.
+  if (!/\/(style\.css|polish\.css|script\.js|common\.js|manifest\.json|version\.js)$/.test(url.pathname) && !url.pathname.includes('/image/')) return;
   event.respondWith(
     caches.open(CACHE_NAME).then(async (cache) => {
       const cachedResponse = await cache.match(event.request, { ignoreSearch: true });
@@ -60,7 +64,7 @@ self.addEventListener('fetch', (event) => {
         })
         .catch(() => cachedResponse);
 
-      return cachedResponse || fetchPromise;
+      return fetchPromise;
     })
   );
 });
@@ -95,12 +99,13 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const targetUrl = (event.notification.data && event.notification.data.url) || './command-center/';
+  const requested = new URL((event.notification.data && event.notification.data.url) || './command-center/', self.registration.scope);
+  const targetUrl = requested.origin === self.location.origin ? requested.href : new URL('./command-center/', self.registration.scope).href;
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
       for (const client of clientList) {
-        if (client.url.includes(targetUrl) && 'focus' in client) {
+        if (client.url === targetUrl && 'focus' in client) {
           return client.focus();
         }
       }
