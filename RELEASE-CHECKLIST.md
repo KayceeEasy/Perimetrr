@@ -1,4 +1,4 @@
-# Perimetrr v1.2.0 — beta handoff
+# Perimetrr v1.0.0 — first public release handoff
 
 ## Cloudflare Pages
 

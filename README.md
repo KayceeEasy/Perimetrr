@@ -66,7 +66,7 @@ The API configuration is managed with `node tools/api-schema-config.cjs enable` 
 
 ## Release status and limitations
 
-Version 1.2.0 uses semantic versioning. Hosting deployment and the production frontend's use of this release still require verification.
+Version 1.0.0 is the first public release and uses semantic versioning. Hosting deployment and the production frontend's use of this release still require verification.
 
 See [SECURITY-IMPLEMENTATION.md](SECURITY-IMPLEMENTATION.md) for verification evidence and unresolved launch risks. The latest security advisor reports no errors; PostGIS's installation location still produces a warning, but its tables/functions are blocked for browser roles and no longer exposed through REST or GraphQL. Shared-workspace enrollment was deliberately left unchanged for this release.
 
