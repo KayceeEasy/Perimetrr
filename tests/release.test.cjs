@@ -16,6 +16,32 @@ function sandbox(client){
  vm.createContext(context);vm.runInContext(read('common.js'),context);
  return {context,store,connections};
 }
+test('sandbox profiles and transfer simulation stay local and require a selected identity',async()=>{
+ const {context}=sandbox({rpc:()=>{throw new Error('Demo must never call the live database');}});
+ const staff=context.getDemoStaff();
+ assert.equal(staff.length,5);assert.equal(staff.filter(s=>s.is_team_lead).length,2);
+ assert.equal(context.handleDemoBackend('verify-staff-member',{name:''}).allowed,false);
+ assert.equal(context.handleDemoBackend('verify-staff-member',{name:staff[0].name}).allowed,true);
+ const transfer=await context.callBackend({mode:'request-device-transfer',tenantSlug:'demo'});
+ assert.equal(transfer.ok,true);assert.equal(transfer.transfer_code,'DEMO-4821');assert.equal(transfer.provisional,true);
+ assert.equal(context.handleDemoBackend('admin-login',{}).ok,false);
+ assert.ok(context.generateMockLogs().every(row=>staff.some(s=>s.name===row.name)));
+ assert.doesNotMatch(read('demo/index.html'),/supabase-js|createClient/);
+ assert.doesNotMatch(read('demo/demo.js'),/fetch\(|supabaseClient|safeStorage\.setItem/);
+});
+test('a paired sandbox cannot simulate successful administrator authentication',async()=>{
+ let calls=0;
+ const {context,store}=sandbox({auth:{signInWithPassword:async()=>{calls++;return {data:null,error:{message:'Invalid credentials'}};}}});
+ store.setItem('active_tenant_slug','demo');
+ const response=await context.callBackend({mode:'admin-login',email:'test@example.com',password:'not-a-real-credential'});
+ assert.equal(calls,1);assert.equal(response.ok,false);
+});
+test('deprecated branding and decorative radar are removed, with local interactive replacement',()=>{
+ const html=read('index.html');assert.doesNotMatch(html,/hp-brand-badge|hp-radar-wrapper|Perimetrr Technologies/);
+ assert.match(html,/playground-distance/);assert.match(html,/playground-linked/);assert.match(html,/id="faq-btn"[^>]*>FAQ<\/button>/);
+ assert.doesNotMatch(read('homepage.js'),/navigator\.geolocation|fetch\(/);
+ assert.doesNotMatch(read('script.js'),/Enter PIN|pin-input-/);
+});
 test('all public JavaScript and static handlers parse; assets, IDs and alt text are valid',()=>{
  const report=JSON.parse(execFileSync(process.execPath,['tools/audit-static.cjs'],{cwd:root,encoding:'utf8'}));
  assert.deepEqual(report.issues,[]);
@@ -100,7 +126,10 @@ test('Command Center transfer statuses cannot display provisional or rejected re
 });
 test('QR images are generated locally and reject off-site invitation URLs',async()=>{
  const {context}=sandbox();vm.runInContext(read('qr.js'),context);
- await assert.rejects(context.getWorkspaceQrDataUrl('https://foreign.example/?join=TEST-1234'),/Only this site/);
+ await assert.rejects(context.getWorkspaceQrDataUrl('https://foreign.example/?join=TEST-1234'),/Only Perimetrr/);
+ context.qrcode=()=>{throw new Error('Allowed production URL reached the local generator');};
+ await assert.rejects(context.getWorkspaceQrDataUrl('https://perimetrr.com/?join=TEST-1234'),/Allowed production URL/);
+ await assert.rejects(context.getWorkspaceQrDataUrl('https://perimetrr.com.foreign.example/?join=TEST-1234'),/Only Perimetrr/);
  assert.doesNotMatch(read('qr.js')+read('command-center/admin.js')+read('onboard/onboard.js'),/api\.qrserver\.com/);
 });
 test('an unknown workspace cannot be fabricated from default configuration',async()=>{

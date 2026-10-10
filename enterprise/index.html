@@ -21,6 +21,7 @@
 <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2"></script>
 <script defer src="../version.js?v=1.1.1"></script><script defer src="../common.js?v=1.1.1"></script>
 <script defer src="enterprise.js?v=1.1.1"></script>
+<script defer src="../auth-ui.js"></script>
 </head>
 <body>
 <a class="skip-link" href="#main">Skip to content</a>
@@ -34,15 +35,15 @@
 <p class="muted">Already own a workspace? Sign in with its owner account. New to Perimetrr? Register and confirm your email first.</p>
 <form id="enterprise-auth-form">
 <label for="enterprise-email">Work email</label><input id="enterprise-email" type="email" required autocomplete="username" maxlength="254">
-<label for="enterprise-password">Password</label><input id="enterprise-password" type="password" required autocomplete="current-password" maxlength="128">
+<label for="enterprise-password">Password</label><input id="enterprise-password" type="password" required autocomplete="current-password" maxlength="128" data-password-ui data-password-strength>
+<label class="policy-agreement" for="enterprise-terms"><input id="enterprise-terms" type="checkbox"> <span>For new registration, I agree to the <a href="../terms/" target="_blank" rel="noopener">Terms (new tab)</a> and have read the <a href="../privacy/" target="_blank" rel="noopener">Privacy Policy (new tab)</a>. No marketing consent is included.</span></label>
 <div class="actions"><button type="submit">Sign in</button><button type="button" id="enterprise-register" class="secondary">Register an account</button></div>
 </form>
-<p class="muted">New passwords need at least 8 characters and a mix of letters, numbers or symbols.</p>
 <form id="enterprise-verify-form" hidden><label for="enterprise-otp">Email confirmation code</label><input id="enterprise-otp" required inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6,8}" minlength="6" maxlength="8"><button type="submit">Confirm email</button></form>
 <button type="button" id="enterprise-recover" class="secondary">Send password recovery email</button>
 </section>
 <section id="enterprise-recovery" class="card auth-card" hidden aria-labelledby="recovery-heading"><h2 id="recovery-heading">Set a new password</h2>
-<form id="enterprise-recovery-form"><label for="enterprise-new-password">New password</label><input id="enterprise-new-password" type="password" required autocomplete="new-password" minlength="8" maxlength="128"><button type="submit">Save password</button></form></section>
+<form id="enterprise-recovery-form"><label for="enterprise-new-password">New password</label><input id="enterprise-new-password" type="password" required autocomplete="new-password" minlength="8" maxlength="128" data-password-ui data-password-strength><button type="submit">Save password</button></form></section>
 <section id="enterprise-setup" class="card auth-card" hidden aria-labelledby="organization-heading">
 <h2 id="organization-heading">Create your organization</h2>
 <p id="enterprise-account" class="muted"></p>
@@ -57,4 +58,5 @@
 <section id="enterprise-existing" class="card" hidden><h2>Your organizations</h2><div id="enterprise-organizations" class="actions"></div></section>
 <p class="muted">This sets up organization oversight; it does not purchase or activate a paid subscription. Existing workspace plans remain unchanged.</p>
 </main>
+<footer class="legal-links" aria-label="Legal information"><a href="/privacy/">Privacy Policy</a><a href="/terms/">Terms &amp; Conditions</a><a href="/cookies/">Cookie Policy</a><a href="/refunds/">Refund Policy</a></footer>
 </body></html>

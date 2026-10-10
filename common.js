@@ -11,7 +11,6 @@ const STORAGE_KEYS = {
     pendingAction: 'attendance_pending_action',
     theme: 'attendance_theme',
     deviceLock: 'attendance_device_lock',
-    analytics: 'attendance_analytics',
     language: 'attendance_language'
 };
 if (typeof window !== 'undefined') {
@@ -68,7 +67,7 @@ const I18N_DICTIONARY = {
         toggleTheme: "Toggle Theme",
         refresh: "Refresh",
         onLeave: "🌴 On Leave",
-        completed: "COMPLETED",
+        completed: "DONE FOR TODAY",
         adminEmail: "Admin Email",
         password: "Password",
         logIn: "Log in",
@@ -116,7 +115,7 @@ const I18N_DICTIONARY = {
         toggleTheme: "Cambiar Tema",
         refresh: "Actualizar",
         onLeave: "🌴 De Permiso",
-        completed: "COMPLETADO",
+        completed: "LISTO POR HOY",
         adminEmail: "Correo del Administrador",
         password: "Contraseña",
         logIn: "Iniciar Sesión",
@@ -164,7 +163,7 @@ const I18N_DICTIONARY = {
         toggleTheme: "Changer de Thème",
         refresh: "Actualiser",
         onLeave: "🌴 En Congé",
-        completed: "TERMINÉ",
+        completed: "TERMINÉ POUR AUJOURD’HUI",
         adminEmail: "E-mail Administrateur",
         password: "Mot de passe",
         logIn: "Se connecter",
@@ -212,7 +211,7 @@ const I18N_DICTIONARY = {
         toggleTheme: "Mudar Tema",
         refresh: "Atualizar",
         onLeave: "🌴 De Licença",
-        completed: "CONCLUÍDO",
+        completed: "CONCLUÍDO HOJE",
         adminEmail: "E-mail do Administrador",
         password: "Senha",
         logIn: "Entrar",
@@ -260,7 +259,7 @@ const I18N_DICTIONARY = {
         toggleTheme: "تبديل السمة",
         refresh: "تحديث",
         onLeave: "🌴 في إجازة",
-        completed: "مكتمل",
+        completed: "اكتمل اليوم",
         adminEmail: "بريد المسؤول",
         password: "كلمة المرور",
         logIn: "تسجيل الدخول",
@@ -452,32 +451,8 @@ function escapeHtml(value) {
         .replace(/'/g, '&#039;');
 }
 
-/* ---------- Analytics/Monitoring ---------- */
-
-function logAnalyticsEvent(type, details = {}) {
-    const analytics = readStoredJson(STORAGE_KEYS.analytics, []);
-    const event = {
-        type,
-        details,
-        timestamp: new Date().toISOString()
-    };
-    analytics.unshift(event);
-    writeStoredJson(STORAGE_KEYS.analytics, analytics.slice(0, 100));
-
-    if (navigator.onLine) {
-        const deviceId = typeof window._deviceId !== 'undefined' ? window._deviceId : '';
-        const detailStr = typeof details === 'object' ? JSON.stringify(details) : String(details);
-        callBackend({ mode: 'log-analytics', eventType: type, details: detailStr, deviceId }).catch(() => {});
-    }
-}
-
-function getAnalytics() {
-    return readStoredJson(STORAGE_KEYS.analytics, []);
-}
-
-function clearAnalytics() {
-    writeStoredJson(STORAGE_KEYS.analytics, []);
-}
+// Retire the optional diagnostic cache without touching pairing or attendance.
+try { localStorage.removeItem('attendance_analytics'); } catch (_) { /* Storage may be blocked. */ }
 
 
 /* ---------- Safe Storage Wrapper ---------- */
@@ -649,13 +624,7 @@ function sanitizeStaffDirectory(rows) {
 async function getTenantStaffList(tenantSlug) {
  const slug=String(tenantSlug||getActiveTenantSlug()).trim().toLowerCase();
     if (slug === 'demo') {
-        return [
-            { id: "demo-staff-1", name: "Alex Rivera", dept: "Engineering", schedule_policy: "weekly_hybrid", is_team_lead: true, device_id: null },
-            { id: "demo-staff-2", name: "Jordan Lee", dept: "Operations", schedule_policy: "weekly_hybrid", is_team_lead: false, device_id: null },
-            { id: "demo-staff-3", name: "Sam Taylor", dept: "Product & Design", schedule_policy: "field_flexible", is_team_lead: false, device_id: null },
-            { id: "demo-staff-4", name: "Morgan Chen", dept: "Growth & Sales", schedule_policy: "office_only", is_team_lead: false, device_id: null },
-            { id: "demo-staff-5", name: "Elena Rostova", dept: "DevOps & Cloud", schedule_policy: "weekly_hybrid", is_team_lead: false, device_id: null }
-        ];
+        return getDemoStaff();
     }
 
  if(!supabaseClient?.rpc)return sanitizeStaffDirectory(readStoredJson('staff_cache_'+slug,[]));
@@ -674,11 +643,21 @@ async function getTenantStaffList(tenantSlug) {
  const clean=sanitizeStaffDirectory(rows);writeStoredJson('staff_cache_'+slug,clean);return clean;
 }
 
+function getDemoStaff() {
+        return [
+            { id: "demo-staff-1", name: "Alex Rivera", dept: "Engineering", schedule_policy: "weekly_hybrid", is_team_lead: true, device_id: null },
+            { id: "demo-staff-2", name: "Jordan Lee", dept: "Operations", schedule_policy: "weekly_hybrid", is_team_lead: true, device_id: null },
+            { id: "demo-staff-3", name: "Sam Taylor", dept: "Product & Design", schedule_policy: "field_flexible", is_team_lead: false, device_id: null },
+            { id: "demo-staff-4", name: "Morgan Chen", dept: "Growth & Sales", schedule_policy: "office_only", is_team_lead: false, device_id: null },
+            { id: "demo-staff-5", name: "Elena Rostova", dept: "DevOps & Cloud", schedule_policy: "weekly_hybrid", is_team_lead: false, device_id: null }
+        ];
+}
+
 async function getTenantConfig(tenantSlug) {
     const slug = String(tenantSlug || (typeof activeTenantSlug !== 'undefined' ? activeTenantSlug : (typeof getActiveTenantSlug === 'function' ? getActiveTenantSlug() : 'default'))).trim().toLowerCase();
     if (slug === 'demo') {
-        const demoLat = (typeof coords !== 'undefined' && coords && coords.lat) ? coords.lat : 6.4357;
-        const demoLon = (typeof coords !== 'undefined' && coords && coords.lon) ? coords.lon : 3.4738;
+        const demoLat = 6.4357;
+        const demoLon = 3.4738;
         return {
             slug: 'demo',
             name: 'Acme Global Demo',
@@ -698,7 +677,7 @@ async function getTenantConfig(tenantSlug) {
             allow_remote_signout_post_closing: true,
             count_wfh_in_attendance_quota: true,
             wfh_quota_enabled: true,
-            workdays: '1_5',
+            workdays: '0_4',
             team_lead_priority_sort: true,
             timezone: (typeof Intl !== 'undefined' && Intl.DateTimeFormat) ? (Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC') : 'UTC'
         };
@@ -734,7 +713,7 @@ async function getTenantConfig(tenantSlug) {
         allow_remote_signout_post_closing: t.allow_remote_signout_post_closing !== undefined ? t.allow_remote_signout_post_closing : true,
         count_wfh_in_attendance_quota: t.wfh_quota_enabled !== undefined ? t.wfh_quota_enabled : true,
         wfh_quota_enabled: t.wfh_quota_enabled !== undefined ? t.wfh_quota_enabled : true,
-        workdays: t.workdays || '1_5',
+        workdays: t.workdays || '0_4',
         team_lead_priority_sort: t.team_lead_priority_sort !== undefined ? t.team_lead_priority_sort : true,
         timezone: t.timezone || 'Africa/Lagos'
     };
@@ -847,6 +826,13 @@ async function handleAuthBackend(mode, payload) {
 /**
  * Presence & Attendance Verification Domain
  */
+function workspaceWorkingDays(range = '0_4') {
+    const parts=String(range).split('_').map(Number);
+    const valid=parts.length===2 && parts.every(n=>Number.isInteger(n)&&n>=0&&n<=6) && parts[0]<=parts[1];
+    const [start,end]=valid?parts:[0,4];
+    return Array.from({length:end-start+1},(_,i)=>start+i);
+}
+
 function attendanceFilterDate(value, endOfDay = false) {
     if (!value) return null;
     let raw = String(value).trim();
@@ -900,6 +886,7 @@ async function handleAttendanceBackend(mode, payload) {
 
                 const logs = (data || []).map(row => ({
                     id: row.id,
+                    staff_id: row.staff?.id,
                     name: row.staff ? row.staff.name : (payload.name || 'Staff Member'),
                     dept: row.staff ? (row.staff.department || 'General') : 'General',
                     action: (row.event_type || 'IN').toUpperCase(),
@@ -1110,10 +1097,17 @@ async function handleConfigBackend(mode, payload) {
             case 'get-config': {
                 const slug = await resolveRequestedTenantSlug(payload);
                 const config = slug ? await getTenantConfig(slug) : null;
-                return { ok: true, config: { TIMEZONE: config?.timezone || 'Africa/Lagos', OFFICE_LAT: config?.latitude, OFFICE_LON: config?.longitude, RADIUS_METERS: config?.radius, WORKDAY_END_MINUTES: 1020, ALLOW_REMOTE_SIGNOUT_POST_CLOSING: 'false', COUNT_WFH_IN_ATTENDANCE_QUOTA: 'true' } };
+                if (!config) return {ok:false,message:'Workspace settings could not be loaded.'};
+                return { ok: true, config: { TIMEZONE: config.timezone, OFFICE_LAT: config.latitude, OFFICE_LON: config.longitude, RADIUS_METERS: config.radius,
+                    WORK_DAYS:config.workdays || '0_4',HYBRID_OFFICE_DAYS:config.hybrid_office_days ?? 2,LATE_CUTOFF_MINUTES:config.late_cutoff_minutes ?? 510,
+                    WORKDAY_END_MINUTES:config.workday_end_minutes ?? 1020,TEAM_LEAD_PRIORITY_SORT:config.team_lead_priority_sort ?? true,
+                    ALLOW_REMOTE_SIGNOUT_POST_CLOSING:config.allow_remote_signout_post_closing ?? false,COUNT_WFH_IN_ATTENDANCE_QUOTA:config.count_wfh_in_attendance_quota ?? true } };
             }
             case 'update-config': {
-                return { ok: false, message: 'This workspace policy is not supported by the current database. No changes were saved.' };
+                const slug=await resolveRequestedTenantSlug(payload);
+                const {data,error}=await supabaseClient.rpc('update_workspace_config',{p_tenant_slug:slug,p_key:payload.key,p_value:String(payload.value)});
+                if(error)throw error;
+                return data;
             }
         default:
             return null;
@@ -1295,8 +1289,8 @@ async function handleDeviceBackend(mode, payload) {
  */
 function generateMockLogs() {
     const logs = [];
-    const names = ["Jordan Lee", "Sam Taylor", "Alex Chen", "Morgan Smith", "Casey Johnson", "Riley Davis", "Jamie Wilson"];
-    const depts = ["Operations", "Product & Design", "Engineering", "Marketing", "Sales", "HR", "Finance"];
+    const names = getDemoStaff().map(staff => staff.name);
+    const depts = getDemoStaff().map(staff => staff.dept);
 
     // Generate logs for the last 5 days
     for (let i = 4; i >= 0; i--) {
@@ -1376,13 +1370,7 @@ if (typeof window !== 'undefined') {
 }
 
 function handleDemoBackend(mode, payload) {
-    const demoStaffList = [
-        { name: "Alex Rivera", dept: "Engineering", schedule_policy: "weekly_hybrid", is_team_lead: true, device_id: null },
-        { name: "Jordan Lee", dept: "Operations", schedule_policy: "weekly_hybrid", is_team_lead: false, device_id: null },
-        { name: "Sam Taylor", dept: "Product & Design", schedule_policy: "field_flexible", is_team_lead: false, device_id: null },
-        { name: "Morgan Chen", dept: "Growth & Sales", schedule_policy: "office_only", is_team_lead: false, device_id: null },
-        { name: "Elena Rostova", dept: "DevOps & Cloud", schedule_policy: "weekly_hybrid", is_team_lead: false, device_id: null }
-    ];
+    const demoStaffList = getDemoStaff();
 
     switch (mode) {
         case 'list-staff':
@@ -1403,9 +1391,11 @@ function handleDemoBackend(mode, payload) {
                 }
             };
         case 'verify-staff-member': {
-            const member = demoStaffList.find(s => s.name === (payload ? payload.name : '')) || demoStaffList[0];
+            const member = demoStaffList.find(s => s.name === (payload ? payload.name : ''));
+            if (!member) return { ok: false, allowed: false, message: 'Choose a demo staff profile first.' };
             return {
                 ok: true,
+                allowed: true,
                 name: member.name,
                 dept: member.dept,
                 schedule_policy: member.schedule_policy,
@@ -1486,10 +1476,11 @@ function handleDemoBackend(mode, payload) {
         case 'record-device-lock':
         case 'reset-staff-lock':
         case 'unlink-staff-device':
-        case 'request-device-transfer':
             return { ok: true, message: 'Device operation completed in demo sandbox.' };
+        case 'request-device-transfer':
+            return { ok: true, transfer_code: 'DEMO-4821', provisional: true, message: 'Simulated transfer. Use the sandbox approval control to continue.' };
         default:
-            return { ok: true, message: 'Demo sandbox operation succeeded.' };
+            return { ok: false, message: 'This operation is not available in the sandbox.' };
     }
 }
 
@@ -1509,7 +1500,7 @@ async function callBackend(payload, timeoutMs = 20000) {
     const tenantSlug = String(payload.tenantSlug || (activeTenant ? (activeTenant.slug || activeTenant.workspace_code || '') : '') || safeStorage.getItem('active_tenant_slug') || '').toLowerCase();
 
     // 1. Intercept demo / sandbox simulation instantly
-    if (tenantSlug === 'demo') {
+    if (tenantSlug === 'demo' && !String(mode).startsWith('admin-') && !['reset-admin-password','get-recovery-email'].includes(mode)) {
         return handleDemoBackend(mode, payload);
     }
 

@@ -143,7 +143,8 @@ function updateAdminModeUI() {
 
 let ALL_STAFF = [];
 let STAFF = [];
-const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+let DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+let teamLeadPriority=true;
 
 let currentWeekKey = "";
 let currentData = {};
@@ -246,8 +247,10 @@ async function initTenantHybridBranding() {
         if (typeof getTenantConfig === 'function') {
             tenant = await getTenantConfig(activeTenantSlug);
         }
-        if (tenant && tenant.hybrid_office_days) {
-            tenantHybridOfficeDays = Math.max(1, Math.min(4, Number(tenant.hybrid_office_days)));
+        if (tenant) {
+            DAYS=workspaceWorkingDays(tenant.workdays).map(i=>['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'][i]);
+            teamLeadPriority=tenant.team_lead_priority_sort ?? true;
+            tenantHybridOfficeDays = Math.max(1, Math.min(DAYS.length, Number(tenant.hybrid_office_days) || 2));
         }
         const companyName = tenant?.name || (activeTenantSlug.charAt(0).toUpperCase() + activeTenantSlug.slice(1));
         const titleEl = document.getElementById('page-brand-title');
@@ -335,7 +338,10 @@ function applyDepartmentFilter() {
 function openHybridSettingsModal() {
     const modal = document.getElementById('hybrid-settings-modal');
     const select = document.getElementById('hybrid-office-days-select');
-    if (select) select.value = String(tenantHybridOfficeDays || 2);
+    if (select) {
+        select.innerHTML=Array.from({length:DAYS.length},(_,i)=>`<option value="${i+1}">${i+1} Office / ${DAYS.length-i-1} Home days</option>`).join('');
+        select.value = String(tenantHybridOfficeDays || 2);
+    }
     if (modal) modal.style.display = 'flex';
     if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons();
 }
@@ -348,7 +354,7 @@ function closeHybridSettingsModal() {
 async function saveHybridSettings() {
     const select = document.getElementById('hybrid-office-days-select');
     const val = parseInt(select?.value || '2', 10);
-    if (val >= 1 && val <= 4) {
+    if (val >= 1 && val <= DAYS.length) {
         try {
             if (typeof callBackend === 'function') {
                 const response = await callBackend({
@@ -367,7 +373,7 @@ async function saveHybridSettings() {
         closeHybridSettingsModal();
         generateNew();
         if (typeof showToast === 'function') {
-            showToast(`Hybrid quota updated: ${val} Office / ${5 - val} Remote days.`, 'success');
+            showToast(`Hybrid quota updated: ${val} Office / ${DAYS.length - val} Home days.`, 'success');
         }
     }
 }
@@ -390,7 +396,7 @@ function getWeekRange(offsetWeeks = 0) {
     monday.setDate(now.getDate() - distanceToMonday + (offsetWeeks * 7));
 
     const friday = new Date(monday);
-    friday.setDate(monday.getDate() + 4);
+    friday.setDate(monday.getDate() + ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].indexOf(DAYS.at(-1)));
 
     return `${formatDate(monday)} - ${formatDate(friday)}, ${friday.getFullYear()}`;
 }
@@ -430,19 +436,19 @@ function generateNew() {
     const targetWeekKey = currentWeekKey;
 
     const data = {};
-    const officeCount = { Monday: 0, Tuesday: 0, Wednesday: 0, Thursday: 0, Friday: 0 };
-    const leadCount = { Monday: 0, Tuesday: 0, Wednesday: 0, Thursday: 0, Friday: 0 };
+    const officeCount = Object.fromEntries(DAYS.map(d=>[d,0]));
+    const leadCount = Object.fromEntries(DAYS.map(d=>[d,0]));
 
     const pool = ALL_STAFF.length ? [...ALL_STAFF] : [...STAFF];
-    const requiredOfficeDays = Math.max(1, Math.min(4, tenantHybridOfficeDays || 2));
+    const requiredOfficeDays = Math.max(1, Math.min(DAYS.length, tenantHybridOfficeDays || 2));
 
     pool.forEach(person => {
-        data[person.name] = { Monday: "Home", Tuesday: "Home", Wednesday: "Home", Thursday: "Home", Friday: "Home" };
+        data[person.name] = Object.fromEntries(DAYS.map(d=>[d,'Home']));
 
         for (let d = 0; d < requiredOfficeDays; d++) {
             const candidateDays = DAYS.filter(day => data[person.name][day] !== "Office");
             candidateDays.sort((a, b) => {
-                if (person.is_team_lead) {
+                if (teamLeadPriority && person.is_team_lead) {
                     return (leadCount[a] - leadCount[b]) || (officeCount[a] - officeCount[b]);
                 }
                 return (officeCount[a] - officeCount[b]) || (leadCount[a] - leadCount[b]);
@@ -487,7 +493,7 @@ function renderTable() {
         let dateLabel = '';
         if (validDate) {
             const currentDay = new Date(mondayDate);
-            currentDay.setDate(mondayDate.getDate() + idx);
+            currentDay.setDate(mondayDate.getDate() + ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].indexOf(d));
             dateLabel = `<br><span style="font-size:0.68rem; font-weight:normal; opacity:0.8;">${formatDate(currentDay)}</span>`;
         }
         thead.innerHTML += `<th>${d}${dateLabel}</th>`;
@@ -520,7 +526,7 @@ function renderTable() {
                 </td>`;
         });
 
-        rowHtml += `<td class="counter-cell" data-html2canvas-ignore><strong>${homeCount}</strong>/5</td>`;
+        rowHtml += `<td class="counter-cell" data-html2canvas-ignore><strong>${homeCount}</strong>/${DAYS.length}</td>`;
         row.innerHTML = rowHtml;
         tbody.appendChild(row);
     });
@@ -670,7 +676,7 @@ async function loadHistory(updateTable = false) {
 
 function formatScheduleRange(iso) {
     const start = new Date(iso + 'T12:00:00');
-    const end = new Date(start); end.setDate(end.getDate() + 4);
+    const end = new Date(start); end.setDate(end.getDate() + ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].indexOf(DAYS.at(-1)));
     return `${formatDate(start)} - ${formatDate(end)}, ${end.getFullYear()}`;
 }
 

@@ -32,7 +32,7 @@ self.addEventListener('fetch', (event) => {
   if (url.origin !== self.location.origin) return;
 
   // Bypass service worker completely for administrative interfaces
-  if (/\/(command-center|watch-tower|onboard|hybrid|enterprise)\//.test(url.pathname)) return;
+  if (/\/(command-center|watch-tower|onboard|hybrid|enterprise|pricing|privacy|terms|cookies|refunds|demo)\//.test(url.pathname)) return;
 
   // Network-First for HTML navigation so users never get trapped in stale app shells
   if (event.request.mode === 'navigate') {

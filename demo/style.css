@@ -1,0 +1,2 @@
+.demo-staff{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}.demo-staff div{border:1px solid var(--border);border-radius:8px;padding:12px}.demo-staff strong,.demo-staff span{display:block}.demo-staff span{color:var(--text-muted);font-size:13px}
+.demo-table-wrap{overflow-x:auto}table{border-collapse:collapse;width:100%;text-align:left}th,td{padding:12px;border-bottom:1px solid var(--border);white-space:nowrap}th{color:var(--text-muted);font-size:13px}td{font-size:14px}

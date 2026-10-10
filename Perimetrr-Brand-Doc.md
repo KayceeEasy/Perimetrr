@@ -61,14 +61,16 @@ Note: don't over-apply this system in dense UI copy (e.g. a busy admin table) �
 
 ---
 
-## 5. Tier Naming (draft — confirm against your actual pricing structure before publishing)
+## 5. Launch Plans & Pricing
 
-- **Perimetrr Free** — ≤5 employees, core check-in/out, single location.
-- **Perimetrr Team** — SMB paid tier, multi-location, reporting/exports.
-- **Perimetrr Enterprise** — organization-scoped branch oversight and authorized personnel management in Watch Tower.
+- **Perimetrr Free** — $0; planned allowance of 5 active staff, one workspace and one location per business, core check-in/out and a basic dashboard.
+- **Perimetrr Team** — $9.95 per workspace/month or $99.50/year; planned allowance of 30 active staff, schedules, reporting and exports.
+- **Perimetrr Enterprise** — $29.95 per organization/month or $299.50/year; planned allowance of three branches and 90 active staff total, with organization-scoped branch oversight and authorized personnel management in Watch Tower.
 - **Perimetrr White Label** (or **Perimetrr Reseller**) — full white-labeling, client-fleet monitoring dashboard for resellers/agencies managing multiple downstream companies.
 
-[Inference] These tier names follow common SaaS convention (Free/Team/Enterprise) — worth sanity-checking against 2-3 competitor pricing pages before finalizing, since this is a fast-moving space and naming conventions shift.
+Annual billing gives two months free (approximately 17% savings). Always show the total annual charge prominently alongside any monthly equivalent. Use "Recommended for growing teams" for Team, not an unsupported "Most popular" claim. No invented original prices or artificial discounts.
+
+Prices are displayed in USD. The preferred billing model charges USD with optional local-currency estimates. Processor selection, Nigerian individual merchant eligibility and payout destination acceptance remain under review; no provider is activated. Checkout must disclose the actual currency and total before payment. Additional staff/branch pricing and trials are not approved offers yet; large organizations require a volume agreement.
 
 Implementation note: creating an organization does not activate a paid subscription. New workspaces provision on the Free plan. Paid billing, tier limits, and reseller entitlements must be implemented and verified before being advertised as active features.
 
@@ -102,7 +104,7 @@ Implementation note: creating an organization does not activate a paid subscript
 
 - [Unverified] I haven't checked whether "Perimetrr," any tier names above, or the icon concept collide with existing registered trademarks — worth a proper USPTO TESS search (or a trademark attorney, given the white-label/reseller model raises the stakes if you ever need to defend the mark on behalf of resellers using your brand).
 - The exact hex codes and font names above are directional suggestions for you to react to, not a locked design system — treat this section as a starting brief for whoever builds the actual visual assets (you, a designer, or a tool like Figma).
-- Tier names/pricing structure are placeholders based on common SaaS patterns — confirm against your actual business model before this goes into any customer-facing material.
+- Launch prices are defined above; paid checkout and staff/branch limits are not active. Keep proposed allowances distinct from enforced entitlements in customer-facing material.
 
 ---
 

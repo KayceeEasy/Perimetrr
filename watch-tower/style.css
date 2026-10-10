@@ -1,4 +1,11 @@
 :root{color-scheme:dark;--primary:#39ff88;--surface:#101d2e;--surface-2:#0b1421;--text:#edf3f9;--text-muted:#a8b5c5;--border:#29394b;--danger:#fca5a5;--radius:12px}
+/* Center account states without constraining the signed-in branch dashboard. */
+.workspace:has(#wt-login:not([hidden])),.workspace:has(#enterprise-auth:not([hidden])),.workspace:has(#enterprise-recovery:not([hidden])){max-width:700px}
+.auth-card{margin-left:auto;margin-right:auto}
+.topbar nav a,.auth-card a{text-decoration:none}
+.topbar nav a:hover,.auth-card a:hover{text-decoration:underline}
+.password-field{position:relative;margin:6px 0 16px}.password-field input{padding-right:88px;margin:0}.password-field .password-toggle{position:absolute;right:5px;top:5px;width:auto;min-height:34px;padding:4px 12px}
+.password-feedback{font-size:13px}.password-feedback[data-valid="true"]{color:var(--primary)}
 :root[data-theme="light"]{color-scheme:light;--surface:#fff;--surface-2:#f4f7fa;--text:#102033;--text-muted:#516174;--border:#d3dce5;--primary:#0b8040;--danger:#b91c1c}
 *{box-sizing:border-box}body{margin:0;font:15px/1.6 Inter,system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--text);background:var(--surface-2)}
 [hidden]{display:none!important}a{color:var(--primary);text-underline-offset:3px}button,input,select{font:inherit}button,.button{border:1px solid transparent;border-radius:8px;padding:10px 16px;background:var(--primary);color:#092215;font-weight:650;cursor:pointer;min-height:44px;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;text-align:center;gap:8px}

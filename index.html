@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Perimetrr — Presence You Can Prove</title>
     <meta name="keywords" content="staff attendance, GPS geofence, time tracking, proxy attendance prevention, PWA attendance, device-linked attendance, enterprise branches" />
-    <meta name="author" content="Perimetrr Technologies" />
+    <meta name="author" content="Perimetrr" />
     <meta name="theme-color" content="#0F1B2D" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-status-bar-style" content="black-translucent" />
@@ -76,14 +76,13 @@
             <a href="./" class="hp-brand">
                 <img src="./image/perimetrr-mark.svg" alt="Perimetrr Logo" width="28" height="28" />
                 <span>Perimetrr</span>
-                <span class="hp-brand-badge">PRESENCE</span>
             </a>
 
             <nav class="hp-nav-links">
                 <a href="#features" class="hp-nav-link">Features</a>
                 <a href="#demo" class="hp-nav-link">See How It Works</a>
                 <a href="#compare" class="hp-nav-link">Hardware vs Perimetrr</a>
-                <a href="./onboard/" class="hp-nav-link">Create workspace</a>
+                <a href="./pricing/" class="hp-nav-link">Pricing</a>
             </nav>
 
             <div class="hp-nav-actions">
@@ -148,19 +147,23 @@
                 </button>
             </div>
 
-            <!-- Kinetic Radar Graphic -->
-            <div class="hp-radar-wrapper">
-                <div class="hp-radar-ring r1"></div>
-                <div class="hp-radar-ring r2"></div>
-                <div class="hp-radar-ring r3"></div>
-
-                <div class="hp-radar-core">
-                    <img src="./image/perimetrr-mark.svg" alt="Perimeter Mark" width="48" height="48" />
-                    <div style="font-size:0.75rem; font-weight:700; color:#27FB8A; letter-spacing:1px; text-transform:uppercase;">The Perimeter</div>
-                    <div style="font-size:0.8rem; color:#F8FAFC; font-weight:600;">Office Location: Verified (150m)</div>
-                    <span style="background:rgba(39,251,138,0.15); color:#27FB8A; padding:2px 8px; border-radius:99px; font-size:0.72rem; font-weight:700;">Verified • Ready to Sign In</span>
-                </div>
-            </div>
+            <section class="perimeter-playground" aria-labelledby="playground-heading">
+                <div class="playground-heading"><h2 id="playground-heading">See what makes a check-in eligible.</h2><span>Interactive illustration · No GPS collected</span></div>
+                <svg viewBox="0 0 440 200" role="img" aria-labelledby="playground-map-title">
+                    <title id="playground-map-title">An employee marker moves inside or outside the office Perimeter</title>
+                    <defs><pattern id="map-grid" width="22" height="22" patternUnits="userSpaceOnUse"><path d="M 22 0 L 0 0 0 22" fill="none" stroke="#29394b" stroke-width="1"/></pattern></defs>
+                    <rect width="440" height="200" rx="12" fill="url(#map-grid)"/>
+                    <circle cx="120" cy="100" r="78" class="playground-boundary"/>
+                    <path d="M110 117V83h20v34M107 117h26M116 89h8M116 97h8" fill="none" stroke="#edf3f9" stroke-width="3"/>
+                    <text x="120" y="150" text-anchor="middle" fill="#a8b5c5" font-size="12">Office · 150 m Perimeter</text>
+                    <g id="playground-person" transform="translate(155 100)"><circle r="14" fill="#39ff88"/><circle cy="-3" r="4" fill="#0f1b2d"/><path d="M-6 7Q0-1 6 7" fill="none" stroke="#0f1b2d" stroke-width="3"/></g>
+                </svg>
+                <label for="playground-distance">Move the employee <output id="playground-distance-value" for="playground-distance">70 m from office</output></label>
+                <input id="playground-distance" type="range" min="0" max="350" step="10" value="70">
+                <label class="playground-pair"><input id="playground-linked" type="checkbox" checked>Browser paired to staff profile</label>
+                <p id="playground-result" role="status" aria-live="polite">Inside Perimeter + paired browser → eligible for check-in.</p>
+                <button type="button" onclick="launchPublicSandbox()" class="btn-hp-secondary">Try the staff workflow</button>
+            </section>
         </section>
 
         <!-- Features Grid -->
@@ -179,8 +182,8 @@
 
                 <div class="hp-card">
                     <div class="hp-card-icon"><i data-lucide="smartphone" size="22"></i></div>
-                    <h3>1 Phone = 1 Verified Employee</h3>
-                    <p>Each phone is securely linked to one staff member. Device pairing helps prevent casual account sharing. Administrators manage device transfer requests.</p>
+                    <h3>A Linked Browser for Each Staff Profile</h3>
+                    <p>Browser pairing helps reduce casual account sharing. Administrators manage device transfers; a browser credential is not proof of a physical device or person.</p>
                 </div>
 
                 <div class="hp-card">
@@ -267,6 +270,7 @@
                     <i data-lucide="play" size="18"></i>
                     <span>Launch Live Demo Terminal</span>
                 </button>
+                <a href="./demo/" class="btn-hp-secondary">Explore Command Center demo</a>
             </div>
         </section>
 
@@ -284,14 +288,15 @@
                 </div>
 
                 <div class="hp-footer-links">
+                    <a href="./pricing/">Pricing</a>
                     <a href="./onboard/">Create Workspace</a>
                     <a href="./command-center/">Command Center</a>
-                    <button type="button" onclick="openWorkspaceConnectModal()" style="background:none; border:none; color:var(--text-muted); cursor:pointer; padding:0; font-size:0.84rem;">Pair Device</button>
+                    <button type="button" onclick="openWorkspaceConnectModal()" class="hp-footer-link">Pair Device</button>
                 </div>
             </div>
 
             <div style="max-width:1140px; margin:24px auto 0 auto; padding-top:16px; border-top:1px solid rgba(255,255,255,0.06); font-size:0.75rem; color:var(--text-muted); display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px;">
-                <div>Copyright &copy; 2026 Perimetrr Technologies. All Rights Reserved.</div>
+                <div>Copyright &copy; 2026 Perimetrr. All Rights Reserved.</div>
                 <div> <span style="color:#27FB8A;">Workspace attendance, made clear</span></div>
             </div>
         </footer>
@@ -331,10 +336,6 @@
                         <button type="button" class="lang-option-btn" data-lang="ar">🇸🇦 العربية</button>
                     </div>
                 </div>
-                <button id="faq-btn" class="topbar-icon-btn" type="button" aria-label="Open FAQ" title="Quick FAQ"
-                    data-tooltip="Frequently Asked Questions" data-tooltip-pos="bottom">
-                    <i data-lucide="help-circle" size="16"></i>
-                </button>
                 <button id="refresh-btn" class="topbar-icon-btn" type="button" aria-label="Refresh app" title="Refresh"
                     data-tooltip="Refresh GPS & connection" data-tooltip-pos="bottom">
                     <i data-lucide="rotate-cw" size="16"></i>
@@ -460,6 +461,7 @@
         </footer>
     </div>
 
+    <button id="faq-btn" class="floating-faq" type="button" aria-label="Open frequently asked questions">FAQ</button>
     <!-- FAQ Modal -->
     <div id="faq-modal" class="faq-overlay" role="dialog" aria-modal="true" aria-labelledby="faq-title"
         aria-hidden="true">
@@ -520,7 +522,7 @@
                         </button>
                         <div class="faq-answer" aria-hidden="true">
                             <p>The app uses GPS location to verify you're at the office when signing in or out. This
-                                ensures attendance accuracy and prevents fraudulent entries from outside the workplace.
+                                checks submitted locations against the workspace Perimeter. Browser location alone cannot guarantee a person's identity or prevent every form of location spoofing.
                             </p>
                         </div>
                     </div>
@@ -634,7 +636,7 @@
                                 <li>Unauthorized access to the attendance system</li>
                             </ul>
                             <p><strong>Solution:</strong> Use the device that was previously registered to you, or
-                                contact your admin to reassign this device to your name using a reset code.</p>
+                                request a device transfer and ask your administrator or authorized Team Lead to approve it.</p>
                         </div>
                     </div>
 
@@ -646,7 +648,7 @@
                         <div class="faq-answer" aria-hidden="true">
                             <p>No. To prevent colleagues from signing in or out for each other, each staff member must
                                 use their own registered phone and select their own name.</p>
-                            <p>Attempting to sign in for someone else will be blocked by the system.</p>
+                            <p>Browser pairing reduces casual device switching, but cannot prove who is using a phone. Shared invitations and unclaimed staff profiles require administrator oversight.</p>
                         </div>
                     </div>
 
@@ -677,7 +679,7 @@
                                 <li>The entry will show as "Pending sync" in your recent attendance</li>
                                 <li>Once you regain internet, it will automatically sync to the server</li>
                             </ul>
-                            <p>Your attendance is never lost, even without connection.</p>
+                            <p>Offline entries are queued attempts, not confirmed attendance. Keep browser data until sync succeeds; the server can reject an attempt that fails verification.</p>
                         </div>
                     </div>
 
@@ -720,7 +722,7 @@
                             <i data-lucide="chevron-down" size="20" class="faq-chevron"></i>
                         </button>
                         <div class="faq-answer" aria-hidden="true">
-                            <p><strong>Pending offline entries:</strong> These are stored in IndexedDB and localStorage.
+                            <p><strong>Pending offline entries:</strong> These are stored in localStorage.
                                 Clearing browser data will remove them, so sync before clearing if possible.</p>
                             <p><strong>Synced entries:</strong> These are safely stored on the server and won't be
                                 affected by clearing browser data.</p>
@@ -738,12 +740,12 @@
                             <i data-lucide="chevron-down" size="20" class="faq-chevron"></i>
                         </button>
                         <div class="faq-answer" aria-hidden="true">
-                            <p>Device ownership links a specific phone/tablet to your staff account. This prevents:</p>
+                            <p>Pairing links a browser credential to your staff profile. It helps reduce:</p>
                             <ul>
                                 <li>Employees sharing devices to fake attendance</li>
                                 <li>Unauthorized people signing in from any device</li>
                             </ul>
-                            <p>When you first sign in on a device, it becomes registered to you automatically.</p>
+                            <p>Your administrator creates your profile first. Choose it to pair an unbound browser. Clearing browser storage removes the local credential; server records remain, and you may need transfer approval. This is not physical-device or identity proof.</p>
                         </div>
                     </div>
 
@@ -755,10 +757,10 @@
                         <div class="faq-answer" aria-hidden="true">
                             <p>To use a new device:</p>
                             <ol>
-                                <li>Get a reset code from your admin</li>
-                                <li>On the new device, try to sign in with your name</li>
-                                <li>When prompted, enter the reset code</li>
-                                <li>The device will be reassigned to you</li>
+                                <li>Open your workspace on the new browser and choose your profile</li>
+                                <li>Request a device transfer</li>
+                                <li>Share the transfer code with an authorized Team Lead, or ask your administrator to review it</li>
+                                <li>After approval, the new browser is linked and the old credential stops being authorized</li>
                             </ol>
                             <p>The old device will no longer be linked to your account.</p>
                         </div>
@@ -770,12 +772,12 @@
                             <i data-lucide="chevron-down" size="20" class="faq-chevron"></i>
                         </button>
                         <div class="faq-answer" aria-hidden="true">
-                            <p>Contact your admin for a reset code, then:</p>
+                            <p>Use the existing workspace link on your new phone, then:</p>
                             <ol>
                                 <li>Install the app on your new phone</li>
                                 <li>Open the app and select your name</li>
-                                <li>Enter the reset code when prompted</li>
-                                <li>Your new device is now registered to you</li>
+                                <li>Request a transfer and share its code with your Team Lead</li>
+                                <li>After authorized approval, your new browser is linked</li>
                             </ol>
                             <p>Your old phone will no longer be able to sign in as you.</p>
                         </div>
@@ -789,8 +791,7 @@
                         <div class="faq-answer" aria-hidden="true">
                             <p>No, each staff member can only be registered to one device at a time. This is a security
                                 measure to prevent attendance fraud.</p>
-                            <p>If you need to switch devices, you must get a reset code from your admin to deregister
-                                the old device and register the new one.</p>
+                            <p>Request an authorized transfer to switch browsers. Attendance on a pending transfer remains provisional until approval; approval resolves only that request’s provisional records.</p>
                         </div>
                     </div>
                 </div>
@@ -846,15 +847,7 @@
                             <i data-lucide="chevron-down" size="20" class="faq-chevron"></i>
                         </button>
                         <div class="faq-answer" aria-hidden="true">
-                            <p>Yes. Your location is only used at the moment of sign in/out to verify you're at the
-                                office. The app does not:</p>
-                            <ul>
-                                <li>Track your location continuously</li>
-                                <li>Store location history</li>
-                                <li>Share location with third parties</li>
-                            </ul>
-                            <p>Location data is processed in real-time and not retained beyond the attendance record.
-                            </p>
+                            <p>While the attendance page is open, location updates show whether you are inside the Perimeter. Submitted check-ins and check-outs send location to the server for validation and attendance records. Authorized workspace and organization administrators can review relevant records. This is not a background location-tracking service.</p>
                         </div>
                     </div>
 
@@ -890,7 +883,7 @@
                                 <li><strong>Time stamps:</strong> Records exact sign in/out times</li>
                                 <li><strong>Server validation:</strong> All entries are verified server-side</li>
                             </ul>
-                            <p>This multi-factor approach ensures high accuracy and prevents fraud.</p>
+                            <p>These checks help administrators review attendance, but browser credentials and GPS are not proof of identity and cannot eliminate fraud. Location can be inaccurate or manipulated.</p>
                         </div>
                     </div>
 
@@ -933,20 +926,21 @@
 
             <div
                 style="overflow-y: auto; flex: 1 1 auto; min-height: 0; padding-right: 4px; font-size: 0.88rem; line-height: 1.6; color: var(--text); display: flex; flex-direction: column; gap: 12px; -webkit-overflow-scrolling: touch;">
-                <p>The <strong id="privacy-policy-tenant-name">Perimetrr Workspace Platform</strong> is engineered with
-                    zero-surveillance architecture to guarantee individual privacy while maintaining authentic workplace
-                    presence verification.</p>
+                <p>The <strong id="privacy-policy-tenant-name">Perimetrr Workspace Platform</strong> uses location
+                    permission for office Perimeter checks and a browser credential for staff pairing. These checks
+                    support attendance verification; they do not prove a person’s identity or prevent GPS spoofing.</p>
 
                 <div class="policy-card"
                     style="background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px;">
                     <h3
                         style="color: var(--primary); margin: 0 0 6px 0; display: flex; align-items: center; gap: 6px; font-size: 0.92rem; font-weight: 700;">
-                        <i data-lucide="map-pin" size="16"></i> 📍 Instantaneous Proximity Verification (Zero Tracking)
+                        <i data-lucide="map-pin" size="16"></i> Location &amp; Perimeter Checks
                     </h3>
-                    <p style="margin: 0; font-size: 0.84rem; color: var(--text-2);">GPS coordinates are sampled
-                        <strong>strictly at the exact instant</strong> you tap "Sign In" or "Sign Out" to calculate your
-                        distance from the authorized office perimeter. Your route history, travel speed, and personal
-                        off-duty locations are <strong>never monitored, recorded, or transmitted</strong>.</p>
+                    <p style="margin: 0; font-size: 0.84rem; color: var(--text-2);">With your permission, the open
+                        app checks location to display your distance from the office Perimeter. When you submit
+                        attendance, coordinates are sent to the server to verify that attempt. This is not a
+                        background route-tracking service. You can revoke location permission in your browser;
+                        location-dependent attendance checks will then be unavailable.</p>
                 </div>
 
                 <div class="policy-card"
@@ -975,9 +969,9 @@
                         <i data-lucide="shield" size="16"></i> 🏢 Multi-Tenant Data Isolation &amp; Employee Rights
                     </h3>
                     <p style="margin: 0; font-size: 0.84rem; color: var(--text-2);">Attendance logs (timestamp,
-                        verification method, perimeter status) are encrypted in transit (TLS 1.3) and at rest (AES-256),
-                        isolated within your employer's workspace vault. You maintain rights to access and verify your
-                        attendance records via HR.</p>
+                        verification method, Perimeter status and submitted coordinates) are processed using the
+                        service providers described in our <a href="/privacy/">Privacy Policy</a>. Authorized administrators
+                        can access workspace records. Ask your employer about access, correction and retention.</p>
                 </div>
 
                 <div
@@ -1116,6 +1110,7 @@
 
     <script src="common.js?v=1.1.1"></script>
     <script src="script.js?v=1.1.1"></script>
+    <script src="homepage.js"></script>
     <script>
         if ('serviceWorker' in navigator) {
             // Force browser to bypass HTTP cache when checking for Service Worker updates
@@ -1136,6 +1131,7 @@
             });
         }
     </script>
+<footer class="legal-links" aria-label="Legal information"><a href="/privacy/">Privacy Policy</a><a href="/terms/">Terms &amp; Conditions</a><a href="/cookies/">Cookie Policy</a><a href="/refunds/">Refund Policy</a></footer>
 </body>
 
 </html>

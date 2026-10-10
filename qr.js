@@ -4,7 +4,7 @@
 let workspaceQrLibraryPromise = null;
 async function getWorkspaceQrDataUrl(joinUrl) {
  const url = new URL(joinUrl, window.location.origin);
- if (!['http:','https:'].includes(url.protocol) || url.origin !== window.location.origin) throw new Error('Only this site’s workspace links can be shared.');
+ if (!['http:','https:'].includes(url.protocol) || ![window.location.origin, 'https://perimetrr.com'].includes(url.origin)) throw new Error('Only Perimetrr workspace links can be shared.');
  if (!window.qrcode) {
   if (!workspaceQrLibraryPromise) workspaceQrLibraryPromise = new Promise((resolve,reject)=>{
    const script=document.createElement('script');

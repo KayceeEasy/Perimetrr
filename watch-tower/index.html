@@ -22,6 +22,7 @@
 <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2"></script>
 <script defer src="../version.js?v=1.1.1"></script><script defer src="../common.js?v=1.1.1"></script>
 <script defer src="watch_tower.js?v=1.1.1"></script>
+<script defer src="../auth-ui.js"></script>
 </head>
 <body>
 <a class="skip-link" href="#main">Skip to content</a>
@@ -34,9 +35,10 @@
 <section id="wt-login" class="card auth-card" hidden aria-labelledby="signin-heading">
 <h2 id="signin-heading">Sign in to your organization</h2><p class="muted">Use an account authorized by your organization owner. A branch administrator does not automatically receive organization-wide access.</p>
 <form id="wt-login-form"><label for="wt-email">Email</label><input id="wt-email" type="email" autocomplete="username" required maxlength="254">
-<label for="wt-password">Password</label><input id="wt-password" type="password" autocomplete="current-password" required maxlength="128">
+<label for="wt-password">Password</label><input id="wt-password" type="password" autocomplete="current-password" required maxlength="128" data-password-ui>
 <button type="submit">Sign in</button></form>
-<p><a href="../enterprise/">Register an account or set up an organization</a></p>
+<p><a href="../enterprise/">New here? Create your account and organization</a></p>
+<p class="muted">Start with one administrator account, create an organization, then create or attach branch workspaces here. Existing workspace owners can use the same account. Other administrators need explicit organization access.</p>
 <p><a href="../enterprise/?recover=1">Recover your account</a></p>
 </section>
 <section id="wt-empty" class="card" hidden><h2>No organization access yet</h2>
@@ -76,4 +78,5 @@
 <label for="wt-attach-workspace">Workspace</label><select id="wt-attach-workspace" required></select>
 <p id="wt-attach-message" class="notice" role="status"></p>
 <div class="actions"><button type="button" data-close-dialog="wt-attach-dialog" class="secondary">Cancel</button><button type="submit">Attach workspace</button></div></form></dialog>
+<footer class="legal-links" aria-label="Legal information"><a href="/privacy/">Privacy Policy</a><a href="/terms/">Terms &amp; Conditions</a><a href="/cookies/">Cookie Policy</a><a href="/refunds/">Refund Policy</a></footer>
 </body></html>

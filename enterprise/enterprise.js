@@ -51,6 +51,8 @@ document.addEventListener('DOMContentLoaded',()=>{
   });
  });
  document.getElementById('enterprise-register').addEventListener('click',event=>{
+  const agreement=document.getElementById('enterprise-terms');
+  if(!agreement.checked){agreement.focus();enterpriseNotice('Read the policies and accept the terms before registering.',true);return;}
   if(!authForm.reportValidity())return;
   enterpriseAction(event.currentTarget,async()=>{
    const email=document.getElementById('enterprise-email').value.trim(),password=document.getElementById('enterprise-password').value;

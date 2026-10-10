@@ -543,7 +543,7 @@ function updateActionHeroState() {
     // Case 3: Completed attendance for today
     if (currentHeroAction === 'DONE') {
         setClasses('state-done');
-        if (inBtnText) inBtnText.textContent = t('completed', 'COMPLETED');
+        if (inBtnText) inBtnText.textContent = t('completed', 'DONE FOR TODAY');
         inBtn.disabled = true;
         inBtn.dataset.heroMode = 'DONE';
         inBtn.setAttribute('aria-label', 'Attendance completed for today');
@@ -641,6 +641,7 @@ function initStaffIdentityView() {
             switchIdentityBtn.dataset.bound = 'true';
             switchIdentityBtn.addEventListener('click', (e) => {
                 e.preventDefault();
+                if (getActiveTenantDirect()?.slug === 'demo') { resetSandboxIdentity(); return; }
                 openDeviceTransferModal();
             });
         }
@@ -1379,13 +1380,11 @@ function getFreshCoordsForSubmit() {
 
 window.addEventListener('error', (event) => {
     console.error('Global error:', event.error);
-    logAnalyticsEvent('global_error', { message: event.error?.message, filename: event.filename, lineno: event.lineno });
     showToast('An unexpected error occurred. Please refresh the page.', 'error');
 });
 
 window.addEventListener('unhandledrejection', (event) => {
     console.error('Unhandled promise rejection:', event.reason);
-    logAnalyticsEvent('unhandled_rejection', { reason: event.reason?.message || String(event.reason) });
     showToast('A network error occurred. Please check your connection.', 'error');
 });
 
@@ -2347,6 +2346,19 @@ async function initTenantBranding() {
 }
 
 const DEMO_STATE_KEY = 'perimetrr_demo_state_backup';
+function resetSandboxIdentity() {
+    if (getActiveTenantDirect()?.slug !== 'demo') return;
+    safeStorage.removeItem('saved_name');
+    safeStorage.removeItem('saved_dept');
+    clearLocalDeviceLockHint();
+    const select = document.getElementById('staff-name');
+    const input = document.getElementById('staff-search-input');
+    if (select) select.value = '';
+    if (input) input.value = '';
+    populateStaffDropdown(getDemoStaff().map(staff => staff.name));
+    initStaffIdentityView();
+    updateSignInButtonsState();
+}
 function restoreDemoState() {
     const backup = readStoredJson(DEMO_STATE_KEY, null);
     if (!backup || typeof backup !== 'object') return;
@@ -2362,7 +2374,7 @@ restoreDemoState();
 window.launchPublicSandbox = async function() {
     try {
         if (!safeStorage.getItem(DEMO_STATE_KEY)) {
-            const keys = [...Object.values(STORAGE_KEYS), 'active_tenant', 'active_tenant_slug', 'saved_name', 'saved_dept', 'attendance_staff_cache_v2'];
+            const keys = [...Object.values(STORAGE_KEYS), 'active_tenant', 'active_tenant_slug', 'saved_name', 'saved_dept', 'attendance_staff_cache_v2', 'staff_cache_demo'];
             const backup = Object.fromEntries(keys.map(key => [key, safeStorage.getItem(key)]));
             writeStoredJson(DEMO_STATE_KEY, backup);
         }
@@ -2391,19 +2403,17 @@ window.launchPublicSandbox = async function() {
         if (brandNameEl) brandNameEl.textContent = 'Acme Global Demo';
         document.title = 'Acme Global Demo • Access Terminal';
 
-        // Pre-populate demo employee identity in storage
-        safeStorage.setItem('saved_name', 'Alex Rivera');
-        safeStorage.setItem('saved_dept', 'Engineering');
-        setLocalDeviceLockHint('Alex Rivera');
+        // No default identity: the tester chooses one of the fictional profiles.
+        safeStorage.removeItem('saved_name');
+        safeStorage.removeItem('saved_dept');
+        clearLocalDeviceLockHint();
 
         // Reset demo action state so hero button starts ready for SIGN IN
         if (typeof resetDemoAttendanceLogs === 'function') resetDemoAttendanceLogs();
         safeStorage.removeItem(STORAGE_KEYS.lastAction);
         safeStorage.removeItem(STORAGE_KEYS.pendingAction);
         safeStorage.removeItem(STORAGE_KEYS.pendingQueue);
-        const existingLogs = readStoredJson(STORAGE_KEYS.recentLog, []);
-        const nonAlexLogs = existingLogs.filter(e => e && e.name !== 'Alex Rivera');
-        writeStoredJson(STORAGE_KEYS.recentLog, nonAlexLogs);
+        writeStoredJson(STORAGE_KEYS.recentLog, []);
 
         coords = { lat: 6.4357, lon: 3.4738 };
         coordsTimestamp = Date.now();
@@ -2417,6 +2427,7 @@ window.launchPublicSandbox = async function() {
         };
 
         await loadStaffDropdown();
+        resetSandboxIdentity();
         initLiveClock();
         initStaffIdentityView();
 
@@ -2462,9 +2473,22 @@ window.launchPublicSandbox = async function() {
                     <input type="checkbox" id="demo-perimeter-toggle" checked style="accent-color: var(--primary-accent);">
                     <span>Inside HQ Perimeter</span>
                 </label>
+                <button id="demo-change-profile" type="button">Change demo staff</button>
+                <button id="demo-transfer" type="button">Simulate transfer approval</button>
+                <a href="demo/" target="_blank" rel="noopener">Explore Command Center demo</a>
                 <button id="demo-exit-btn" style="background: rgba(239,68,68,0.2); border: 1px solid #ef4444; color: #fca5a5; border-radius: 4px; padding: 6px; cursor: pointer; font-size: 0.8rem; margin-top: 4px; transition: all 0.2s;">Exit Sandbox</button>
             `;
             document.body.appendChild(widget);
+            document.getElementById('demo-change-profile').addEventListener('click', resetSandboxIdentity);
+            document.getElementById('demo-transfer').addEventListener('click', () => {
+                const name = safeStorage.getItem('saved_name');
+                if (!name) { showToast('Choose a demo staff profile first.', 'info'); return; }
+                setLocalDeviceLockHint(name);
+                const label = document.getElementById('device-authorization-status');
+                if (label) label.textContent = 'Linked · demo approval';
+                closeDeviceTransferModal();
+                showToast('Demo transfer approved. No live device was changed.', 'success');
+            });
 
             document.getElementById('demo-perimeter-toggle').addEventListener('change', (e) => {
                 const isInside = e.target.checked;
@@ -2577,7 +2601,9 @@ function initDeviceTransferModal() {
                     clearLocalDeviceLockHint();
                     if(reqMsg){
                         reqMsg.style.display='block';reqMsg.style.color='';
-                        reqMsg.textContent='Transfer code: '+(res.transfer_code||'Unavailable')+'\nShare this code with your Team Lead. The request expires in 24 hours. Attendance stays provisional until approval.';
+                        reqMsg.textContent = res.transfer_code
+                            ? 'Transfer code: '+res.transfer_code+'\nShare this code with your Team Lead. The request expires in 24 hours. Attendance stays provisional until approval.'
+                            : 'Your request was submitted, but no transfer code was returned. Ask your workspace administrator to review pending transfers in Command Center.';
                     }
                     initStaffIdentityView();
                     const label=document.getElementById('device-authorization-status');if(label)label.textContent='Transfer pending';
@@ -2675,7 +2701,7 @@ function openLeadApprovalsModal() {
 
                     </div>
                     <div style="display:flex; gap:8px; align-items:center; margin-top:4px;">
-                        <input type="text" id="pin-input-${t.request_id}" placeholder="Enter PIN" maxlength="6" value="" style="width:120px; padding:6px 8px; font-size:0.82rem; border-radius:6px; border:1px solid var(--border); background:var(--bg); color:var(--text); text-align:center; font-family:monospace; letter-spacing:0.1em;" />
+                        <input type="text" id="transfer-code-input-${t.request_id}" aria-label="Transfer code" placeholder="Transfer code" maxlength="6" value="" style="width:120px; padding:6px 8px; font-size:0.82rem; border-radius:6px; border:1px solid var(--border); background:var(--bg); color:var(--text); text-align:center; font-family:monospace; letter-spacing:0.1em;" />
                         <button type="button" class="btn-primary small approve-lead-transfer-btn" data-req-id="${t.request_id}" data-staff-id="${t.staff_id}" style="flex:1; padding:6px 12px; font-size:0.82rem;">Approve Transfer</button>
                     </div>
                 </div>
@@ -2685,8 +2711,8 @@ function openLeadApprovalsModal() {
                 btn.addEventListener('click', async () => {
                     const reqId = btn.getAttribute('data-req-id');
                     const staffId = btn.getAttribute('data-staff-id');
-                    const pinInput = document.getElementById(`pin-input-${reqId}`);
-                    const enteredPin = pinInput ? pinInput.value.trim() : '';
+                    const transferCodeInput = document.getElementById(`transfer-code-input-${reqId}`);
+                    const enteredTransferCode = transferCodeInput ? transferCodeInput.value.trim() : '';
 
                     btn.disabled = true;
                     btn.textContent = 'Approving...';
@@ -2698,7 +2724,7 @@ function openLeadApprovalsModal() {
 
                         const { data, error } = await supabaseClient.rpc('approve_device_transfer_by_lead', {
                             p_staff_id: staffId,
-                            p_transfer_code: enteredPin,
+                            p_transfer_code: enteredTransferCode,
                             p_lead_staff_id: leadStaff.id,
                             p_lead_device_id: getDeviceId()
                         });

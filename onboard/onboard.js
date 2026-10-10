@@ -335,6 +335,8 @@ function goToStep(step) {
 }
 
 async function submitTenantOnboarding() {
+    const agreement = document.getElementById('onboard-terms');
+    if (!agreement?.checked) { agreement?.focus(); showToast('Please read the policies and confirm your authority to create this workspace.', 'warning'); return; }
     const submitBtn = document.getElementById('submit-onboard-btn');
     const adminName = document.getElementById('admin-name').value.trim();
     const adminEmail = document.getElementById('admin-email').value.trim();
@@ -573,8 +575,9 @@ function togglePasswordVisibility() {
 }
 
 function showSuccessScreen(tenant) {
-    const origin = window.location.origin;
-    const basePath = window.location.pathname.substring(0, window.location.pathname.indexOf('/onboard'));
+    // Shared invitations must never inherit an ephemeral hosting preview address.
+    const origin = 'https://perimetrr.com';
+    const basePath = '';
 
     const code = tenant.workspace_code;
     if (!code) { showToast('Workspace pairing code is unavailable. Please contact support.', 'error'); return; }

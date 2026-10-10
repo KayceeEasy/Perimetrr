@@ -17,6 +17,7 @@ let hybridScheduleCache = {};
 let logsSortField = 'id';
 let logsSortAsc = false;
 let tenantWfhQuotaEnabled = true;
+let tenantHybridOfficeDays = 2;
 let tenantLateCutoffMinutes = 510;
 let tenantClosingMinutes = 1020;
 let tenantTimezone = 'Africa/Lagos';
@@ -31,7 +32,7 @@ const SESSION_COUNTDOWN_MS = 60 * 1000;
 
 async function authenticateAdmin(email, password) {
     // True Supabase Auth handles hashing internally. We pass the raw password.
-    return callBackend({ mode: 'admin-login', email, password });
+    return callBackend({ mode: 'admin-login', email, password, tenantSlug:getActiveAdminTenantSlug() });
 }
 
 async function changeAdminPassword(username, currentPassword, newPassword) {
@@ -43,6 +44,8 @@ async function setRecoveryEmail(username, currentPassword, email) {
 }
 
 function getActiveAdminTenantSlug() {
+    const requested=new URLSearchParams(window.location.search).get('tenant') || new URLSearchParams(window.location.search).get('company');
+    if(requested)return requested.toLowerCase();
     if (typeof currentTenantConfig !== 'undefined' && currentTenantConfig && currentTenantConfig.slug) {
         return currentTenantConfig.slug;
     }
@@ -57,9 +60,6 @@ function getActiveAdminTenantSlug() {
         if (pathParts.length > 1 && (pathParts[1] === 'command-center' || pathParts[1] === 'admin') && !knownRoutes.includes(pathParts[0].toLowerCase())) {
             return pathParts[0];
         }
-        const p = new URLSearchParams(window.location.search);
-        const q = p.get('tenant') || p.get('company');
-        if (q) return q;
     }
     return null;
 }
@@ -406,7 +406,7 @@ function openTimezoneModal() {
 
     overlay.innerHTML = `
         <div class="tz-modal-box">
-            <h3 style="margin:0 0 6px; font-size:1.1rem; color:var(--text); font-weight:700;">Organization Timezone</h3>
+            <h3 style="margin:0 0 6px; font-size:1.1rem; color:var(--text); font-weight:700;">Workspace Timezone</h3>
             <p style="margin:0 0 12px; font-size:0.84rem; color:var(--text-muted);">
                 Select your primary operating timezone. Attendance logs, workday closing, and late cutoffs will use this reference.
             </p>
@@ -767,7 +767,8 @@ function switchTab(tabId) {
 async function loadConfigValues() {
     clearAutoRefresh();
     try {
-        const res = await callBackend({ mode: 'get-config' });
+        const res = await callBackend({ mode: 'get-config', tenantSlug:getActiveAdminTenantSlug() });
+        if (!res?.ok || !res.config) throw new Error(res?.message || 'Settings unavailable.');
         if (res && res.ok && res.config) {
             const cfg = res.config;
             const latEl = document.getElementById('config-lat-current');
@@ -780,6 +781,7 @@ async function loadConfigValues() {
             const radiusMeters = cfg.RADIUS_METERS !== undefined ? cfg.RADIUS_METERS : cfg.radiusMeters;
             const lateCutoffMinutes = cfg.LATE_CUTOFF_MINUTES !== undefined ? cfg.LATE_CUTOFF_MINUTES : cfg.lateCutoffMinutes;
             const workDays = cfg.WORK_DAYS !== undefined ? cfg.WORK_DAYS : cfg.workDays;
+            currentTenantConfig = {...currentTenantConfig,workdays:workDays || '0_4'};
 
             if (latEl && officeLat !== undefined) latEl.textContent = officeLat;
             if (lonEl && officeLon !== undefined) lonEl.textContent = officeLon;
@@ -806,7 +808,7 @@ async function loadConfigValues() {
             tenantHybridOfficeDays = hybridDays;
             const hybridQuotaEl = document.getElementById('config-hybrid-quota-current');
             if (hybridQuotaEl) {
-                hybridQuotaEl.textContent = `${hybridDays} Day${hybridDays > 1 ? 's' : ''} Office / ${5 - hybridDays} Day${(5 - hybridDays) > 1 ? 's' : ''} Home`;
+                hybridQuotaEl.textContent = `${hybridDays} Days Office / ${workspaceWorkingDays(currentTenantConfig.workdays).length - hybridDays} Days Home`;
             }
 
             const closingEl = document.getElementById('config-closing-time-current');
@@ -828,7 +830,7 @@ async function loadConfigValues() {
             }
         }
     } catch (e) {
-        console.warn('Could not fetch backend config:', e);
+        showToast('Could not load workspace settings. Please retry.', 'error');
     }
 }
 
@@ -1022,9 +1024,10 @@ function exportWeekMatrixToCSV(logs, schedule, weekStartStr) {
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const formattedHumanDate = `${monday.getDate()}_${months[monday.getMonth()]}_${monday.getFullYear()}`;
     const fileName = `Attendance Report-Week Starting-${formattedHumanDate}`;
-    const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+    const indexes=workspaceWorkingDays(currentTenantConfig?.workdays);
+    const dayNames = indexes.map(i=>['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][i]);
     const weekDays = [];
-    for (let i = 0; i < 5; i++) {
+    for (const i of indexes) {
         const day = new Date(monday);
         day.setDate(monday.getDate() + i);
         weekDays.push(formatDateDMY(day));
@@ -1070,7 +1073,7 @@ function exportWeekMatrixToCSV(logs, schedule, weekStartStr) {
                 if (candidate) scheduleKey = candidate;
             }
             const staffSchedules = scheduleKey ? (schedule[scheduleKey] || null) : null;
-            const dayName = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'][idx];
+            const dayName = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'][indexes[idx]];
             let locationVal = '';
 
             if (Array.isArray(staffSchedules)) {
@@ -1083,7 +1086,7 @@ function exportWeekMatrixToCSV(logs, schedule, weekStartStr) {
             }
             const isWfh = String(locationVal || '').trim().toLowerCase() === 'home';
             const isLeave = String(locationVal || '').trim().toLowerCase() === 'leave';
-            const inLog = dayLogs.find(l => String(l.action || '').trim().toUpperCase() === 'IN');
+            const inLog = firstVerifiedArrival(dayLogs);
 
             let cellText = '—';
             if (inLog) {
@@ -1130,15 +1133,16 @@ function exportWeekMatrixToPDF(logs, schedule, weekStartStr) {
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const formattedHumanDate = `${monday.getDate()}_${months[monday.getMonth()]}_${monday.getFullYear()}`;
     const fileName = `Attendance Report-Week Starting-${formattedHumanDate}`;
-    const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+    const indexes=workspaceWorkingDays(currentTenantConfig?.workdays);
+    const dayNames = indexes.map(i=>['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][i]);
     const weekDays = [];
-    for (let i = 0; i < 5; i++) {
+    for (const i of indexes) {
         const day = new Date(monday);
         day.setDate(monday.getDate() + i);
         weekDays.push(formatDateDMY(day));
     }
     const friday = new Date(monday);
-    friday.setDate(monday.getDate() + 4);
+    friday.setDate(monday.getDate() + indexes.at(-1));
     const weekRangeStr = `${formatDateDMY(monday)} - ${formatDateDMY(friday)}`;
 
     const allStaff = new Set();
@@ -1188,7 +1192,7 @@ function exportWeekMatrixToPDF(logs, schedule, weekStartStr) {
                 return logName === normalizedStaffName && logDateKey === dayKey;
             });
 
-            const dayName = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'][idx];
+            const dayName = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'][indexes[idx]];
             let locationVal = '';
 
             if (Array.isArray(staffSchedules)) {
@@ -1201,7 +1205,7 @@ function exportWeekMatrixToPDF(logs, schedule, weekStartStr) {
             }
             const isWfh = String(locationVal || '').trim().toLowerCase() === 'home';
             const isLeave = String(locationVal || '').trim().toLowerCase() === 'leave';
-            const inLog = dayLogs.find(l => String(l.action || '').trim().toUpperCase() === 'IN');
+            const inLog = firstVerifiedArrival(dayLogs);
 
             let cellContent = '—';
             let cellStyle = 'padding: 8px 10px; border: 1px solid #cbd5e1; text-align: center; color: #64748b;';
@@ -1287,11 +1291,7 @@ function exportWeekMatrixToPDF(logs, schedule, weekStartStr) {
                 <thead>
                     <tr style="background: #f1f5f9; border: 1px solid #cbd5e1; text-align: left;">
                         <th style="padding: 10px; border: 1px solid #cbd5e1;">Staff Name</th>
-                        <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; width: 11%;">Mon ${weekDays[0]}</th>
-                        <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; width: 11%;">Tue ${weekDays[1]}</th>
-                        <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; width: 11%;">Wed ${weekDays[2]}</th>
-                        <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; width: 11%;">Thu ${weekDays[3]}</th>
-                        <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; width: 11%;">Fri ${weekDays[4]}</th>
+                        ${dayNames.map((day,i)=>`<th style="padding:10px;border:1px solid #cbd5e1;text-align:center;">${day} ${weekDays[i]}</th>`).join('')}
                         <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; font-weight: bold; background: #e2e8f0; width: 6%;">Pres</th>
                         <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; font-weight: bold; background: #fee2e2; color: #991b1b; width: 6%;">Late</th>
                         <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; font-weight: bold; background: #dcfce7; color: #166534; width: 6%;">Home</th>
@@ -1391,6 +1391,20 @@ async function handleExportWeek(weekData, weekStartStr) {
    ============================================================ */
 
 async function loadWeekData(isSilent = false) {
+    try {
+        const roster=await listStaff();
+        if(!roster?.ok || !Array.isArray(roster.staff))throw new Error('Staff roster unavailable.');
+        allStaffList=roster.staff;
+        const config=await getTenantConfig(getActiveAdminTenantSlug());
+        if(!config)throw new Error('Workspace settings unavailable.');
+        currentTenantConfig=config;
+        tenantWfhQuotaEnabled=config.count_wfh_in_attendance_quota ?? true;
+        tenantHybridOfficeDays=config.hybrid_office_days ?? 2;
+    } catch(error) {
+        document.getElementById('today-attendance-list').textContent=error.message+' Use Refresh to retry.';
+        document.getElementById('attendance-matrix').textContent='Report unavailable.';
+        return;
+    }
     if (!currentWeekStart) {
         const today = new Date();
         currentWeekStart = formatDateDMY(getMondayFromDate(today));
@@ -1399,13 +1413,14 @@ async function loadWeekData(isSilent = false) {
     const weekBeingLoaded = currentWeekStart;
     const { monday, friday } = getWeekRange(parseDmyDate(weekBeingLoaded));
     const mondayStr = formatDateDMY(monday);
-    const fridayStr = formatDateDMY(friday);
+    const indexes=workspaceWorkingDays(currentTenantConfig?.workdays);
+    const fridayStr = formatDateDMY(new Date(monday.getFullYear(),monday.getMonth(),monday.getDate()+indexes.at(-1)));
 
     const weekLabel = document.getElementById('week-label');
     if (weekLabel) weekLabel.textContent = `${mondayStr} - ${fridayStr}`;
 
     const weekDays = [];
-    for (let i = 0; i < 5; i++) {
+    for (const i of indexes) {
         const day = new Date(monday);
         day.setDate(monday.getDate() + i);
         weekDays.push(formatDateDMY(day));
@@ -1434,8 +1449,10 @@ async function loadWeekData(isSilent = false) {
     }
 
     try {
-        const response = await fetchLogs({ weekStart: weekBeingLoaded, limit: 500 });
-        const rawLogs = response.ok && Array.isArray(response.logs) ? response.logs : [];
+        const response = await fetchLogs({ fromDate: mondayStr, toDate: formatDateDMY(new Date(monday.getFullYear(),monday.getMonth(),monday.getDate()+6)), limit: 1000 });
+        if (!response?.ok || !Array.isArray(response.logs)) throw new Error(response?.message || 'Attendance request failed.');
+        if(response.logs.length===1000) throw new Error('This week exceeds the report limit. Narrow the date range in Logs; weekly totals cannot be shown reliably.');
+        const rawLogs = response.logs;
 
         // Filter logs locally to only include this week's records
         const weekDaysNormalized = weekDays.map(wd => normalizeDateKey(wd));
@@ -1481,10 +1498,41 @@ async function loadWeekData(isSilent = false) {
         }
     } catch (error) {
         console.error('Error loading week data:', error);
-        if (!isSilent && currentWeekStart === weekBeingLoaded) {
-            document.getElementById('today-attendance-list').innerHTML = '<div class="staff-list-state">Failed to load data. Check connection.</div>';
+        if (currentWeekStart === weekBeingLoaded) {
+            document.getElementById('today-attendance-list').innerHTML = `<div class="staff-list-state">Attendance unavailable: ${escapeHtml(error.message)} Use Refresh to retry. No totals are shown.</div>`;
+            document.getElementById('attendance-matrix').innerHTML = '<div class="staff-list-state">The weekly report could not be loaded.</div>';
+            const refreshLabel=document.getElementById('refresh-label');
+            if(refreshLabel)refreshLabel.textContent='Refresh failed';
         }
     }
+}
+
+function firstVerifiedArrival(logs) {
+    return (logs || []).filter(l=>String(l.action || '').toUpperCase()==='IN' && ['ontime','late','remote'].includes(normalizeAttendanceStatus(l.server_status || l.status)))
+        .sort((a,b)=>(Date.parse(a.occurred_at || a.created_at || a.timestamp)||0)-(Date.parse(b.occurred_at || b.created_at || b.timestamp)||0))[0];
+}
+
+function weeklyAttendanceMetrics(logs, roster) {
+    const active=(roster || []).filter(s=>s.is_active!==false);
+    const staffByName=new Map(active.map(s=>[String(s.name).trim().toLowerCase(),s.id || String(s.name).trim().toLowerCase()]));
+    const people=new Set(), days=new Map(), pending=new Set();
+    for(const log of logs || []) {
+        if(String(log.action || '').toUpperCase()!=='IN')continue;
+        const person=staffByName.get(String(log.name || '').trim().toLowerCase());
+        if(!person)continue;
+        const date=normalizeDateKey(log.date || log.occurred_at || log.timestamp);
+        if(!date)continue;
+        const key=person+'::'+date, status=normalizeAttendanceStatus(log.server_status || log.status);
+        if(status==='provisional'){pending.add(key);continue;}
+        if(!['ontime','late','remote'].includes(status))continue;
+        people.add(person);
+        const time=Date.parse(log.occurred_at || log.created_at || log.timestamp) || 0;
+        if(!days.has(key) || time<days.get(key).time)days.set(key,{status,time});
+    }
+    for(const key of days.keys())pending.delete(key);
+    return {signedIn:people.size,totalRoster:active.length,checkInRate:active.length?Math.round(people.size/active.length*100):0,
+        verifiedDays:days.size,lateCount:[...days.values()].filter(d=>d.status==='late').length,
+        remoteDays:[...days.values()].filter(d=>d.status==='remote').length,reviewDays:pending.size};
 }
 
 function renderWeekOverview(logs, schedule, weekDays) {
@@ -1492,37 +1540,34 @@ function renderWeekOverview(logs, schedule, weekDays) {
     if (!host) return;
 
     const safeLogs = Array.isArray(logs) ? logs : [];
-    const signedIn = safeLogs.filter(s => String(s.action || '').trim().toUpperCase() === 'IN').length;
-    const lateCount = safeLogs.filter(s => normalizeAttendanceStatus(s.status) === 'late' && String(s.action || '').trim().toUpperCase() === 'IN').length;
-    const signOutCount = safeLogs.filter(s => String(s.action || '').trim().toUpperCase() === 'OUT').length;
-    const onTimeCount = Math.max(0, signedIn - lateCount);
-    const totalRoster = allStaffList && allStaffList.length ? allStaffList.length : (new Set(safeLogs.map(l => l.name))).size || signedIn;
-    const checkInRate = totalRoster > 0 ? Math.round((signedIn / totalRoster) * 100) : 0;
+    const totals = weeklyAttendanceMetrics(safeLogs, allStaffList);
+    const {signedIn,totalRoster,checkInRate,lateCount,verifiedDays,reviewDays,remoteDays}=totals;
 
     setHtmlIfChanged(host, `
         <div class="today-attendance-summary">
             <div class="summary-stat-card hero">
-                <span class="stat-period">Attendance Presence</span>
+                <span class="stat-period">Weekly staff coverage</span>
                 <div class="stat-number">
                     <span>${signedIn}</span>
                     <span class="stat-denom">/ ${totalRoster} staff</span>
                 </div>
-                <div class="stat-sub">${checkInRate}% roster checked in this week</div>
+                <div class="stat-sub">${totalRoster ? checkInRate+'% of staff have a verified check-in' : 'No active staff in the roster'}</div>
             </div>
             <div class="summary-stat-card">
-                <span class="stat-period">Status</span>
-                <span class="stat-number">${onTimeCount}</span>
-                <span class="stat-label">On-Time</span>
+                <span class="stat-period">Verified attendance</span>
+                <span class="stat-number">${verifiedDays}</span>
+                <span class="stat-label">Staff-days · ${remoteDays} remote</span>
+                <div class="stat-sub">One staff member on one day counts once</div>
             </div>
             <div class="summary-stat-card">
-                <span class="stat-period">Exceptions</span>
+                <span class="stat-period">Late arrivals</span>
                 <span class="stat-number" style="${lateCount > 0 ? 'color: var(--warning);' : ''}">${lateCount}</span>
-                <span class="stat-label">Late Arrivals</span>
+                <span class="stat-label">Staff-days with a late first arrival</span>
             </div>
             <div class="summary-stat-card">
-                <span class="stat-period">Activity</span>
-                <span class="stat-number">${signOutCount}</span>
-                <span class="stat-label">Sign-Outs</span>
+                <span class="stat-period">Awaiting verification</span>
+                <span class="stat-number">${reviewDays}</span>
+                <span class="stat-label">Provisional staff-days · not in verified totals</span>
             </div>
         </div>
     `);
@@ -1532,7 +1577,7 @@ function renderAttendanceMatrix(logs, schedule, weekDays) {
     const host = document.getElementById('attendance-matrix');
     if (!host) return;
 
-    const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+    const dayLabels = workspaceWorkingDays(currentTenantConfig?.workdays).map(i=>['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][i]);
     const allStaff = new Set();
 
     Object.keys(schedule).forEach(name => allStaff.add(name));
@@ -1564,7 +1609,7 @@ function renderAttendanceMatrix(logs, schedule, weekDays) {
                 if (candidate) scheduleKey = candidate;
             }
             const staffSchedules = scheduleKey ? (schedule[scheduleKey] || null) : null;
-            const dayName = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'][idx];
+            const dayName = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'][workspaceWorkingDays(currentTenantConfig?.workdays)[idx]];
             let locationVal = '';
 
             if (Array.isArray(staffSchedules)) {
@@ -1600,12 +1645,14 @@ function renderAttendanceMatrix(logs, schedule, weekDays) {
                 <tbody>
                     ${sortedStaff.map(name => {
                         const row = matrix[name];
-                        const isLead = (latestStaffList || []).some(s => s.name === name && s.is_team_lead);
+                        const isLead = allStaffList.some(s => s.name === name && s.is_team_lead);
                         return `<tr>
                             <td class="matrix-name">${escapeHtml(name)}${isLead ? ' <span class="staff-lead-star" title="Team Lead" data-tooltip="Team Lead">★</span>' : ''}</td>
                             ${weekDays.map((_, i) => {
                                 const cell = row[i];
-                                const inLog = cell.logs.find(l => String(l.action || '').trim().toUpperCase() === 'IN');
+                                const inLog = firstVerifiedArrival(cell.logs);
+                                const pending = cell.logs.some(l=>String(l.action).toUpperCase()==='IN' && normalizeAttendanceStatus(l.server_status || l.status)==='provisional');
+                                const rejected = cell.logs.some(l=>String(l.action).toUpperCase()==='IN' && normalizeAttendanceStatus(l.server_status || l.status)==='rejected');
 
                                 let status = '';
                                 let statusClass = '';
@@ -1620,6 +1667,10 @@ function renderAttendanceMatrix(logs, schedule, weekDays) {
                                         statusClass = isLate ? 'matrix-late' : 'matrix-in';
                                     }
                                     if (isLate) status += '<br><span style="font-size:0.75rem; color:#dc2626; font-weight:700;">Late</span>';
+                                } else if (pending) {
+                                    status='Pending verification';statusClass='matrix-absent';
+                                } else if (rejected) {
+                                    status='Not verified';statusClass='matrix-absent';
                                 } else if (cell.isLeave) {
                                     status = '<span class="matrix-leave-text" aria-label="Leave" style="font-weight:600; color:#8b5cf6;">🌴 Leave</span>';
                                     statusClass = 'matrix-leave';
@@ -2128,6 +2179,7 @@ function normalizeAttendanceStatus(status = '') {
     const value = (status || '').toString().trim().toLowerCase();
     if (value.includes('provisional')) return 'provisional';
     if (value.includes('rejected') || value.includes('outside')) return 'rejected';
+    if (value==='remote') return 'remote';
     if (value === 'on_site') return 'ontime';
     if (value.includes('late')) return 'late';
     if (value.includes('early')) return 'early';
@@ -2854,17 +2906,17 @@ function renderAdminPanel() {
                 <div class="config-cards">
                     <div class="config-card" data-tooltip="Physical GPS latitude coordinate of office premises">
                         <span class="config-icon"><i data-lucide="map-pin" size="18"></i></span>
-                        <div class="config-info"><strong>Office Latitude</strong><span class="config-value" id="config-lat-current">6.4518631</span></div>
+                        <div class="config-info"><strong>Office Latitude</strong><span class="config-value" id="config-lat-current">Loading…</span></div>
                         <button id="config-office-lat-btn" class="admin-btn secondary small" type="button" data-tooltip="Edit office latitude">Edit</button>
                     </div>
                     <div class="config-card" data-tooltip="Physical GPS longitude coordinate of office premises">
                         <span class="config-icon"><i data-lucide="map-pin" size="18"></i></span>
-                        <div class="config-info"><strong>Office Longitude</strong><span class="config-value" id="config-lon-current">3.5277863</span></div>
+                        <div class="config-info"><strong>Office Longitude</strong><span class="config-value" id="config-lon-current">Loading…</span></div>
                         <button id="config-office-lon-btn" class="admin-btn secondary small" type="button" data-tooltip="Edit office longitude">Edit</button>
                     </div>
                     <div class="config-card" data-tooltip="Allowable GPS radius for verified in-person check-ins">
                         <span class="config-icon"><i data-lucide="target" size="18"></i></span>
-                        <div class="config-info"><strong>Perimeter Radius</strong><span class="config-value" id="config-radius-current">100 meters</span></div>
+                        <div class="config-info"><strong>Perimeter Radius</strong><span class="config-value" id="config-radius-current">Loading…</span></div>
                         <button id="config-radius-btn" class="admin-btn secondary small" type="button" data-tooltip="Edit perimeter radius in meters">Edit</button>
                     </div>
                 </div>
@@ -2875,17 +2927,17 @@ function renderAdminPanel() {
                 <div class="config-cards">
                     <div class="config-card" data-tooltip="Primary operating timezone for workday hours, late cutoff, and attendance logs">
                         <span class="config-icon"><i data-lucide="globe" size="18"></i></span>
-                        <div class="config-info"><strong>Organization Timezone</strong><span class="config-value" id="config-timezone-current">Africa/Lagos (GMT+1)</span></div>
+                        <div class="config-info"><strong>Workspace Timezone</strong><span class="config-value" id="config-timezone-current">Loading…</span></div>
                         <button id="config-timezone-btn" class="admin-btn secondary small" type="button" data-tooltip="Select organization timezone">Edit</button>
                     </div>
                     <div class="config-card" data-tooltip="Official start of business. Arrivals after this time are flagged as Late">
                         <span class="config-icon"><i data-lucide="clock" size="18"></i></span>
-                        <div class="config-info"><strong>Workday Start (Late Cutoff)</strong><span class="config-value" id="config-late-cutoff-current">8:30 AM</span></div>
+                        <div class="config-info"><strong>Workday Start (Late Cutoff)</strong><span class="config-value" id="config-late-cutoff-current">Loading…</span></div>
                         <button id="config-late-cutoff-btn" class="admin-btn secondary small" type="button" data-tooltip="Edit arrival cutoff time">Edit</button>
                     </div>
                     <div class="config-card" data-tooltip="Official office closing time. After this hour, staff who checked in can sign out remotely without office GPS">
                         <span class="config-icon"><i data-lucide="clock-4" size="18"></i></span>
-                        <div class="config-info"><strong>Workday Closing Time</strong><span class="config-value" id="config-closing-time-current">5:00 PM</span></div>
+                        <div class="config-info"><strong>Workday Closing Time</strong><span class="config-value" id="config-closing-time-current">Loading…</span></div>
                         <button id="config-closing-time-btn" class="admin-btn secondary small" type="button" data-tooltip="Edit office closing hour">Edit</button>
                     </div>
                     <div class="config-card" data-tooltip="When enabled, scheduled Home days count towards attendance percentage; otherwise, quota reflects strictly in-office presence">
@@ -2905,7 +2957,7 @@ function renderAdminPanel() {
                     </div>
                     <div class="config-card" data-tooltip="Configurable weekly quota of in-office vs remote days for hybrid employees">
                         <span class="config-icon"><i data-lucide="calendar-range" size="18"></i></span>
-                        <div class="config-info"><strong>Hybrid Office Quota</strong><span class="config-value" id="config-hybrid-quota-current">2 Days Office / 3 Days Home</span></div>
+                        <div class="config-info"><strong>Hybrid Office Quota</strong><span class="config-value" id="config-hybrid-quota-current">Loading…</span></div>
                         <button id="config-hybrid-quota-btn" class="admin-btn secondary small" type="button" data-tooltip="Configure required in-office days per week">Edit</button>
                     </div>
                 </div>
@@ -3088,7 +3140,7 @@ function renderAdminPanel() {
         } catch (e) { showToast('Server error.', 'error'); }
     });
 
-    initAdminBrowserNotifications();
+    initAdminPushNotifications();
 
 
     document.getElementById('analytics-filter-all')?.addEventListener('click', (e) => {
@@ -3124,8 +3176,9 @@ function renderAdminPanel() {
 
     document.getElementById('config-workdays-btn')?.addEventListener('click', async () => {
         const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-        const startOptions = dayNames.map((d, i) => `<option value="${i}"${i === 0 ? ' selected' : ''}>${d}</option>`).join('');
-        const endOptions = dayNames.map((d, i) => `<option value="${i}"${i === 4 ? ' selected' : ''}>${d}</option>`).join('');
+        const selectedDays=workspaceWorkingDays(currentTenantConfig?.workdays);
+        const startOptions = dayNames.map((d, i) => `<option value="${i}"${i === selectedDays[0] ? ' selected' : ''}>${d}</option>`).join('');
+        const endOptions = dayNames.map((d, i) => `<option value="${i}"${i === selectedDays.at(-1) ? ' selected' : ''}>${d}</option>`).join('');
         const dialogHtml = `
             <div style="display:flex; flex-direction:column; gap:12px; text-align:left; margin-top:10px;">
                 <div style="display:flex; gap:10px; align-items:center;">
@@ -3150,15 +3203,14 @@ function renderAdminPanel() {
         });
         if (!confirmed) return;
         const startIdx = window['_dialogVal_config-workdays-start'] || '0';
-        const endIdx = window['_dialogVal_config-workdays-end'] || '4';
+        const endIdx = window['_dialogVal_config-workdays-end'] ?? '4';
         delete window['_dialogVal_config-workdays-start'];
         delete window['_dialogVal_config-workdays-end'];
-        const displayLabel = `${dayNames[+startIdx]} – ${dayNames[+endIdx]}`;
         const val = `${startIdx}_${endIdx}`;
         try {
             const res = await callBackend({ mode: 'update-config', key: 'WORK_DAYS', value: val, tenantSlug: getActiveAdminTenantSlug() });
             showToast(res.message || 'Workdays schedule updated.', res.ok ? 'success' : 'error');
-            if (res.ok) document.getElementById('config-workdays-current').textContent = displayLabel;
+            if (res.ok) {cachedWeekData={};hybridScheduleCache={};await loadConfigValues();}
         } catch (e) { showToast('Server error.', 'error'); }
     });
 
@@ -3181,7 +3233,7 @@ function renderAdminPanel() {
         try { const res = await callBackend({ mode: 'update-config', key: 'OFFICE_LON', value: r[0], tenantSlug: getActiveAdminTenantSlug() }); showToast(res.message, res.ok ? 'success' : 'error'); if (res.ok) document.getElementById('config-lon-current').textContent = r[0]; } catch (e) { showToast('Server error.', 'error'); }
     });
     document.getElementById('config-radius-btn').addEventListener('click', async () => {
-        const r = await showInlineDialog({ title: 'Perimeter Radius (10-5000 meters)', fields: [{ placeholder: 'Meters' }], confirmLabel: 'Update' });
+        const r = await showInlineDialog({ title: 'Perimeter Radius (25-5000 meters)', fields: [{ placeholder: 'Meters' }], confirmLabel: 'Update' });
         if (!r) return;
         try { const res = await callBackend({ mode: 'update-config', key: 'RADIUS_METERS', value: r[0], tenantSlug: getActiveAdminTenantSlug() }); showToast(res.message, res.ok ? 'success' : 'error'); if (res.ok) document.getElementById('config-radius-current').textContent = r[0] + ' meters'; } catch (e) { showToast('Server error.', 'error'); }
     });
@@ -3228,14 +3280,14 @@ function renderAdminPanel() {
 
     document.getElementById('config-hybrid-quota-btn')?.addEventListener('click', async () => {
         const r = await showInlineDialog({
-            title: 'Hybrid Office Quota (1 - 4 days)',
-            fields: [{ placeholder: 'Required in-office days (1 to 4)', value: String(tenantHybridOfficeDays || 2) }],
+            title: `Hybrid Office Quota (1–${workspaceWorkingDays(currentTenantConfig?.workdays).length} days)`,
+            fields: [{ placeholder: 'Required in-office days', value: String(tenantHybridOfficeDays || 2) }],
             confirmLabel: 'Update Quota'
         });
         if (!r) return;
         const days = parseInt(r[0], 10);
-        if (isNaN(days) || days < 1 || days > 4) {
-            showToast('Please enter a number between 1 and 4.', 'error');
+        if (!/^\d+$/.test(r[0]) || days < 1 || days > workspaceWorkingDays(currentTenantConfig?.workdays).length) {
+            showToast('Office days must fit the configured working week.', 'error');
             return;
         }
         try {
@@ -3243,9 +3295,8 @@ function renderAdminPanel() {
             const res = await callBackend({ mode: 'update-config', key: 'HYBRID_OFFICE_DAYS', value: days, tenantSlug: slug });
             if (res.ok) {
                 tenantHybridOfficeDays = days;
-                const currentEl = document.getElementById('config-hybrid-quota-current');
-                if (currentEl) currentEl.textContent = `${days} Day${days > 1 ? 's' : ''} Office / ${5 - days} Day${(5 - days) > 1 ? 's' : ''} Home`;
-                showToast(`Hybrid quota updated: ${days} Office / ${5 - days} Home days.`, 'success');
+                await loadConfigValues();
+                showToast('Hybrid quota saved.', 'success');
             } else {
                 showToast(res.message || 'Could not update quota.', 'error');
             }
@@ -3282,7 +3333,7 @@ function renderAdminPanel() {
         const nextVal = isCurrentlyCounted ? 'false' : 'true';
         try {
             const res = await callBackend({ mode: 'update-config', key: 'COUNT_WFH_IN_ATTENDANCE_QUOTA', value: nextVal, tenantSlug: getActiveAdminTenantSlug() });
-            tenantWfhQuotaEnabled = (nextVal === 'true');
+            if(res.ok) tenantWfhQuotaEnabled = (nextVal === 'true');
             showToast(`Home Quota Contribution ${nextVal === 'true' ? 'Enabled' : 'Disabled'}.`, res.ok ? 'success' : 'error');
             if (res.ok && currentEl) {
                 currentEl.textContent = nextVal === 'true' ? 'Counted in Quota' : 'Office Only';
@@ -3307,9 +3358,8 @@ function renderAdminPanel() {
                 if (!confirmed) return;
                 try {
                     const slug = getActiveAdminTenantSlug();
-                    const resLat = await callBackend({ mode: 'update-config', key: 'OFFICE_LAT', value: lat, tenantSlug: slug });
-                    const resLon = await callBackend({ mode: 'update-config', key: 'OFFICE_LON', value: lon, tenantSlug: slug });
-                    if (resLat.ok && resLon.ok) {
+                    const result = await callBackend({ mode: 'update-config', key: 'OFFICE_LOCATION', value: JSON.stringify({lat:Number(lat),lon:Number(lon)}), tenantSlug: slug });
+                    if (result.ok) {
                         showToast('Office coordinates updated successfully!', 'success');
                         document.getElementById('config-lat-current').textContent = lat;
                         document.getElementById('config-lon-current').textContent = lon;
@@ -3373,6 +3423,7 @@ function renderAdminPanel() {
     switchTab('dashboard');
     startAutoRefresh();
     checkTenantTourAutoLaunch();
+    if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons();
 }
 
 /* ============================================================
@@ -3818,7 +3869,7 @@ async function handleAdminLogin(event) {
         }
     } catch (error) {
         setLoginLoading(false);
-        messageEl.textContent = 'Could not reach the server.';
+        messageEl.textContent = isAdminLoggedIn ? 'Signed in, but Command Center could not initialize. Reload to retry.' : 'Sign-in could not complete. Check your connection and retry.';
         messageEl.className = 'admin-message error';
     }
 }

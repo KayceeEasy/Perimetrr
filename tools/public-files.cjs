@@ -1,7 +1,8 @@
 const fs = require('node:fs');
 const path = require('node:path');
-const rootFiles = ['index.html', '404.html', 'style.css', 'polish.css', 'script.js', 'common.js', 'qr.js', 'version.js', 'manifest.json', 'sw.js', 'robots.txt', 'sitemap.xml', '_headers', '_redirects'];
-const directories = ['command-center', 'onboard', 'hybrid', 'watch-tower', 'enterprise', 'image'];
+const rootFiles = ['index.html', '404.html', 'style.css', 'polish.css', 'script.js', 'common.js', 'homepage.js', 'auth-ui.js', 'qr.js', 'version.js', 'manifest.json', 'sw.js', 'robots.txt', 'sitemap.xml', '_headers', '_redirects'];
+rootFiles.push('legal.css');
+const directories = ['command-center', 'onboard', 'hybrid', 'watch-tower', 'enterprise', 'pricing', 'demo', 'image', 'privacy', 'terms', 'cookies', 'refunds'];
 function publicFiles(root) {
   const result = rootFiles.filter(file => fs.existsSync(path.join(root, file)));
   const visit = relative => {

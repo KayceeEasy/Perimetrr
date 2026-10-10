@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Command Center Demo — Perimetrr</title>
+<meta name="description" content="Explore Perimetrr Command Center with fictional staff, attendance filters, CSV exports and simulated device transfer approvals. No account needed.">
+<meta name="robots" content="noindex, nofollow"><link rel="canonical" href="https://perimetrr.com/demo/">
+<link rel="icon" type="image/svg+xml" href="../image/perimetrr-mark.svg"><link rel="apple-touch-icon" href="../image/apple-touch-icon.png">
+<meta property="og:type" content="website"><meta property="og:site_name" content="Perimetrr">
+<meta property="og:title" content="Command Center Demo — Perimetrr"><meta property="og:description" content="Try attendance filtering, exports and transfer approval with fictional staff. No live data or account required.">
+<meta property="og:url" content="https://perimetrr.com/demo/"><meta property="og:image" content="https://perimetrr.com/image/social-preview.png">
+<meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="Perimetrr — Presence you can prove">
+<meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Command Center Demo — Perimetrr"><meta name="twitter:description" content="A safe, interactive administrator demo with fictional attendance data."><meta name="twitter:image" content="https://perimetrr.com/image/social-preview.png">
+<link rel="stylesheet" href="../watch-tower/style.css?v=1.1.1"><link rel="stylesheet" href="../polish.css?v=1.1.1"><link rel="stylesheet" href="style.css">
+<!-- No Supabase SDK: this page cannot initialize a live client. -->
+<script defer src="../common.js?v=1.1.1"></script><script defer src="demo.js"></script>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="topbar"><a class="wordmark" href="../"><img src="../image/perimetrr-mark.svg" alt="" width="28" height="28">Perimetrr</a><nav aria-label="Demo navigation"><a href="../pricing/">Pricing</a><a href="../onboard/" class="button">Create your workspace</a></nav></header>
+<main id="main" class="workspace">
+<p class="eyebrow">INTERACTIVE ADMINISTRATOR DEMO</p><h1>Command Center, without the setup.</h1>
+<p class="muted">Fictional staff and sample records. Filters, exports and approvals work inside this page only. Nothing changes a live workspace.</p>
+<div class="metrics"><div class="card metric"><span>Demo staff</span><strong>5</strong></div><div class="card metric"><span>Team Leads</span><strong>2</strong></div><div class="card metric"><span>Visible records</span><strong id="demo-record-count">0</strong></div><div class="card metric"><span>Pending transfers</span><strong id="demo-pending-count">1</strong></div></div>
+<section class="card" aria-labelledby="directory-heading"><h2 id="directory-heading">Staff directory</h2><div id="demo-staff" class="demo-staff"></div></section>
+<section class="card" aria-labelledby="records-heading"><h2 id="records-heading">Attendance records</h2>
+<div class="toolbar"><label for="demo-person-filter">Staff</label><select id="demo-person-filter"><option value="">All staff</option></select><label for="demo-status-filter">Status</label><select id="demo-status-filter"><option value="">All statuses</option><option value="ON_TIME">On time</option><option value="LATE">Late</option><option value="OUT">Signed out</option><option value="provisional_transfer">Provisional transfer</option></select><button id="demo-export" type="button">Export visible CSV</button></div>
+<div class="demo-table-wrap"><table><thead><tr><th scope="col">Staff</th><th scope="col">Department</th><th scope="col">Date</th><th scope="col">Time</th><th scope="col">Action</th><th scope="col">Status</th></tr></thead><tbody id="demo-records"></tbody></table></div>
+<p id="demo-empty" class="muted" hidden>No records match these filters. Choose another staff member or status.</p></section>
+<section class="card" aria-labelledby="transfers-heading"><h2 id="transfers-heading">Device transfer review</h2><p class="muted">Morgan Chen requested a new browser. Approving this sample request verifies its provisional attendance; rejecting keeps it unverified.</p>
+<div class="actions"><button id="demo-approve" type="button">Approve sample transfer</button><button id="demo-reject" type="button" class="secondary">Reject sample transfer</button><button id="demo-reset" type="button" class="secondary">Reset demo</button></div>
+<p id="demo-message" class="notice" role="status" aria-live="polite">Sample transfer pending. Try approving or rejecting it.</p></section>
+</main><footer class="legal-links" aria-label="Legal information"><a href="/privacy/">Privacy Policy</a><a href="/terms/">Terms &amp; Conditions</a><a href="/cookies/">Cookie Policy</a><a href="/refunds/">Refund Policy</a></footer></body></html>

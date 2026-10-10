@@ -1,0 +1,6 @@
+# Keep shared workspace links compatible with the canonical app routes.
+/tenant/:slug/command-center/ /command-center/?tenant=:slug 302
+/tenant/:slug/hybrid/ /hybrid/?tenant=:slug 302
+/tenant/:slug/ /?tenant=:slug 302
+/:slug/command-center/ /command-center/?tenant=:slug 302
+/:slug/hybrid/ /hybrid/?tenant=:slug 302
